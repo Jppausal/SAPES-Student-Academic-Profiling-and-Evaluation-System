@@ -1,0 +1,6 @@
+{
+  "name": "Student Enrollment & Academic Status Management System (SEASMS)",
+  "description": "A student profiling and enrollment management system with role-based portals for Students, Faculty evaluators, and Registrar Administrators.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["ROLE_BASED_STUDENT_ENROLLMENT_MANAGEMENT"]
+}
