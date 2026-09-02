@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import logo from '../../assets/branding/coloredlogo.png';
 import {
   GraduationCap,
   Users,
@@ -9,7 +10,6 @@ import {
   ChevronDown,
   RotateCcw,
   Sparkles,
-  School,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -51,9 +51,11 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo & System Identity */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-900 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-indigo-900/10">
-              <School className="w-5 h-5" />
-            </div>
+            <img
+              src={logo}
+              alt="Bukidnon State University logo"
+              className="h-10 w-10 object-contain brightness-0"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base tracking-tight text-slate-900">

@@ -3,29 +3,44 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
 import { StudentPortal } from './components/student/StudentPortal';
 import { FacultyPortal } from './components/faculty/FacultyPortal';
 import { AdminPortal } from './components/admin/AdminPortal';
+import { AuthLandingPage } from './pages/auth/AuthLandingPage';
+import LoginPage from './pages/auth/LoginPage';
+import SignUpPage from './pages/auth/SignUpPage';
+
+type AuthView = 'landing' | 'login' | 'signup';
 
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus } = useApp();
+  const [authView, setAuthView] = useState<AuthView>('landing');
+
+  if (authView === 'login') {
+    return <LoginPage />;
+  }
+
+  if (authView === 'signup') {
+    return <SignUpPage />;
+  }
+
+  if (authView === 'landing') {
+    return <AuthLandingPage onLogin={() => setAuthView('login')} onSignUp={() => setAuthView('signup')} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Top Navbar & Role Switcher */}
       <Navbar />
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {currentUser?.role === 'student' && <StudentPortal />}
         {currentUser?.role === 'faculty' && <FacultyPortal />}
         {currentUser?.role === 'admin' && <AdminPortal />}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
           <div className="flex items-center gap-2">
