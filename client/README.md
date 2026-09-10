@@ -1,6 +1,6 @@
 # Student Enrollment & Academic Status Management System
 
-SEASMS is a role-based React client for student profiling, academic records,
+SAPES is a role-based React client for student profiling, academic records,
 faculty evaluation, and registrar administration. It uses the Express API in
 the sibling `server` directory.
 

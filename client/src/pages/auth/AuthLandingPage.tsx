@@ -11,7 +11,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import logo from '../../assets/branding/coloredlogo.png';
-import schoolPhoto from '../../assets/branding/landingpage.jpg';
+import schoolPhoto from '../../assets/branding/landingpage.png';
 
 type AuthLandingPageProps = {
   onLogin: () => void;
@@ -51,13 +51,12 @@ export function AuthLandingPage({ onLogin, onSignUp }: AuthLandingPageProps) {
 
       <main id="top">
         <section
-          className="relative min-h-[470px] bg-cover bg-bottom bg-no-repeat px-5 py-16 sm:px-8 lg:px-10"
+          className="relative min-h-[470px] bg-cover bg-no-repeat px-5 py-16 sm:px-8 lg:px-10"
           style={{
             backgroundImage: `url(${schoolPhoto})`,
-            backgroundPosition: 'calc(50% + 400px) bottom',
+            backgroundPosition: '40% bottom',
           }}
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent" />
           <div className="relative z-10 mx-auto flex min-h-[370px] max-w-7xl items-center">
             <div className="max-w-[470px] bg-white/90 px-6 py-7 shadow-sm backdrop-blur-[2px] sm:px-8 sm:py-8">
               <span className="inline-block rounded-full bg-[#123b78] px-3 py-1 text-xs font-semibold text-white">Welcome!</span>

@@ -13,14 +13,14 @@ import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignUpPage from './pages/auth/SignUpPage';
 
-type AuthView = 'landing' | 'login' | 'signup';
+type AuthView = 'landing' | 'login' | 'signup' | 'dashboard';
 
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus } = useApp();
   const [authView, setAuthView] = useState<AuthView>('landing');
 
   if (authView === 'login') {
-    return <LoginPage />;
+    return <LoginPage onLoginSuccess={() => setAuthView('dashboard')} />;
   }
 
   if (authView === 'signup') {
@@ -45,7 +45,7 @@ const AppContent: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? 'bg-emerald-500' : serverStatus === 'checking' ? 'bg-amber-400 animate-pulse' : 'bg-rose-500'}`}></span>
-            <span>Student Enrollment & Academic Status Management System (SEASMS)</span>
+            <span>Student Enrollment & Academic Status Management System (SAPES)</span>
           </div>
           <div>
             <span>API: </span>

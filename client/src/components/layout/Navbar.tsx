@@ -59,7 +59,7 @@ export const Navbar: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base tracking-tight text-slate-900">
-                  SEASMS
+                  SAPES
                 </span>
                 <span className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/60">
                   A.Y. 2026-2027 • 1st Sem

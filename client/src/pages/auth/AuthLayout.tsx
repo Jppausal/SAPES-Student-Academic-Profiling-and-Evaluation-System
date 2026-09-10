@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import logo from '../../assets/branding/coloredlogo.png';
+import plainLogo from '../../assets/branding/logo.png';
 
 type AuthLayoutProps = {
   title: string;
@@ -26,10 +27,10 @@ export function AuthLayout({
             <div className="w-full max-w-md space-y-6 text-white">
               <div className="inline-flex items-center gap-3">
                 <img src={logo} alt="Bukidnon State University logo" className="h-10 w-10 object-contain" />
-                <span className="text-sm font-semibold tracking-[0.2em] uppercase">SEASMS</span>
+                <span className="text-sm font-semibold tracking-[0.2em] uppercase">SAPES</span>
               </div>
 
-              <img src={logo} alt="Bukidnon State University logo" className="h-64 w-full object-contain" />
+              <img src={plainLogo} alt="Bukidnon State University logo" className="h-64 w-full object-contain" />
 
               <div>
                 <h2 className="text-2xl font-bold">Academic success starts here.</h2>

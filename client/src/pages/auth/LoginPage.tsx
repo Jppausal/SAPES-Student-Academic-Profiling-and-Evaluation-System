@@ -1,6 +1,15 @@
 import { AuthLayout } from './AuthLayout';
 
-export default function LoginPage() {
+type LoginPageProps = {
+  onLoginSuccess: () => void;
+};
+
+export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onLoginSuccess();
+  };
+
   return (
     <AuthLayout
       title="Welcome back"
@@ -9,13 +18,14 @@ export default function LoginPage() {
       footerLinkText="Create one"
       footerLinkHref="/signup"
     >
-      <form className="space-y-5">
+      <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">
             Email address
           </label>
           <input
             id="email"
+            name="email"
             type="email"
             placeholder="name@school.edu"
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
@@ -51,7 +61,7 @@ export default function LoginPage() {
           type="submit"
           className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-200"
         >
-          Sign in
+          Login
         </button>
       </form>
     </AuthLayout>
