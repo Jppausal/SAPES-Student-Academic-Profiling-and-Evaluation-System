@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
+
+node_modules/
 .env
+server/.env
 
 # Environment variables
 .env
