@@ -21,20 +21,20 @@ const seedDatabase = async () => {
 
     const passwordHash = await bcrypt.hash('Test1234!', 10);
 
-    const admin = await User.findOneAndUpdate(
-      { username: 'admin.test' },
-      {
-        username: 'admin.test',
-        passwordHash,
-        role: 'admin',
-        accountStatus: 'active'
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
-    );
+const admin = await User.findOneAndUpdate(
+  { username: 'admin.test' },
+  {
+    username: 'admin.test',
+    passwordHash,
+    role: 'admin',
+    accountStatus: 'active'
+  },
+  {
+    returnDocument: 'after',
+    upsert: true,
+    setDefaultsOnInsert: true
+  }
+);
 
     const faculty = await User.findOneAndUpdate(
       { username: 'faculty.test' },
@@ -44,11 +44,11 @@ const seedDatabase = async () => {
         role: 'faculty',
         accountStatus: 'active'
       },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
+ {
+  returnDocument: 'after',
+  upsert: true,
+  setDefaultsOnInsert: true
+}
     );
 
     const studentUser = await User.findOneAndUpdate(
@@ -59,11 +59,11 @@ const seedDatabase = async () => {
         role: 'student',
         accountStatus: 'active'
       },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
+{
+  returnDocument: 'after',
+  upsert: true,
+  setDefaultsOnInsert: true
+}
     );
 
     // --------------------------------------------------
@@ -103,11 +103,11 @@ const seedDatabase = async () => {
           isOnProbation: false
         }
       },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
+{
+  returnDocument: 'after',
+  upsert: true,
+  setDefaultsOnInsert: true
+}
     );
 
     // --------------------------------------------------
@@ -177,11 +177,11 @@ const seedDatabase = async () => {
         ],
         remarks: 'Development test evaluation.'
       },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
+{
+  returnDocument: 'after',
+  upsert: true,
+  setDefaultsOnInsert: true
+}
     );
 
     // --------------------------------------------------
