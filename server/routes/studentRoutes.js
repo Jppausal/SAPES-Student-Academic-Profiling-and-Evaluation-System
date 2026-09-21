@@ -1,10 +1,16 @@
 const express = require('express');
 const Student = require('../models/Student');
+const authenticateToken = require('../middleware/authMiddleware');
+const authorizeRoles = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
 // Get a student by institution ID
-router.get('/:institutionId', async (req, res) => {
+router.get(
+  '/:institutionId',
+  authenticateToken,
+  authorizeRoles('admin', 'faculty'),
+  async (req, res) => {
   try {
     const { institutionId } = req.params;
 
@@ -31,6 +37,7 @@ router.get('/:institutionId', async (req, res) => {
       message: 'Server error'
     });
   }
-});
+  }
+);
 
 module.exports = router;
