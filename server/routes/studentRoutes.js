@@ -9,6 +9,33 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
+const calculateMajorSubjectGwa = (academicRecords) => {
+  const majorSubjects = academicRecords.flatMap((record) =>
+    record.subjects.filter((subject) =>
+      subject.isMajor &&
+      String(subject.status || '').toLowerCase() !== 'dropped' &&
+      typeof subject.grade === 'number' &&
+      subject.grade > 0 &&
+      subject.units > 0
+    )
+  );
+  const totalMajorUnits = majorSubjects.reduce(
+    (sum, subject) => sum + subject.units,
+    0
+  );
+
+  return totalMajorUnits === 0
+    ? 0
+    : Number(
+      (
+        majorSubjects.reduce(
+          (sum, subject) => sum + subject.grade * subject.units,
+          0
+        ) / totalMajorUnits
+      ).toFixed(2)
+    );
+};
+
 // Record a faculty-submitted student status and preserve its history
 router.put(
   '/:institutionId/status',
@@ -234,6 +261,54 @@ router.put(
   }
 );
 
+// Get academic records for a student
+router.get(
+  '/:institutionId/academic-records',
+  authenticateToken,
+  authorizeRoles('admin', 'faculty'),
+  async (req, res) => {
+    try {
+      const { institutionId } = req.params;
+      const student = await Student.findOne(
+        { institutionId },
+        { _id: 1, institutionId: 1 }
+      ).lean();
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found'
+        });
+      }
+
+      const academicRecords = await AcademicRecord.find(
+        { studentId: student._id },
+        { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
+      )
+        .sort({ academicYear: -1, semester: -1 })
+        .lean();
+
+      res.json({
+        success: true,
+        data: {
+          student: {
+            institutionId: student.institutionId
+          },
+          academicRecords,
+          majorSubjectGwa: calculateMajorSubjectGwa(academicRecords)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching academic records:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
 // Get the evaluation report for a student
 router.get(
   '/:institutionId/report',
@@ -282,29 +357,7 @@ router.get(
           .lean()
       ]);
 
-      const majorSubjects = academicRecords.flatMap((record) =>
-        record.subjects.filter((subject) =>
-          subject.isMajor &&
-          String(subject.status || '').toLowerCase() !== 'dropped' &&
-          typeof subject.grade === 'number' &&
-          subject.grade > 0 &&
-          subject.units > 0
-        )
-      );
-      const totalMajorUnits = majorSubjects.reduce(
-        (sum, subject) => sum + subject.units,
-        0
-      );
-      const majorSubjectGwa = totalMajorUnits === 0
-        ? 0
-        : Number(
-          (
-            majorSubjects.reduce(
-              (sum, subject) => sum + subject.grade * subject.units,
-              0
-            ) / totalMajorUnits
-          ).toFixed(2)
-        );
+      const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
 
       res.json({
         success: true,
