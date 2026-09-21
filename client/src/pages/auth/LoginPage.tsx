@@ -3,11 +3,68 @@ import { AuthLayout } from './AuthLayout';
 
 type LoginPageProps = {
   onLogin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  onGoogleLogin: (credential: string) => Promise<{ success: boolean; message?: string }>;
 };
 
-export default function LoginPage({ onLogin }: LoginPageProps) {
+export default function LoginPage({ onLogin, onGoogleLogin }: LoginPageProps) {
   const [error, setError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const googleButtonRef = React.useRef<HTMLDivElement>(null);
+  const [googleLoading, setGoogleLoading] = React.useState(true);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+  const googleClientIdPresent = Boolean(googleClientId);
+
+  React.useEffect(() => {
+    const clientId = googleClientId;
+    console.info('[SAPES] Google client ID present:', Boolean(clientId));
+    console.info('[SAPES] Google sign-in origin:', window.location.origin);
+    if (!clientId) {
+      setGoogleLoading(false);
+      return;
+    }
+
+    const renderGoogleButton = () => {
+      if (!window.google || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          setError('');
+          setIsSubmitting(true);
+          const result = await onGoogleLogin(response.credential);
+          setIsSubmitting(false);
+          if (!result.success) setError(result.message || 'Unable to sign in with Google.');
+        },
+        hd: 'buksu.edu.ph',
+        auto_select: false,
+      });
+      googleButtonRef.current.replaceChildren();
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'continue_with',
+        shape: 'rectangular',
+        width: '400',
+      });
+      setGoogleLoading(false);
+    };
+
+    if (window.google) {
+      renderGoogleButton();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = renderGoogleButton;
+    script.onerror = () => setGoogleLoading(false);
+    document.head.appendChild(script);
+    return () => {
+      script.onload = null;
+    };
+  }, [googleClientId, onGoogleLogin]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -86,6 +143,25 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         >
           {isSubmitting ? 'Signing in…' : 'Login'}
         </button>
+
+        <div className="flex items-center gap-3 text-xs text-slate-400">
+          <span className="h-px flex-1 bg-slate-200" />
+          <span>OR</span>
+          <span className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <div className="flex min-h-10 justify-center">
+          {googleClientIdPresent ? (
+            <div ref={googleButtonRef} aria-label="Continue with Google" />
+          ) : (
+            <p className="text-center text-xs text-slate-400">
+              Google sign-in is not configured for {window.location.origin}.
+            </p>
+          )}
+        </div>
+        {googleLoading && googleClientIdPresent && (
+          <p className="text-center text-xs text-slate-400">Loading Google sign-in…</p>
+        )}
       </form>
     </AuthLayout>
   );

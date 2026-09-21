@@ -1,9 +1,30 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
+const Student = require('../models/Student');
 
 const router = express.Router();
+const GOOGLE_HOSTED_DOMAIN = 'buksu.edu.ph';
+const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
+
+const createApplicationToken = (user) => jwt.sign(
+  {
+    userId: user._id,
+    role: user.role,
+    username: user.username
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: '1h' }
+);
+
+const safeUser = (user) => ({
+  id: user._id,
+  username: user.username,
+  role: user.role
+});
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -50,17 +71,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Create JWT
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        role: user.role,
-        username: user.username
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: '1h'
-      }
-    );
+    const token = createApplicationToken(user);
 
     // Update last login
     user.lastLoginAt = new Date();
@@ -83,6 +94,154 @@ router.post('/login', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+});
+
+// POST /api/auth/google
+router.post('/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential || typeof credential !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Google credential is required'
+      });
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error('Google authentication is not configured: GOOGLE_CLIENT_ID is missing');
+      return res.status(503).json({
+        success: false,
+        message: 'Google authentication is not configured'
+      });
+    }
+
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+
+    if (
+      !payload ||
+      !payload.sub ||
+      !payload.email ||
+      payload.email_verified !== true ||
+      !GOOGLE_ISSUERS.has(payload.iss) ||
+      payload.aud !== process.env.GOOGLE_CLIENT_ID ||
+      typeof payload.exp !== 'number' ||
+      payload.exp <= Math.floor(Date.now() / 1000) ||
+      payload.hd !== GOOGLE_HOSTED_DOMAIN
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: 'Google account verification failed'
+      });
+    }
+
+    const email = payload.email.toLowerCase();
+    const studentEmailMatch = email.match(/^([0-9]+)@student\.buksu\.edu\.ph$/);
+    let user = await User.findOne({ googleId: payload.sub });
+
+    if (user) {
+      if (user.accountStatus !== 'active') {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not active'
+        });
+      }
+
+      if (user.role === 'student') {
+        if (!studentEmailMatch) {
+          return res.status(403).json({
+            success: false,
+            message: 'Student Google account must use the institutional student email format'
+          });
+        }
+        const linkedStudent = await Student.findOne({
+          institutionId: studentEmailMatch[1],
+          userId: user._id
+        }).select('institutionId');
+        if (!linkedStudent) {
+          return res.status(403).json({
+            success: false,
+            message: 'Google account is not linked to the matching student record'
+          });
+        }
+      } else if (studentEmailMatch) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student Google accounts cannot use a non-student SAPES role'
+        });
+      }
+    } else if (studentEmailMatch) {
+      const institutionId = studentEmailMatch[1];
+      const student = await Student.findOne({ institutionId });
+
+      if (!student) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student record must be provisioned before Google sign-in'
+        });
+      }
+
+      user = student.userId ? await User.findById(student.userId) : null;
+      if (user && user.role !== 'student') {
+        return res.status(403).json({
+          success: false,
+          message: 'The linked SAPES account is not a student account'
+        });
+      }
+
+      if (!user) {
+        user = await User.create({
+          username: email,
+          passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
+          googleId: payload.sub,
+          role: 'student',
+          accountStatus: 'active'
+        });
+        student.userId = user._id;
+        await student.save();
+      } else {
+        user.googleId = payload.sub;
+        await user.save();
+      }
+    } else {
+      user = await User.findOne({ username: email });
+      if (!user || user.role === 'student') {
+        return res.status(403).json({
+          success: false,
+          message: 'Google account must be provisioned by an administrator before sign-in'
+        });
+      }
+      if (user.accountStatus !== 'active') {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not active'
+        });
+      }
+      user.googleId = payload.sub;
+      await user.save();
+    }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: 'Google login successful',
+      token: createApplicationToken(user),
+      user: safeUser(user)
+    });
+  } catch (error) {
+    console.error('Google login error:', error.message);
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid Google credential'
     });
   }
 });

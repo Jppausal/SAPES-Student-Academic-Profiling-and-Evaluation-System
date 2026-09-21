@@ -27,6 +27,7 @@ import {
   fetchUsers,
   createUser,
   loginRequest,
+  googleLoginRequest,
   updateUserStatus,
   ServerStatus,
 } from '../lib/api';
@@ -40,6 +41,7 @@ interface AppContextType {
   evaluations: FacultyEvaluation[];
   auditLogs: SystemAuditLog[];
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   switchUser: (userId: string) => void;
   updateStudentProfile: (studentNumber: string, updatedProfile: Partial<StudentProfile>) => void;
@@ -171,55 +173,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const login = async (username: string, password: string) => {
     try {
       const response = await loginRequest(username, password);
-      localStorage.setItem('sapes_jwt', response.token);
-      const existingUser = users.find((user) => user.id === response.user.id);
-      const user: UserAccount = existingUser || {
-        id: response.user.id,
-        username: response.user.username,
-        fullName: response.user.username,
-        email: '',
-        role: response.user.role,
-        department: '',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      };
-      setUsers((prev) => (existingUser ? prev : [...prev, user]));
-      setCurrentUserId(user.id);
-
-      if (response.user.role === 'admin') {
-        const [apiUsers, apiLogs] = await Promise.all([fetchUsers(), fetchAuditLogs()]);
-        setUsers((prev) => {
-          const localById = new Map(prev.map((item) => [item.id, item]));
-          return apiUsers.map((item) => {
-            const local = localById.get(item.id);
-            return {
-              ...local,
-              id: item.id,
-              username: item.username,
-              fullName: local?.fullName || item.username,
-              email: local?.email || '',
-              role: item.role,
-              department: local?.department || '',
-              isActive: item.accountStatus === 'active',
-              accountStatus: item.accountStatus,
-              createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
-            };
-          });
-        });
-        setAuditLogs(apiLogs.map((log, index) => ({
-          id: `${log.timestamp}-${index}`,
-          timestamp: log.timestamp,
-          userId: log.userId?.username || 'system',
-          userName: log.userId?.username || 'System',
-          userRole: log.userId?.role || 'admin',
-          action: log.action,
-          category: 'SYSTEM_CONFIG',
-          details: JSON.stringify(log.details),
-        })));
-      }
-      return { success: true };
+      return await completeLogin(response);
     } catch (error) {
       return { success: false, message: error instanceof Error ? error.message : 'Login failed' };
+    }
+  };
+
+  const completeLogin = async (response: {
+    token: string;
+    user: { id: string; username: string; role: UserRole };
+  }) => {
+    localStorage.setItem('sapes_jwt', response.token);
+    const existingUser = users.find((user) => user.id === response.user.id);
+    const user: UserAccount = existingUser || {
+      id: response.user.id,
+      username: response.user.username,
+      fullName: response.user.username,
+      email: '',
+      role: response.user.role,
+      department: '',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+    setUsers((prev) => (existingUser ? prev : [...prev, user]));
+    setCurrentUserId(user.id);
+
+    if (response.user.role === 'admin') {
+      const [apiUsers, apiLogs] = await Promise.all([fetchUsers(), fetchAuditLogs()]);
+      setUsers((prev) => {
+        const localById = new Map(prev.map((item) => [item.id, item]));
+        return apiUsers.map((item) => {
+          const local = localById.get(item.id);
+          return {
+            ...local,
+            id: item.id,
+            username: item.username,
+            fullName: local?.fullName || item.username,
+            email: local?.email || '',
+            role: item.role,
+            department: local?.department || '',
+            isActive: item.accountStatus === 'active',
+            accountStatus: item.accountStatus,
+            createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
+          };
+        });
+      });
+      setAuditLogs(apiLogs.map((log, index) => ({
+        id: `${log.timestamp}-${index}`,
+        timestamp: log.timestamp,
+        userId: log.userId?.username || 'system',
+        userName: log.userId?.username || 'System',
+        userRole: log.userId?.role || 'admin',
+        action: log.action,
+        category: 'SYSTEM_CONFIG',
+        details: JSON.stringify(log.details),
+      })));
+    }
+    return { success: true };
+  };
+
+  const loginWithGoogle = async (credential: string) => {
+    try {
+      const response = await googleLoginRequest(credential);
+      return await completeLogin(response);
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Google login failed' };
     }
   };
 
@@ -232,6 +250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
     localStorage.removeItem('sapes_jwt');
+    window.google?.accounts.id.disableAutoSelect();
     setCurrentUserId(null);
   };
 
@@ -623,6 +642,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         evaluations,
         auditLogs,
         login,
+        loginWithGoogle,
         logout,
         switchUser,
         updateStudentProfile,

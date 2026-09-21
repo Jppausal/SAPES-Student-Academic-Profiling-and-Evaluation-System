@@ -48,6 +48,17 @@ export async function loginRequest(username: string, password: string) {
   });
 }
 
+export async function googleLoginRequest(credential: string) {
+  return request<{
+    success: true;
+    token: string;
+    user: { id: string; username: string; role: ApiUser['role'] };
+  }>('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential }),
+  });
+}
+
 export async function fetchUsers() {
   const response = await request<{ success: true; data: { users: ApiUser[] } }>('/api/users?limit=100');
   return response.data.users;

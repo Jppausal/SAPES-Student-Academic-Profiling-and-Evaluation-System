@@ -9,6 +9,13 @@ const userSchema = new mongoose.Schema(
       trim: true
     },
 
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true
+    },
+
     passwordHash: {
       type: String,
       required: true
