@@ -9,6 +9,118 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 
 const router = express.Router();
 
+// Record a faculty-submitted student status and preserve its history
+router.put(
+  '/:institutionId/status',
+  authenticateToken,
+  authorizeRoles('faculty'),
+  async (req, res) => {
+    try {
+      const { institutionId } = req.params;
+      const body = req.body || {};
+      const allowedFields = ['status', 'reason', 'effectiveDate', 'remarks'];
+      const unsupportedFields = Object.keys(body).filter(
+        (field) => !allowedFields.includes(field)
+      );
+
+      if (unsupportedFields.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Unsupported status update fields'
+        });
+      }
+
+      const { status, reason, effectiveDate, remarks } = body;
+
+      if (typeof status !== 'string' || !status.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid status is required'
+        });
+      }
+
+      if (reason !== undefined && typeof reason !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'reason must be a string'
+        });
+      }
+
+      if (remarks !== undefined && typeof remarks !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'remarks must be a string'
+        });
+      }
+
+      const parsedEffectiveDate = effectiveDate === undefined
+        ? new Date()
+        : new Date(effectiveDate);
+
+      if (Number.isNaN(parsedEffectiveDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'effectiveDate must be a valid date'
+        });
+      }
+
+      const student = await Student.findOne({ institutionId });
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found'
+        });
+      }
+
+      student.academicStatus.currentStatus = status.trim();
+      student.academicStatus.statusRemarks = remarks;
+      student.academicStatus.effectiveDate = parsedEffectiveDate;
+      await student.save();
+
+      const history = await StudentStatusHistory.create({
+        studentId: student._id,
+        status: status.trim(),
+        reason,
+        effectiveDate: parsedEffectiveDate,
+        recordedBy: req.user.userId,
+        remarks
+      });
+
+      await AuditLog.create({
+        userId: req.user.userId,
+        action: 'UPDATE_STUDENT_STATUS',
+        targetType: 'student_status_history',
+        targetId: history._id,
+        details: {
+          institutionId,
+          status: history.status
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Student status updated successfully',
+        data: {
+          institutionId: student.institutionId,
+          status: history.status,
+          reason: history.reason,
+          effectiveDate: history.effectiveDate,
+          recordedBy: history.recordedBy,
+          remarks: history.remarks
+        }
+      });
+    } catch (error) {
+      console.error('Error updating student status:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
 // Create or update the current faculty evaluation for a student
 router.put(
   '/:institutionId/evaluation',
