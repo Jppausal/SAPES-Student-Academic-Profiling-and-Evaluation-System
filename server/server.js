@@ -6,6 +6,7 @@ require('dotenv').config();
 const studentRoutes = require('./routes/studentRoutes');
 const authRoutes = require('./routes/authRoutes');
 const auditLogRoutes = require('./routes/auditLogRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.get('/api/health', (req, res) =>
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/users', userRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))
