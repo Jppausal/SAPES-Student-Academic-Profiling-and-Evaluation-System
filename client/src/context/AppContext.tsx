@@ -21,7 +21,15 @@ import {
   calculateOverallGWA,
   calculateProfileCompletion,
 } from '../utils/academicCalculators';
-import { checkServerHealth, ServerStatus } from '../lib/api';
+import {
+  checkServerHealth,
+  fetchAuditLogs,
+  fetchUsers,
+  createUser,
+  loginRequest,
+  updateUserStatus,
+  ServerStatus,
+} from '../lib/api';
 
 interface AppContextType {
   serverStatus: ServerStatus;
@@ -31,7 +39,7 @@ interface AppContextType {
   academicRecords: AcademicRecord[];
   evaluations: FacultyEvaluation[];
   auditLogs: SystemAuditLog[];
-  login: (username: string, role?: UserRole) => boolean;
+  login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   switchUser: (userId: string) => void;
   updateStudentProfile: (studentNumber: string, updatedProfile: Partial<StudentProfile>) => void;
@@ -47,11 +55,12 @@ interface AppContextType {
     updates: Partial<SubjectGrade>
   ) => void;
   deleteSubjectGrade: (studentNumber: string, subjectCode: string) => void;
-  createUserAccount: (accountData: Omit<UserAccount, 'id' | 'createdAt'>) => void;
+  createUserAccount: (accountData: { username: string; password: string; role: UserRole }) => Promise<void>;
   updateUserAccount: (userId: string, updates: Partial<UserAccount>) => void;
   toggleUserActiveStatus: (userId: string) => void;
-  deactivateUserAccount: (userId: string) => void;
-  reactivateUserAccount: (userId: string) => void;
+  deactivateUserAccount: (userId: string) => Promise<void>;
+  reactivateUserAccount: (userId: string) => Promise<void>;
+  updateUserAccountStatus: (userId: string, status: 'active' | 'inactive' | 'suspended') => Promise<void>;
   addAuditLog: (action: string, category: SystemAuditLog['category'], details: string) => void;
   resetAllData: () => void;
   currentStudentProfile: StudentProfile | null;
@@ -105,7 +114,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-    return saved || 'usr-student-1'; // Default to first student for immediate rich preview
+    return saved || null;
   });
 
   // Sync to LocalStorage
@@ -159,25 +168,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuditLogs((prev) => [newLog, ...prev]);
   };
 
-  const login = (username: string, preferredRole?: UserRole): boolean => {
-    const user = users.find(
-      (u) =>
-        (u.username.toLowerCase() === username.toLowerCase() ||
-          u.email.toLowerCase() === username.toLowerCase() ||
-          (u.studentNumber && u.studentNumber === username)) &&
-        (!preferredRole || u.role === preferredRole)
-    );
-
-    if (user && user.isActive) {
+  const login = async (username: string, password: string) => {
+    try {
+      const response = await loginRequest(username, password);
+      localStorage.setItem('sapes_jwt', response.token);
+      const existingUser = users.find((user) => user.id === response.user.id);
+      const user: UserAccount = existingUser || {
+        id: response.user.id,
+        username: response.user.username,
+        fullName: response.user.username,
+        email: '',
+        role: response.user.role,
+        department: '',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      setUsers((prev) => (existingUser ? prev : [...prev, user]));
       setCurrentUserId(user.id);
-      // Update last login
-      setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, lastLogin: new Date().toISOString() } : u))
-      );
-      addAuditLog('USER_LOGIN', 'AUTH', `${user.fullName} (${user.role.toUpperCase()}) logged in.`);
-      return true;
+
+      if (response.user.role === 'admin') {
+        const [apiUsers, apiLogs] = await Promise.all([fetchUsers(), fetchAuditLogs()]);
+        setUsers((prev) => {
+          const localById = new Map(prev.map((item) => [item.id, item]));
+          return apiUsers.map((item) => {
+            const local = localById.get(item.id);
+            return {
+              ...local,
+              id: item.id,
+              username: item.username,
+              fullName: local?.fullName || item.username,
+              email: local?.email || '',
+              role: item.role,
+              department: local?.department || '',
+              isActive: item.accountStatus === 'active',
+              accountStatus: item.accountStatus,
+              createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
+            };
+          });
+        });
+        setAuditLogs(apiLogs.map((log, index) => ({
+          id: `${log.timestamp}-${index}`,
+          timestamp: log.timestamp,
+          userId: log.userId?.username || 'system',
+          userName: log.userId?.username || 'System',
+          userRole: log.userId?.role || 'admin',
+          action: log.action,
+          category: 'SYSTEM_CONFIG',
+          details: JSON.stringify(log.details),
+        })));
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Login failed' };
     }
-    return false;
   };
 
   const logout = () => {
@@ -188,6 +231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `${currentUser.fullName} (${currentUser.role.toUpperCase()}) logged out.`
       );
     }
+    localStorage.removeItem('sapes_jwt');
     setCurrentUserId(null);
   };
 
@@ -464,90 +508,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const createUserAccount = (
-    accountData: Omit<UserAccount, 'id' | 'createdAt'>
-  ) => {
-    const newUser: UserAccount = {
-      ...accountData,
-      id: `usr-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setUsers((prev) => [...prev, newUser]);
+  const refreshUsersFromBackend = async () => {
+    const apiUsers = await fetchUsers();
+    setUsers((prev) => {
+      const localById = new Map(prev.map((item) => [item.id, item]));
+      return apiUsers.map((item) => {
+        const local = localById.get(item.id);
+        return {
+          ...local,
+          id: item.id,
+          username: item.username,
+          fullName: local?.fullName || item.username,
+          email: local?.email || '',
+          role: item.role,
+          department: local?.department || '',
+          isActive: item.accountStatus === 'active',
+          createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
+        };
+      });
+    });
+  };
 
-    // If student, initialize profile and academic record
-    if (newUser.role === 'student' && newUser.studentNumber) {
-      const newProfile: StudentProfile = {
-        studentNumber: newUser.studentNumber,
-        userId: newUser.id,
-        program: 'Bachelor of Science in Information Technology',
-        yearLevel: 1,
-        enrollmentTerm: '1st Semester, A.Y. 2026-2027',
-        profileCompletionPercentage: 35,
-        isProfileLocked: false,
-        lastUpdated: new Date().toISOString(),
-        submittedForReview: false,
-        personalInfo: {
-          studentNumber: newUser.studentNumber,
-          firstName: newUser.fullName.split(' ')[0] || 'Firstname',
-          lastName: newUser.fullName.split(' ').slice(1).join(' ') || 'Lastname',
-          dateOfBirth: '2005-01-01',
-          gender: 'Male',
-          civilStatus: 'Single',
-          citizenship: 'Filipino',
-          personalEmail: newUser.email,
-          universityEmail: newUser.email,
-          contactNumber: '+63 900 000 0000',
-          residentialAddress: '',
-          permanentAddress: '',
-          guardianName: '',
-          guardianContact: '',
-          guardianRelationship: '',
-        },
-        classifications: {
-          isIP: false,
-          isPWD: false,
-          isShifter: false,
-          isTransferee: false,
-          isWorkingStudent: false,
-        },
-        religionProfiling: {
-          religion: 'Roman Catholic',
-          hasSchedulingObservance: false,
-        },
-        healthMedicalProfiling: {
-          bloodType: 'Unknown',
-          hasMedicalCondition: false,
-          emergencyContactName: '',
-          emergencyContactRelationship: '',
-          emergencyContactPhone: '',
-          authorizedForFacultyEvaluation: true,
-        },
-      };
-      setStudents((prev) => [...prev, newProfile]);
-
-      const newAcademic: AcademicRecord = {
-        studentNumber: newUser.studentNumber,
-        program: 'Bachelor of Science in Information Technology',
-        curriculumYear: '2024 Curriculum',
-        yearLevel: 1,
-        currentTerm: '1st Semester, A.Y. 2026-2027',
-        academicStatus: 'Regular',
-        isUnderProbation: false,
-        totalUnitsEarned: 0,
-        totalDeficientUnits: 0,
-        maxAllowedUnits: 23,
-        overallGWA: 0,
-        majorSubjectGWA: 0,
-        subjects: [],
-      };
-      setAcademicRecords((prev) => [...prev, newAcademic]);
-    }
-
-    addAuditLog(
-      'USER_ACCOUNT_CREATED',
-      'USER_MANAGEMENT',
-      `Created new ${newUser.role} account for ${newUser.fullName} (${newUser.username}).`
-    );
+  const createUserAccount = async (accountData: {
+    username: string;
+    password: string;
+    role: UserRole;
+  }) => {
+    await createUser(accountData);
+    await refreshUsersFromBackend();
   };
 
   const updateUserAccount = (userId: string, updates: Partial<UserAccount>) => {
@@ -578,14 +566,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const deactivateUserAccount = (userId: string) => {
-    const user = users.find((account) => account.id === userId);
-    if (user?.isActive) toggleUserActiveStatus(userId);
+  const deactivateUserAccount = async (userId: string) => {
+    await updateUserStatus(userId, 'inactive');
+    await refreshUsersFromBackend();
   };
 
-  const reactivateUserAccount = (userId: string) => {
-    const user = users.find((account) => account.id === userId);
-    if (user && !user.isActive) toggleUserActiveStatus(userId);
+  const reactivateUserAccount = async (userId: string) => {
+    await updateUserStatus(userId, 'active');
+    await refreshUsersFromBackend();
+  };
+
+  const updateUserAccountStatus = async (
+    userId: string,
+    status: 'active' | 'inactive' | 'suspended'
+  ) => {
+    await updateUserStatus(userId, status);
+    await refreshUsersFromBackend();
   };
 
   const resetAllData = () => {
@@ -594,7 +590,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAcademicRecords(INITIAL_ACADEMIC_RECORDS);
     setEvaluations(INITIAL_EVALUATIONS);
     setAuditLogs(INITIAL_AUDIT_LOGS);
-    setCurrentUserId('usr-student-1');
+    setCurrentUserId(null);
+    localStorage.removeItem('sapes_jwt');
     localStorage.clear();
     addAuditLog('SYSTEM_DATA_RESET', 'SYSTEM_CONFIG', 'Reset all system data to initial baseline.');
   };
@@ -642,6 +639,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleUserActiveStatus,
         deactivateUserAccount,
         reactivateUserAccount,
+        updateUserAccountStatus,
         addAuditLog,
         resetAllData,
         currentStudentProfile,

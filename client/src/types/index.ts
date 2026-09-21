@@ -12,6 +12,7 @@ export interface UserAccount {
   employeeId?: string;
   department: string;
   isActive: boolean;
+  accountStatus?: 'active' | 'inactive' | 'suspended';
   createdAt: string;
   lastLogin?: string;
 }

@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { StudentProfile, AcademicRecord, FacultyEvaluation } from '../../types';
 import { EvaluationBadge, AcademicStatusBadge, Badge } from '../common/Badge';
 import { EvaluationDossierModal } from './EvaluationDossierModal';
+import { BackendStudentSearch } from './BackendStudentSearch';
 import {
   Users,
   Search,
@@ -115,6 +116,7 @@ export const FacultyPortal: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <BackendStudentSearch />
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>

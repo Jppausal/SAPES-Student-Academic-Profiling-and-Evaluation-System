@@ -31,6 +31,7 @@ export const AdminPortal: React.FC = () => {
     evaluations,
     deactivateUserAccount,
     reactivateUserAccount,
+    updateUserAccountStatus,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
@@ -40,6 +41,8 @@ export const AdminPortal: React.FC = () => {
   // User Management Modal State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<UserAccount | null>(null);
+  const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
+  const [userActionError, setUserActionError] = useState('');
 
   // Academic Record Modal State
   const [academicModalStudent, setAcademicModalStudent] = useState<{
@@ -59,6 +62,37 @@ export const AdminPortal: React.FC = () => {
       u.role.toLowerCase().includes(q)
     );
   });
+
+  const handleUserStatus = async (userId: string, active: boolean) => {
+    setStatusLoadingId(userId);
+    setUserActionError('');
+    try {
+      if (active) {
+        await deactivateUserAccount(userId);
+      } else {
+        await reactivateUserAccount(userId);
+      }
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Unable to update user status.');
+    } finally {
+      setStatusLoadingId(null);
+    }
+  };
+
+  const handleStatusSelect = async (
+    userId: string,
+    status: 'active' | 'inactive' | 'suspended'
+  ) => {
+    setStatusLoadingId(userId);
+    setUserActionError('');
+    try {
+      await updateUserAccountStatus(userId, status);
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Unable to update user status.');
+    } finally {
+      setStatusLoadingId(null);
+    }
+  };
 
   // Student academic search
   const [studentSearch, setStudentSearch] = useState('');
@@ -162,6 +196,11 @@ export const AdminPortal: React.FC = () => {
       {/* TAB 1: USERS & ACCESS CONTROL */}
       {activeTab === 'users' && (
         <div className="space-y-4">
+          {userActionError && (
+            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+              {userActionError}
+            </p>
+          )}
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -225,7 +264,11 @@ export const AdminPortal: React.FC = () => {
                       <td className="py-3 px-4 text-slate-600">{u.department}</td>
 
                       <td className="py-3 px-4">
-                        {u.isActive ? (
+                        {u.accountStatus === 'suspended' ? (
+                          <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                            <AlertTriangle className="h-3 w-3 text-amber-600" /> Suspended
+                          </span>
+                        ) : u.isActive ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                             <UserCheck className="w-3 h-3 text-emerald-600" /> Active
                           </span>
@@ -238,6 +281,20 @@ export const AdminPortal: React.FC = () => {
 
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <select
+                            value={u.accountStatus || (u.isActive ? 'active' : 'inactive')}
+                            onChange={(event) => handleStatusSelect(
+                              u.id,
+                              event.target.value as 'active' | 'inactive' | 'suspended'
+                            )}
+                            disabled={statusLoadingId === u.id}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"
+                            aria-label={`Status for ${u.username}`}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="suspended">Suspended</option>
+                          </select>
                           <button
                             onClick={() => {
                               setUserToEdit(u);
@@ -251,7 +308,8 @@ export const AdminPortal: React.FC = () => {
 
                           {u.isActive ? (
                             <button
-                              onClick={() => deactivateUserAccount(u.id)}
+                              onClick={() => handleUserStatus(u.id, true)}
+                              disabled={statusLoadingId === u.id}
                               className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200"
                               title="Deactivate Account"
                             >
@@ -259,7 +317,8 @@ export const AdminPortal: React.FC = () => {
                             </button>
                           ) : (
                             <button
-                              onClick={() => reactivateUserAccount(u.id)}
+                              onClick={() => handleUserStatus(u.id, false)}
+                              disabled={statusLoadingId === u.id}
                               className="px-2 py-1 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-emerald-200"
                               title="Reactivate Account"
                             >

@@ -1,13 +1,27 @@
+import React from 'react';
 import { AuthLayout } from './AuthLayout';
 
 type LoginPageProps = {
-  onLoginSuccess: () => void;
+  onLogin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
 };
 
-export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+export default function LoginPage({ onLogin }: LoginPageProps) {
+  const [error, setError] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onLoginSuccess();
+    setError('');
+    setIsSubmitting(true);
+    const form = new FormData(event.currentTarget);
+    const result = await onLogin(
+      String(form.get('username') || ''),
+      String(form.get('password') || '')
+    );
+    setIsSubmitting(false);
+    if (!result.success) {
+      setError(result.message || 'Unable to sign in.');
+    }
   };
 
   return (
@@ -20,14 +34,15 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">
-            Email address
+          <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-700">
+          Username
           </label>
           <input
-            id="email"
-            name="email"
-            type="email"
-            placeholder="name@school.edu"
+          id="username"
+          name="username"
+          type="text"
+          autoComplete="username"
+          placeholder="admin.test"
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
           />
         </div>
@@ -43,11 +58,19 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
           <input
             id="password"
+            name="password"
             type="password"
+            autoComplete="current-password"
             placeholder="Enter your password"
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
           />
         </div>
+
+        {error && (
+          <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </p>
+        )}
 
         <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
           <label htmlFor="remember" className="flex items-center gap-2 text-sm text-slate-600">
@@ -61,7 +84,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           type="submit"
           className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-200"
         >
-          Login
+          {isSubmitting ? 'Signing in…' : 'Login'}
         </button>
       </form>
     </AuthLayout>

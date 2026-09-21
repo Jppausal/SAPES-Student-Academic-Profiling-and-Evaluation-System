@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { fetchMyStudentIdentity, fetchMyStudentReport, StudentIdentity, StudentReport } from '../../lib/api';
+import { BackendStudentWorkspace } from './BackendStudentWorkspace';
 import { StudentOverview } from './StudentOverview';
 import { StudentProfileForm } from './StudentProfileForm';
 import { StudentAcademicRecordView } from './StudentAcademicRecordView';
@@ -14,9 +16,41 @@ import {
 
 export const StudentPortal: React.FC = () => {
   const { currentStudentProfile } = useApp();
+  const [identity, setIdentity] = useState<StudentIdentity | null>(null);
+  const [report, setReport] = useState<StudentReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'academics' | 'summary'>(
     'overview'
   );
+
+  useEffect(() => {
+    let active = true;
+    Promise.resolve()
+      .then(fetchMyStudentIdentity)
+      .then(async (student) => {
+        const studentReport = await fetchMyStudentReport();
+        if (active) {
+          setIdentity(student);
+          setReport(studentReport);
+        }
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError instanceof Error ? requestError.message : 'Unable to load student data.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  if (loading) {
+    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading your authenticated student profile…</div>;
+  }
+
+  if (error || !identity || !report) {
+    return <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">{error || 'Student profile not found.'}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -75,10 +109,8 @@ export const StudentPortal: React.FC = () => {
       </div>
 
       {/* Main Tab Render */}
-      {activeTab === 'overview' && (
-        <StudentOverview
-          onNavigateToTab={(tab) => setActiveTab(tab)}
-        />
+      {(activeTab === 'overview' || activeTab === 'academics') && (
+        <BackendStudentWorkspace identity={identity} report={report} />
       )}
 
       {activeTab === 'profile' && (

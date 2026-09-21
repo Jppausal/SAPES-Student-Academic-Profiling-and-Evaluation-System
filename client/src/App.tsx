@@ -16,11 +16,15 @@ import SignUpPage from './pages/auth/SignUpPage';
 type AuthView = 'landing' | 'login' | 'signup' | 'dashboard';
 
 const AppContent: React.FC = () => {
-  const { currentUser, serverStatus } = useApp();
+  const { currentUser, serverStatus, login } = useApp();
   const [authView, setAuthView] = useState<AuthView>('landing');
 
   if (authView === 'login') {
-    return <LoginPage onLoginSuccess={() => setAuthView('dashboard')} />;
+    return <LoginPage onLogin={async (username, password) => {
+      const result = await login(username, password);
+      if (result.success) setAuthView('dashboard');
+      return result;
+    }} />;
   }
 
   if (authView === 'signup') {
@@ -28,6 +32,10 @@ const AppContent: React.FC = () => {
   }
 
   if (authView === 'landing') {
+    return <AuthLandingPage onLogin={() => setAuthView('login')} onSignUp={() => setAuthView('signup')} />;
+  }
+
+  if (!currentUser) {
     return <AuthLandingPage onLogin={() => setAuthView('login')} onSignUp={() => setAuthView('signup')} />;
   }
 

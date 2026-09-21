@@ -15,7 +15,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   onClose,
   userToEdit,
 }) => {
-  const { createUserAccount, updateUserAccount } = useApp();
+  const { createUserAccount } = useApp();
 
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
@@ -25,6 +25,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [facultyId, setFacultyId] = useState('');
   const [department, setDepartment] = useState('College of Computer Studies');
   const [isActive, setIsActive] = useState(true);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (userToEdit) {
@@ -46,40 +49,30 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       setFacultyId('');
       setDepartment('College of Computer Studies');
       setIsActive(true);
+      setPassword('');
     }
+    setError('');
   }, [userToEdit, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !fullName || !email) return;
-
-    if (userToEdit) {
-      updateUserAccount(userToEdit.id, {
-        username,
-        fullName,
-        email,
-        role,
-        studentNumber: role === 'student' ? studentNumber : undefined,
-        facultyId: role === 'faculty' ? facultyId : undefined,
-        employeeId: role === 'admin' ? facultyId : undefined,
-        department,
-        isActive,
-      });
-    } else {
-      createUserAccount({
-        username,
-        fullName,
-        email,
-        role,
-        studentNumber: role === 'student' ? studentNumber : undefined,
-        facultyId: role === 'faculty' ? facultyId : undefined,
-        employeeId: role === 'admin' ? facultyId : undefined,
-        department,
-        isActive,
-      });
+    if (!username || (!userToEdit && password.length < 8)) {
+      setError('Username and a password of at least 8 characters are required.');
+      return;
     }
 
-    onClose();
+    setIsSaving(true);
+    setError('');
+    try {
+      if (!userToEdit) {
+        await createUserAccount({ username, password, role });
+      }
+      onClose();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to save user.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -104,9 +97,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
             className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
           >
             <Save className="w-4 h-4" />
-            {userToEdit ? 'Save Changes' : 'Create User Account'}
+            {isSaving ? 'Saving…' : userToEdit ? 'Save Changes' : 'Create User Account'}
           </button>
         </div>
+
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
@@ -131,6 +125,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               </button>
             ))}
           </div>
+
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -207,6 +202,29 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
             className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
           />
         </div>
+
+        {!userToEdit && (
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">
+              Temporary Password <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
+              placeholder="At least 8 characters"
+            />
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            {error}
+          </p>
+        )}
 
         {/* Account Active Toggle (Deactivation Requirement) */}
         <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
