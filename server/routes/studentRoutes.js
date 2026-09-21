@@ -1,9 +1,105 @@
 const express = require('express');
 const Student = require('../models/Student');
+const AcademicRecord = require('../models/AcademicRecord');
+const FacultyEvaluation = require('../models/FacultyEvaluation');
+const StudentStatusHistory = require('../models/StudentStatusHistory');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
 const router = express.Router();
+
+// Get the evaluation report for a student
+router.get(
+  '/:institutionId/report',
+  authenticateToken,
+  authorizeRoles('admin', 'faculty'),
+  async (req, res) => {
+    try {
+      const { institutionId } = req.params;
+      const studentRecord = await Student.findOne(
+        { institutionId },
+        {
+          _id: 1,
+          institutionId: 1,
+          personalInformation: 1,
+          classification: 1,
+          religiousInformation: 1,
+          academicStatus: 1
+        }
+      ).lean();
+
+      if (!studentRecord) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found'
+        });
+      }
+
+      const { _id: studentId, ...student } = studentRecord;
+
+      const [academicRecords, facultyEvaluation, statusHistory] = await Promise.all([
+        AcademicRecord.find(
+          { studentId },
+          { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
+        ).sort({ academicYear: -1, semester: -1 }).lean(),
+        FacultyEvaluation.findOne({ studentId })
+          .sort({ evaluatedAt: -1 })
+          .populate('facultyId', 'username role')
+          .select('-_id facultyId evaluationStatus reasons remarks evaluatedAt')
+          .lean(),
+        StudentStatusHistory.find(
+          { studentId },
+          { _id: 0, status: 1, reason: 1, effectiveDate: 1, recordedBy: 1, remarks: 1 }
+        )
+          .sort({ effectiveDate: -1 })
+          .populate('recordedBy', 'username role')
+          .lean()
+      ]);
+
+      const majorSubjects = academicRecords.flatMap((record) =>
+        record.subjects.filter((subject) =>
+          subject.isMajor &&
+          String(subject.status || '').toLowerCase() !== 'dropped' &&
+          typeof subject.grade === 'number' &&
+          subject.grade > 0 &&
+          subject.units > 0
+        )
+      );
+      const totalMajorUnits = majorSubjects.reduce(
+        (sum, subject) => sum + subject.units,
+        0
+      );
+      const majorSubjectGwa = totalMajorUnits === 0
+        ? 0
+        : Number(
+          (
+            majorSubjects.reduce(
+              (sum, subject) => sum + subject.grade * subject.units,
+              0
+            ) / totalMajorUnits
+          ).toFixed(2)
+        );
+
+      res.json({
+        success: true,
+        data: {
+          student,
+          academicRecords,
+          majorSubjectGwa,
+          facultyEvaluation,
+          statusHistory
+        }
+      });
+    } catch (error) {
+      console.error('Error generating student report:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
 
 // Get a student by institution ID
 router.get(
