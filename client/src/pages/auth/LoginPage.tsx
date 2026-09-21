@@ -34,7 +34,7 @@ export default function LoginPage({ onLogin, onGoogleLogin }: LoginPageProps) {
           setIsSubmitting(false);
           if (!result.success) setError(result.message || 'Unable to sign in with Google.');
         },
-        hd: 'buksu.edu.ph',
+        hd: '*',
         auto_select: false,
       });
       googleButtonRef.current.replaceChildren();

@@ -7,7 +7,7 @@ const User = require('../models/User');
 const Student = require('../models/Student');
 
 const router = express.Router();
-const GOOGLE_HOSTED_DOMAIN = 'buksu.edu.ph';
+const GOOGLE_ALLOWED_DOMAINS = new Set(['buksu.edu.ph', 'student.buksu.edu.ph']);
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 
 const createApplicationToken = (user) => jwt.sign(
@@ -125,17 +125,21 @@ router.post('/google', async (req, res) => {
     });
     const payload = ticket.getPayload();
 
-    if (
-      !payload ||
-      !payload.sub ||
-      !payload.email ||
-      payload.email_verified !== true ||
-      !GOOGLE_ISSUERS.has(payload.iss) ||
-      payload.aud !== process.env.GOOGLE_CLIENT_ID ||
-      typeof payload.exp !== 'number' ||
-      payload.exp <= Math.floor(Date.now() / 1000) ||
-      payload.hd !== GOOGLE_HOSTED_DOMAIN
-    ) {
+    if (!payload) {
+      console.error('[Google] No payload');
+      return res.status(401).json({ success: false, message: 'Google account verification failed' });
+    }
+    const checks = {
+      hasSub: !!payload.sub,
+      hasEmail: !!payload.email,
+      emailVerified: payload.email_verified === true,
+      validIssuer: GOOGLE_ISSUERS.has(payload.iss),
+      validAudience: payload.aud === process.env.GOOGLE_CLIENT_ID,
+      notExpired: typeof payload.exp === 'number' && payload.exp > Math.floor(Date.now() / 1000),
+      correctDomain: GOOGLE_ALLOWED_DOMAINS.has(payload.hd),
+    };
+    console.info('[Google] Payload checks:', checks, '| email:', payload.email, '| hd:', payload.hd);
+    if (Object.values(checks).some((v) => !v)) {
       return res.status(401).json({
         success: false,
         message: 'Google account verification failed'
@@ -238,10 +242,10 @@ router.post('/google', async (req, res) => {
       user: safeUser(user)
     });
   } catch (error) {
-    console.error('Google login error:', error.message);
-    return res.status(401).json({
+    console.error('Google login error:', error.message, error.stack);
+    return res.status(500).json({
       success: false,
-      message: 'Invalid Google credential'
+      message: error.message || 'Google login failed'
     });
   }
 });
