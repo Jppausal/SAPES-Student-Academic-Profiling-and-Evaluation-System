@@ -1,5 +1,6 @@
 const express = require('express');
 const Student = require('../models/Student');
+const User = require('../models/User');
 const AcademicRecord = require('../models/AcademicRecord');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
@@ -145,6 +146,10 @@ router.put(
       }
 
       await student.save();
+      await User.findByIdAndUpdate(req.user.userId, {
+        firstName,
+        lastName
+      });
       await require('../models/AuditLog').create({
         userId: req.user.userId,
         action: 'STUDENT_PROFILE_UPDATED',

@@ -29,6 +29,17 @@ const toSafeUser = (user) => ({
   createdAt: user.createdAt
 });
 
+const syncStudentIdentity = async (user) => {
+  if (user.role !== 'student') return;
+
+  const student = await Student.findOne({ userId: user._id });
+  if (!student) return;
+
+  student.personalInformation.firstName = user.firstName || student.personalInformation.firstName;
+  student.personalInformation.lastName = user.lastName || student.personalInformation.lastName;
+  await student.save();
+};
+
 router.get(
   '/',
   authenticateToken,
@@ -121,10 +132,13 @@ router.get(
         .filter((user) => user.role === 'student' && !user.studentNumber)
         .map((user) => user._id);
       const linkedStudents = studentIds.length
-        ? await Student.find({ userId: { $in: studentIds } }, { userId: 1, institutionId: 1 }).lean()
+        ? await Student.find({ userId: { $in: studentIds } }, { userId: 1, institutionId: 1, personalInformation: 1 }).lean()
         : [];
       const studentNumberByUserId = new Map(
         linkedStudents.map((student) => [String(student.userId), student.institutionId])
+      );
+      const studentIdentityByUserId = new Map(
+        linkedStudents.map((student) => [String(student.userId), student.personalInformation || {}])
       );
 
       res.json({
@@ -132,6 +146,8 @@ router.get(
         data: {
           users: users.map((user) => toSafeUser({
             ...user,
+            firstName: user.firstName || studentIdentityByUserId.get(String(user._id))?.firstName || '',
+            lastName: user.lastName || studentIdentityByUserId.get(String(user._id))?.lastName || '',
             studentNumber: user.studentNumber || studentNumberByUserId.get(String(user._id)) || ''
           })),
           pagination: {
@@ -199,6 +215,12 @@ router.post(
       if (role === 'student' && (typeof studentNumber !== 'string' || !studentNumber.trim())) {
         return res.status(400).json({ success: false, message: 'Student number is required for student accounts' });
       }
+      if (role === 'student' && (!String(firstName).trim() || !String(lastName).trim())) {
+        return res.status(400).json({ success: false, message: 'First name and last name are required for student accounts' });
+      }
+      if (role === 'student' && await Student.exists({ institutionId: studentNumber.trim() })) {
+        return res.status(409).json({ success: false, message: 'Student number already exists' });
+      }
 
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await User.create({
@@ -212,6 +234,18 @@ router.post(
         employeeId: String(employeeId).trim(),
         department: String(department).trim()
       });
+
+      if (role === 'student') {
+        await Student.create({
+          userId: user._id,
+          institutionId: studentNumber.trim(),
+          personalInformation: {
+            firstName: String(firstName).trim(),
+            lastName: String(lastName).trim()
+          },
+          classification: { studentType: 'regular' }
+        });
+      }
 
       await AuditLog.create({
         userId: req.user.userId,
@@ -320,6 +354,8 @@ router.put(
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
+
+      await syncStudentIdentity(user);
 
       await AuditLog.create({
         userId: req.user.userId,

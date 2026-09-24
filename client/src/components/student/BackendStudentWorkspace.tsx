@@ -7,6 +7,19 @@ interface BackendStudentWorkspaceProps {
   report: StudentReport;
 }
 
+const formatDateOnly = (value?: string) => {
+  if (!value) return 'Not recorded';
+  const datePart = value.slice(0, 10);
+  const date = new Date(`${datePart}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? 'Not recorded'
+    : date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+};
+
 export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = ({
   identity,
   report,
@@ -40,7 +53,7 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
           <div><dt className="text-xs text-slate-500">First name</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.firstName || 'Not recorded'}</dd></div>
           <div><dt className="text-xs text-slate-500">Middle name</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.middleName || 'Not recorded'}</dd></div>
           <div><dt className="text-xs text-slate-500">Last name</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.lastName || 'Not recorded'}</dd></div>
-          <div><dt className="text-xs text-slate-500">Birth date</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.birthDate || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Birth date</dt><dd className="mt-1 font-semibold text-slate-900">{formatDateOnly(identity.personalInformation?.birthDate)}</dd></div>
           <div><dt className="text-xs text-slate-500">Sex</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.sex || 'Not recorded'}</dd></div>
           <div><dt className="text-xs text-slate-500">Civil status</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.civilStatus || 'Not recorded'}</dd></div>
           <div><dt className="text-xs text-slate-500">Citizenship</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.citizenship || 'Not recorded'}</dd></div>

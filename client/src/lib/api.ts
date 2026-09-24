@@ -65,6 +65,12 @@ export async function googleLoginRequest(credential: string) {
   });
 }
 
+export async function logoutRequest() {
+  return request<{ success: true; message: string }>('/api/auth/logout', {
+    method: 'POST',
+  });
+}
+
 export async function fetchUsers() {
   const response = await request<{ success: true; data: { users: ApiUser[] } }>('/api/users?limit=100');
   return response.data.users;

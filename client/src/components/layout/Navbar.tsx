@@ -75,7 +75,7 @@ export const Navbar: React.FC = () => {
                     <p className="truncate text-slate-500">{currentUser.username}</p>
                   </div>
                   <button
-                    onClick={() => { logout(); setIsUserMenuOpen(false); }}
+                    onClick={async () => { await logout(); setIsUserMenuOpen(false); }}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 font-medium text-rose-600 hover:bg-rose-50"
                   >
                     <LogOut className="h-3.5 w-3.5" /> Log out

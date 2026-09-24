@@ -5,20 +5,30 @@ const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const Student = require('../models/Student');
+const SessionToken = require('../models/SessionToken');
+const authenticateToken = require('../middleware/authMiddleware');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set(['buksu.edu.ph', 'student.buksu.edu.ph']);
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 
-const createApplicationToken = (user) => jwt.sign(
-  {
-    userId: user._id,
-    role: user.role,
-    username: user.username
-  },
-  process.env.JWT_SECRET,
-  { expiresIn: '1h' }
-);
+const createApplicationToken = async (user) => {
+  const jti = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+  const token = jwt.sign(
+    {
+      jti,
+      userId: user._id,
+      role: user.role,
+      username: user.username
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+
+  await SessionToken.create({ jti, userId: user._id, expiresAt });
+  return token;
+};
 
 const safeUser = (user, studentNumber) => ({
   id: user._id,
@@ -72,7 +82,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Create JWT
-    const token = createApplicationToken(user);
+    const token = await createApplicationToken(user);
 
     // Update last login
     user.lastLoginAt = new Date();
@@ -96,6 +106,21 @@ router.post('/login', async (req, res) => {
       success: false,
       message: 'Server error'
     });
+  }
+});
+
+// POST /api/auth/logout
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    await SessionToken.findOneAndUpdate(
+      { jti: req.user.jti, revokedAt: null },
+      { revokedAt: new Date() }
+    );
+
+    return res.json({ success: true, message: 'Logout successful' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -255,7 +280,7 @@ router.post('/google', async (req, res) => {
     return res.json({
       success: true,
       message: 'Google login successful',
-      token: createApplicationToken(user),
+      token: await createApplicationToken(user),
       user: safeUser(user, studentEmailMatch?.[1])
     });
   } catch (error) {

@@ -30,6 +30,7 @@ import {
   googleLoginRequest,
   updateUserStatus,
   updateUser,
+  logoutRequest,
   ServerStatus,
 } from '../lib/api';
 
@@ -43,7 +44,7 @@ interface AppContextType {
   auditLogs: SystemAuditLog[];
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   loginWithGoogle: (credential: string) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   switchUser: (userId: string) => void;
   updateStudentProfile: (studentNumber: string, updatedProfile: Partial<StudentProfile>) => void;
   submitProfileForReview: (studentNumber: string) => void;
@@ -244,13 +245,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (currentUser) {
       addAuditLog(
         'USER_LOGOUT',
         'AUTH',
         `${currentUser.fullName} (${currentUser.role.toUpperCase()}) logged out.`
       );
+    }
+    try {
+      await logoutRequest();
+    } catch {
+      // Clear local state even when the server is unavailable.
     }
     localStorage.removeItem('sapes_jwt');
     window.google?.accounts.id.disableAutoSelect();
