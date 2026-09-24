@@ -1,14 +1,17 @@
 import React from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { AuthLayout } from './AuthLayout';
 
 type LoginPageProps = {
   onLogin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   onGoogleLogin: (credential: string) => Promise<{ success: boolean; message?: string }>;
+  onBack?: () => void;
 };
 
-export default function LoginPage({ onLogin, onGoogleLogin }: LoginPageProps) {
+export default function LoginPage({ onLogin, onGoogleLogin, onBack }: LoginPageProps) {
   const [error, setError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = React.useState(true);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
@@ -85,42 +88,49 @@ export default function LoginPage({ onLogin, onGoogleLogin }: LoginPageProps) {
     <AuthLayout
       title="Welcome back"
       subtitle="Sign in to continue managing your academic records and student information."
-      footerText="Don’t have an account?"
-      footerLinkText="Create one"
-      footerLinkHref="/signup"
+      onBack={onBack}
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-700">
-          Username
+            ID Number
           </label>
           <input
-          id="username"
-          name="username"
-          type="text"
-          autoComplete="username"
-          placeholder="admin.test"
+            id="username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            placeholder="2021301234"
+            maxLength={10}
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
           />
         </div>
 
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <label htmlFor="password" className="text-sm font-medium text-slate-700">
-              Password
-            </label>
-            <a href="/forgot-password" className="text-xs font-medium text-indigo-600 hover:text-indigo-500">
-              Forgot password?
-            </a>
+          <label htmlFor="password" className="text-sm font-medium text-slate-700">
+            Password
+          </label>
+          <div className="relative mt-2">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 flex items-center px-4"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" /> : <Eye className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" />}
+            </button>
           </div>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-          />
+          <a href="/forgot-password" className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-500">
+            Forgot password?
+          </a>
         </div>
 
         {error && (

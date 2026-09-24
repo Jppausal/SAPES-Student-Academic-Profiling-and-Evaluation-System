@@ -52,7 +52,7 @@ export async function googleLoginRequest(credential: string) {
   return request<{
     success: true;
     token: string;
-    user: { id: string; username: string; role: ApiUser['role'] };
+    user: { id: string; username: string; role: ApiUser['role']; studentNumber?: string };
   }>('/api/auth/google', {
     method: 'POST',
     body: JSON.stringify({ credential }),

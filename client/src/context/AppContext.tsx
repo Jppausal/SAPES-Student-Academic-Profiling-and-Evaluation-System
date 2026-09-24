@@ -181,7 +181,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const completeLogin = async (response: {
     token: string;
-    user: { id: string; username: string; role: UserRole };
+    user: { id: string; username: string; role: UserRole; studentNumber?: string };
   }) => {
     localStorage.setItem('sapes_jwt', response.token);
     const existingUser = users.find((user) => user.id === response.user.id);
@@ -191,6 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fullName: response.user.username,
       email: '',
       role: response.user.role,
+      studentNumber: response.user.studentNumber,
       department: '',
       isActive: true,
       createdAt: new Date().toISOString(),

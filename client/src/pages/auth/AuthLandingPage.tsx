@@ -15,10 +15,9 @@ import schoolPhoto from '../../assets/branding/landingpage.png';
 
 type AuthLandingPageProps = {
   onLogin: () => void;
-  onSignUp: () => void;
 };
 
-export function AuthLandingPage({ onLogin, onSignUp }: AuthLandingPageProps) {
+export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
   return (
     <div className="min-h-screen bg-white text-[#102d5b]">
       <header className="border-b border-slate-100 bg-white">
@@ -69,10 +68,10 @@ export function AuthLandingPage({ onLogin, onSignUp }: AuthLandingPageProps) {
               </p>
               <button
                 type="button"
-                onClick={onSignUp}
+                onClick={onLogin}
                 className="mt-6 flex items-center gap-3 rounded-md bg-[#123b78] px-5 py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-[#0c2a58]"
               >
-                Start Enrollment
+                Login to System
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -108,11 +107,11 @@ export function AuthLandingPage({ onLogin, onSignUp }: AuthLandingPageProps) {
           <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-2">
             <div>
               <UsersRound className="h-8 w-8 text-[#123b78]" />
-              <h2 className="mt-4 text-xl font-bold text-[#102d5b]">For Students & Parents</h2>
+              <h2 className="mt-4 text-xl font-bold text-[#102d5b]">For Students</h2>
               <div className="mt-3 h-0.5 w-9 bg-[#123b78]" />
-              <p className="mt-4 max-w-sm text-sm leading-6 text-slate-700">Begin your enrollment journey by creating an account and providing your information.</p>
-              <button type="button" onClick={onSignUp} className="mt-5 flex items-center gap-3 rounded-md bg-[#123b78] px-5 py-3 text-xs font-bold uppercase tracking-wide text-white hover:bg-[#0c2a58]">
-                Get Started <ArrowRight className="h-4 w-4" />
+              <p className="mt-4 max-w-sm text-sm leading-6 text-slate-700">Access your academic records and manage your enrollment information using your institutional account.</p>
+              <button type="button" onClick={onLogin} className="mt-5 flex items-center gap-3 rounded-md bg-[#123b78] px-5 py-3 text-xs font-bold uppercase tracking-wide text-white hover:bg-[#0c2a58]">
+                Student Login <ArrowRight className="h-4 w-4" />
               </button>
             </div>
             <div id="guidelines">

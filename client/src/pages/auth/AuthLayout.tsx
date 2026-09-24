@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import logo from '../../assets/branding/coloredlogo.png';
 import plainLogo from '../../assets/branding/logo.png';
 
@@ -6,9 +7,10 @@ type AuthLayoutProps = {
   title: string;
   subtitle: string;
   children: ReactNode;
-  footerText: string;
-  footerLinkText: string;
-  footerLinkHref: string;
+  footerText?: string;
+  footerLinkText?: string;
+  footerLinkHref?: string;
+  onBack?: () => void;
 };
 
 export function AuthLayout({
@@ -18,6 +20,7 @@ export function AuthLayout({
   footerText,
   footerLinkText,
   footerLinkHref,
+  onBack,
 }: AuthLayoutProps) {
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 md:p-8">
@@ -43,6 +46,17 @@ export function AuthLayout({
 
           <div className="flex items-center justify-center bg-white p-6 sm:p-10">
             <div className="w-full max-w-md">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="mb-6 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-indigo-600 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </button>
+              )}
+
               <img src={logo} alt="Bukidnon State University logo" className="h-12 w-auto mb-8" />
 
               <div className="mb-6">
@@ -52,12 +66,14 @@ export function AuthLayout({
 
               {children}
 
-              <p className="mt-6 text-center text-sm text-slate-600">
-                {footerText}{' '}
-                <a href={footerLinkHref} className="font-semibold text-indigo-600 hover:text-indigo-500">
-                  {footerLinkText}
-                </a>
-              </p>
+              {footerText && footerLinkText && footerLinkHref && (
+                <p className="mt-6 text-center text-sm text-slate-600">
+                  {footerText}{' '}
+                  <a href={footerLinkHref} className="font-semibold text-indigo-600 hover:text-indigo-500">
+                    {footerLinkText}
+                  </a>
+                </p>
+              )}
             </div>
           </div>
         </div>

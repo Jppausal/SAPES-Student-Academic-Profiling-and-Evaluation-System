@@ -20,10 +20,11 @@ const createApplicationToken = (user) => jwt.sign(
   { expiresIn: '1h' }
 );
 
-const safeUser = (user) => ({
+const safeUser = (user, studentNumber) => ({
   id: user._id,
   username: user.username,
-  role: user.role
+  role: user.role,
+  ...(studentNumber ? { studentNumber } : {})
 });
 
 // POST /api/auth/login
@@ -185,14 +186,7 @@ router.post('/google', async (req, res) => {
       const institutionId = studentEmailMatch[1];
       const student = await Student.findOne({ institutionId });
 
-      if (!student) {
-        return res.status(403).json({
-          success: false,
-          message: 'Student record must be provisioned before Google sign-in'
-        });
-      }
-
-      user = student.userId ? await User.findById(student.userId) : null;
+      user = student?.userId ? await User.findById(student.userId) : null;
       if (user && user.role !== 'student') {
         return res.status(403).json({
           success: false,
@@ -208,8 +202,26 @@ router.post('/google', async (req, res) => {
           role: 'student',
           accountStatus: 'active'
         });
-        student.userId = user._id;
-        await student.save();
+
+        if (student) {
+          student.userId = user._id;
+          await student.save();
+        } else {
+          await Student.create({
+            userId: user._id,
+            institutionId,
+            personalInformation: {
+              firstName: 'New',
+              lastName: 'Student'
+            },
+            classification: {
+              studentType: 'regular'
+            },
+            academicStatus: {
+              currentStatus: 'regular'
+            }
+          });
+        }
       } else {
         user.googleId = payload.sub;
         await user.save();
@@ -239,7 +251,7 @@ router.post('/google', async (req, res) => {
       success: true,
       message: 'Google login successful',
       token: createApplicationToken(user),
-      user: safeUser(user)
+      user: safeUser(user, studentEmailMatch?.[1])
     });
   } catch (error) {
     console.error('Google login error:', error.message, error.stack);

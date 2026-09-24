@@ -11,36 +11,39 @@ import { FacultyPortal } from './components/faculty/FacultyPortal';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
-import SignUpPage from './pages/auth/SignUpPage';
 
-type AuthView = 'landing' | 'login' | 'signup' | 'dashboard';
+type AuthView = 'landing' | 'login' | 'dashboard';
 
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus, login, loginWithGoogle } = useApp();
-  const [authView, setAuthView] = useState<AuthView>('landing');
+  const [authView, setAuthView] = useState<AuthView>(() => (
+    currentUser ? 'dashboard' : 'landing'
+  ));
 
   if (authView === 'login') {
-    return <LoginPage onLogin={async (username, password) => {
-      const result = await login(username, password);
-      if (result.success) setAuthView('dashboard');
-      return result;
-    }} onGoogleLogin={async (credential) => {
-      const result = await loginWithGoogle(credential);
-      if (result.success) setAuthView('dashboard');
-      return result;
-    }} />;
-  }
-
-  if (authView === 'signup') {
-    return <SignUpPage />;
+    return (
+      <LoginPage
+        onLogin={async (username, password) => {
+          const result = await login(username, password);
+          if (result.success) setAuthView('dashboard');
+          return result;
+        }}
+        onGoogleLogin={async (credential) => {
+          const result = await loginWithGoogle(credential);
+          if (result.success) setAuthView('dashboard');
+          return result;
+        }}
+        onBack={() => setAuthView('landing')}
+      />
+    );
   }
 
   if (authView === 'landing') {
-    return <AuthLandingPage onLogin={() => setAuthView('login')} onSignUp={() => setAuthView('signup')} />;
+    return <AuthLandingPage onLogin={() => setAuthView('login')} />;
   }
 
   if (!currentUser) {
-    return <AuthLandingPage onLogin={() => setAuthView('login')} onSignUp={() => setAuthView('signup')} />;
+    return <AuthLandingPage onLogin={() => setAuthView('login')} />;
   }
 
   return (
