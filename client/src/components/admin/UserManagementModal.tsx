@@ -15,10 +15,11 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   onClose,
   userToEdit,
 }) => {
-  const { createUserAccount } = useApp();
+  const { createUserAccount, saveUserAccount } = useApp();
 
   const [username, setUsername] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<UserRole>('student');
   const [studentNumber, setStudentNumber] = useState('');
@@ -31,8 +32,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
   useEffect(() => {
     if (userToEdit) {
-      setUsername(userToEdit.username);
-      setFullName(userToEdit.fullName);
+      setUsername(userToEdit.role === 'student' ? (userToEdit.studentNumber || userToEdit.username) : userToEdit.username);
+      setFirstName(userToEdit.firstName || userToEdit.fullName.split(' ')[0] || '');
+      setLastName(userToEdit.lastName || userToEdit.fullName.split(' ').slice(1).join(' '));
       setEmail(userToEdit.email);
       setRole(userToEdit.role);
       setStudentNumber(userToEdit.studentNumber || '');
@@ -42,7 +44,8 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     } else {
       // Default new user state
       setUsername('');
-      setFullName('');
+      setFirstName('');
+      setLastName('');
       setEmail('');
       setRole('student');
       setStudentNumber(`2026-${Math.floor(10000 + Math.random() * 90000)}`);
@@ -56,8 +59,8 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || (!userToEdit && password.length < 8)) {
-      setError('Username and a password of at least 8 characters are required.');
+    if (!firstName.trim() || !lastName.trim() || (role === 'student' && !studentNumber.trim()) || (role !== 'student' && !username.trim()) || (!userToEdit && password.length < 8)) {
+      setError('First name, last name, and the required account identifier must be provided.');
       return;
     }
 
@@ -65,7 +68,20 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     setError('');
     try {
       if (!userToEdit) {
-        await createUserAccount({ username, password, role });
+        await createUserAccount({ username: role === 'student' ? studentNumber : username, password, role, firstName, lastName, email, studentNumber, employeeId: facultyId, department });
+      } else {
+        await saveUserAccount(userToEdit.id, {
+          username: role === 'student' ? studentNumber : username,
+          role,
+          firstName,
+          lastName,
+          email,
+          studentNumber,
+          employeeId: facultyId,
+          department,
+          accountStatus: isActive ? 'active' : 'inactive',
+          ...(password ? { password } : {}),
+        });
       }
       onClose();
     } catch (requestError) {
@@ -114,7 +130,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               <button
                 type="button"
                 key={r}
-                onClick={() => setRole(r)}
+                onClick={() => {
+                  setRole(r);
+                  if (r === 'student') setUsername(studentNumber);
+                }}
                 className={`py-2 px-3 rounded-xl border font-bold capitalize transition-all ${
                   role === r
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
@@ -131,15 +150,29 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block font-bold text-slate-700 mb-1">
-              Full Legal Name <span className="text-rose-500">*</span>
+              First Name <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
-              placeholder="e.g., Maria Santos"
+              placeholder="e.g., Maria"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">
+              Last Name <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
+              placeholder="e.g., Santos"
             />
           </div>
 
@@ -147,13 +180,14 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
             <label className="block font-bold text-slate-700 mb-1">
               Username / Login Handle <span className="text-rose-500">*</span>
             </label>
-            <input
+              <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+                disabled={role === 'student'}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-mono"
-              placeholder="e.g., m.santos"
+                placeholder={role === 'student' ? 'Matches student number' : 'e.g., m.santos'}
             />
           </div>
         </div>
@@ -175,16 +209,19 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
           <div>
             <label className="block font-bold text-slate-700 mb-1">
-              {role === 'student' ? 'Student Number' : 'Faculty / Employee ID'}
+              {role === 'student' ? 'Institution Account / Student Number' : 'Faculty / Employee ID'}
             </label>
             <input
               type="text"
               value={role === 'student' ? studentNumber : facultyId}
-              onChange={(e) =>
-                role === 'student'
-                  ? setStudentNumber(e.target.value)
-                  : setFacultyId(e.target.value)
-              }
+              onChange={(e) => {
+                if (role === 'student') {
+                  setStudentNumber(e.target.value);
+                  setUsername(e.target.value);
+                } else {
+                  setFacultyId(e.target.value);
+                }
+              }}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-mono"
               placeholder={role === 'student' ? '2023-XXXXX' : 'FAC-XXXX'}
             />

@@ -29,6 +29,7 @@ import {
   loginRequest,
   googleLoginRequest,
   updateUserStatus,
+  updateUser,
   ServerStatus,
 } from '../lib/api';
 
@@ -57,12 +58,13 @@ interface AppContextType {
     updates: Partial<SubjectGrade>
   ) => void;
   deleteSubjectGrade: (studentNumber: string, subjectCode: string) => void;
-  createUserAccount: (accountData: { username: string; password: string; role: UserRole }) => Promise<void>;
+  createUserAccount: (accountData: { username: string; password: string; role: UserRole; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
   updateUserAccount: (userId: string, updates: Partial<UserAccount>) => void;
   toggleUserActiveStatus: (userId: string) => void;
   deactivateUserAccount: (userId: string) => Promise<void>;
   reactivateUserAccount: (userId: string) => Promise<void>;
   updateUserAccountStatus: (userId: string, status: 'active' | 'inactive' | 'suspended') => Promise<void>;
+  saveUserAccount: (userId: string, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
   addAuditLog: (action: string, category: SystemAuditLog['category'], details: string) => void;
   resetAllData: () => void;
   currentStudentProfile: StudentProfile | null;
@@ -538,10 +540,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...local,
           id: item.id,
           username: item.username,
-          fullName: local?.fullName || item.username,
-          email: local?.email || '',
+          firstName: item.firstName,
+          lastName: item.lastName,
+          fullName: [item.firstName, item.lastName].filter(Boolean).join(' ') || local?.fullName || item.username,
+          email: item.email || local?.email || '',
           role: item.role,
-          department: local?.department || '',
+          studentNumber: item.studentNumber || local?.studentNumber,
+          employeeId: item.employeeId || local?.employeeId,
+          department: item.department || local?.department || '',
           isActive: item.accountStatus === 'active',
           createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
         };
@@ -553,6 +559,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     username: string;
     password: string;
     role: UserRole;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    studentNumber?: string;
+    employeeId?: string;
+    department?: string;
   }) => {
     await createUser(accountData);
     await refreshUsersFromBackend();
@@ -601,6 +613,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     status: 'active' | 'inactive' | 'suspended'
   ) => {
     await updateUserStatus(userId, status);
+    await refreshUsersFromBackend();
+  };
+
+  const saveUserAccount = async (userId: string, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => {
+    await updateUser(userId, updates);
     await refreshUsersFromBackend();
   };
 
@@ -661,6 +678,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deactivateUserAccount,
         reactivateUserAccount,
         updateUserAccountStatus,
+        saveUserAccount,
         addAuditLog,
         resetAllData,
         currentStudentProfile,

@@ -5,6 +5,7 @@ import { UserManagementModal } from './UserManagementModal';
 import { AcademicRecordManagerModal } from './AcademicRecordManagerModal';
 import { AdminReportsView } from './AdminReportsView';
 import { SystemAuditLogsView } from './SystemAuditLogsView';
+import { RolePermissionsPanel } from './RolePermissionsPanel';
 import { AcademicStatusBadge, EvaluationBadge, Badge } from '../common/Badge';
 import {
   Users,
@@ -12,6 +13,7 @@ import {
   GraduationCap,
   FileCheck2,
   Activity,
+  KeyRound,
   Plus,
   Edit3,
   UserX,
@@ -35,7 +37,7 @@ export const AdminPortal: React.FC = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
-    'users' | 'academic-records' | 'reports' | 'logs'
+    'users' | 'permissions' | 'academic-records' | 'reports' | 'logs'
   >('users');
 
   // User Management Modal State
@@ -154,6 +156,18 @@ export const AdminPortal: React.FC = () => {
         >
           <Users className="w-4 h-4" />
           User & Access Control ({users.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('permissions')}
+          className={`px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'permissions'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <KeyRound className="w-4 h-4" />
+          Role Permissions
         </button>
 
         <button
@@ -335,6 +349,8 @@ export const AdminPortal: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeTab === 'permissions' && <RolePermissionsPanel />}
 
       {/* TAB 2: ACADEMIC RECORDS & MAJOR GWA CONFIGURATION */}
       {activeTab === 'academic-records' && (

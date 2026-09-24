@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
+const { authorizePermission } = require('../middleware/permissionMiddleware');
 
 const router = express.Router();
 const MAX_LIMIT = 100;
@@ -39,6 +40,7 @@ router.get(
   '/',
   authenticateToken,
   authorizeRoles('admin'),
+  authorizePermission('view_audit_logs'),
   async (req, res) => {
     try {
       const {

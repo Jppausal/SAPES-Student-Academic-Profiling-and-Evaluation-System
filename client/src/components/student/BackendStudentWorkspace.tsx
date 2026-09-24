@@ -31,6 +31,24 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
         <div className="rounded-2xl border border-slate-200 bg-white p-4"><BookOpen className="h-5 w-5 text-amber-600" /><p className="mt-3 text-xs text-slate-500">Academic status</p><strong className="block text-slate-900">{identity.academicStatus?.currentStatus || 'Not recorded'}</strong></div>
       </div>
 
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-4 border-b border-slate-100 pb-3">
+          <h2 className="font-bold text-slate-900">Personal profile</h2>
+          <p className="mt-1 text-xs text-slate-500">Personal information recorded for your authenticated student account.</p>
+        </div>
+        <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <div><dt className="text-xs text-slate-500">First name</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.firstName || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Middle name</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.middleName || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Last name</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.lastName || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Birth date</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.birthDate || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Sex</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.sex || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Civil status</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.civilStatus || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Citizenship</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.citizenship || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Religion</dt><dd className="mt-1 font-semibold text-slate-900">{identity.religiousInformation?.religion || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Student classification</dt><dd className="mt-1 font-semibold text-slate-900">{identity.classification?.studentType || 'Not recorded'}</dd></div>
+        </dl>
+      </section>
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="font-bold text-slate-900">Academic records</h2>

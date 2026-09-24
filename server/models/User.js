@@ -9,6 +9,18 @@ const userSchema = new mongoose.Schema(
       trim: true
     },
 
+    firstName: { type: String, trim: true, default: '' },
+
+    lastName: { type: String, trim: true, default: '' },
+
+    email: { type: String, trim: true, lowercase: true, default: '' },
+
+    studentNumber: { type: String, trim: true, default: '' },
+
+    employeeId: { type: String, trim: true, default: '' },
+
+    department: { type: String, trim: true, default: '' },
+
     googleId: {
       type: String,
       unique: true,

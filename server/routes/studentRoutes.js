@@ -6,6 +6,7 @@ const StudentStatusHistory = require('../models/StudentStatusHistory');
 const AuditLog = require('../models/AuditLog');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
+const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
 
 const router = express.Router();
 
@@ -41,6 +42,7 @@ router.put(
   '/:institutionId/status',
   authenticateToken,
   authorizeRoles('faculty'),
+  authorizePermission('submit_evaluations'),
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -153,6 +155,7 @@ router.put(
   '/:institutionId/evaluation',
   authenticateToken,
   authorizeRoles('faculty'),
+  authorizePermission('submit_evaluations'),
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -266,6 +269,7 @@ router.get(
   '/:institutionId/academic-records',
   authenticateToken,
   authorizeRoles('admin', 'faculty'),
+  authorizeAnyPermission('manage_academic_records', 'view_student_records'),
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -314,6 +318,7 @@ router.get(
   '/:institutionId/report',
   authenticateToken,
   authorizeRoles('admin', 'faculty'),
+  authorizeAnyPermission('view_reports', 'view_student_records'),
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -385,6 +390,7 @@ router.get(
   '/:institutionId',
   authenticateToken,
   authorizeRoles('admin', 'faculty'),
+  authorizeAnyPermission('manage_academic_records', 'view_student_records'),
   async (req, res) => {
   try {
     const { institutionId } = req.params;

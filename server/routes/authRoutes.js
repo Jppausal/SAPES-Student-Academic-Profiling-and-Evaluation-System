@@ -176,6 +176,9 @@ router.post('/google', async (req, res) => {
             message: 'Google account is not linked to the matching student record'
           });
         }
+        user.username = linkedStudent.institutionId;
+        user.studentNumber = linkedStudent.institutionId;
+        user.email = email;
       } else if (studentEmailMatch) {
         return res.status(403).json({
           success: false,
@@ -196,7 +199,9 @@ router.post('/google', async (req, res) => {
 
       if (!user) {
         user = await User.create({
-          username: email,
+          username: institutionId,
+          email,
+          studentNumber: institutionId,
           passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
           googleId: payload.sub,
           role: 'student',

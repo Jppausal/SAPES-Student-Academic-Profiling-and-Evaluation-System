@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { fetchMyStudentIdentity, fetchMyStudentReport, StudentIdentity, StudentReport } from '../../lib/api';
 import { BackendStudentWorkspace } from './BackendStudentWorkspace';
 import { StudentOverview } from './StudentOverview';
-import { StudentProfileForm } from './StudentProfileForm';
+import { StudentProfileSetup } from './StudentProfileSetup';
 import { StudentAcademicRecordView } from './StudentAcademicRecordView';
 import { StudentDossierSummary } from './StudentDossierSummary';
 import {
@@ -33,6 +33,10 @@ export const StudentPortal: React.FC = () => {
         if (active) {
           setIdentity(student);
           setReport(studentReport);
+          const firstName = student.personalInformation?.firstName?.trim();
+          const lastName = student.personalInformation?.lastName?.trim();
+          const needsProfileSetup = !firstName || !lastName || (firstName === 'New' && lastName === 'Student');
+          if (needsProfileSetup) setActiveTab('profile');
         }
       })
       .catch((requestError) => {
@@ -51,6 +55,12 @@ export const StudentPortal: React.FC = () => {
   if (error || !identity || !report) {
     return <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">{error || 'Student profile not found.'}</div>;
   }
+
+  const profileComplete = Boolean(
+    identity.personalInformation?.firstName?.trim() &&
+    identity.personalInformation?.lastName?.trim() &&
+    !(identity.personalInformation.firstName === 'New' && identity.personalInformation.lastName === 'Student')
+  );
 
   return (
     <div className="space-y-6">
@@ -78,7 +88,7 @@ export const StudentPortal: React.FC = () => {
         >
           <UserCheck className="w-4 h-4" />
           Student Profiling Form
-          {currentStudentProfile?.profileCompletionPercentage !== 100 && (
+          {(!profileComplete || currentStudentProfile?.profileCompletionPercentage !== 100) && (
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
           )}
         </button>
@@ -114,9 +124,12 @@ export const StudentPortal: React.FC = () => {
       )}
 
       {activeTab === 'profile' && (
-        <StudentProfileForm
-          onSavedCallback={() => {
-            // Optional callback
+        <StudentProfileSetup
+          identity={identity}
+          isOnboarding={!profileComplete}
+          onSaved={(updatedIdentity) => {
+            setIdentity(updatedIdentity);
+            setActiveTab('overview');
           }}
         />
       )}

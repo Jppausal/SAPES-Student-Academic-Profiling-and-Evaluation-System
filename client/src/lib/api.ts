@@ -5,6 +5,12 @@ export type ServerStatus = 'checking' | 'online' | 'offline';
 export interface ApiUser {
   id: string;
   username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  studentNumber: string;
+  employeeId: string;
+  department: string;
   role: 'student' | 'faculty' | 'admin';
   accountStatus: 'active' | 'inactive' | 'suspended';
   createdAt?: string;
@@ -68,6 +74,12 @@ export async function createUser(payload: {
   username: string;
   password: string;
   role: ApiUser['role'];
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  studentNumber?: string;
+  employeeId?: string;
+  department?: string;
 }) {
   const response = await request<{ success: true; data: { user: ApiUser } }>('/api/users', {
     method: 'POST',
@@ -87,12 +99,52 @@ export async function updateUserStatus(userId: string, accountStatus: ApiUser['a
   return response.data.user;
 }
 
+export async function updateUser(userId: string, payload: {
+  username?: string;
+  password?: string;
+  role?: ApiUser['role'];
+  accountStatus?: ApiUser['accountStatus'];
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  studentNumber?: string;
+  employeeId?: string;
+  department?: string;
+}) {
+  const response = await request<{ success: true; data: { user: ApiUser } }>(
+    `/api/users/${encodeURIComponent(userId)}`,
+    { method: 'PUT', body: JSON.stringify(payload) }
+  );
+  return response.data.user;
+}
+
 export async function fetchAuditLogs() {
   const response = await request<{
     success: true;
     data: { auditLogs: ApiAuditLog[] };
   }>('/api/audit-logs?limit=20');
   return response.data.auditLogs;
+}
+
+export interface RolePermissionConfig {
+  role: 'student' | 'faculty' | 'admin';
+  permissions: string[];
+}
+
+export async function fetchRolePermissions() {
+  const response = await request<{
+    success: true;
+    data: { availablePermissions: string[]; roles: RolePermissionConfig[] };
+  }>('/api/permissions');
+  return response.data;
+}
+
+export async function updateRolePermissions(role: RolePermissionConfig['role'], permissions: string[]) {
+  const response = await request<{ success: true; data: RolePermissionConfig }>(
+    `/api/permissions/${role}`,
+    { method: 'PUT', body: JSON.stringify({ permissions }) }
+  );
+  return response.data;
 }
 
 export interface StudentReport {
@@ -147,6 +199,12 @@ export interface StudentIdentity {
     firstName?: string;
     middleName?: string;
     lastName?: string;
+    birthDate?: string;
+    birthPlace?: string;
+    sex?: string;
+    civilStatus?: string;
+    nationality?: string;
+    citizenship?: string;
   };
   classification?: {
     studentType?: string;
@@ -166,6 +224,36 @@ export interface StudentIdentity {
 
 export async function fetchMyStudentIdentity() {
   const response = await request<{ success: true; data: StudentIdentity }>('/api/me/student');
+  return response.data;
+}
+
+export type StudentProfileUpdate = {
+  personalInformation?: {
+    firstName?: string;
+    middleName?: string;
+    lastName?: string;
+    birthDate?: string;
+    birthPlace?: string;
+    sex?: string;
+    civilStatus?: string;
+    nationality?: string;
+    citizenship?: string;
+    isForeigner?: boolean;
+  };
+  classification?: {
+    studentType?: string;
+    isIP?: boolean;
+    isPWD?: boolean;
+    indigenousGroup?: string;
+  };
+  religiousInformation?: { religion?: string };
+};
+
+export async function updateMyStudentProfile(payload: StudentProfileUpdate) {
+  const response = await request<{ success: true; data: StudentIdentity }>(
+    '/api/me/student/profile',
+    { method: 'PUT', body: JSON.stringify(payload) }
+  );
   return response.data;
 }
 
