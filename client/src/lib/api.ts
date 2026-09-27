@@ -238,6 +238,7 @@ export interface InstitutionalStudentSummary {
     firstName?: string;
     middleName?: string;
     lastName?: string;
+    suffix?: string;
   };
   classification: {
     studentType?: string;
@@ -298,6 +299,7 @@ export interface StudentIdentity {
     bloodType?: string;
     dualCitizenship?: string;
     minority?: string;
+    isForeigner?: boolean;
   };
   enrollmentInformation?: Record<string, string>;
   contactInformation?: Record<string, string>;
@@ -332,12 +334,18 @@ export type StudentProfileUpdate = {
     firstName?: string;
     middleName?: string;
     lastName?: string;
+    suffix?: string;
     birthDate?: string;
     birthPlace?: string;
     sex?: string;
     civilStatus?: string;
     nationality?: string;
     citizenship?: string;
+    height?: string;
+    weight?: string;
+    bloodType?: string;
+    dualCitizenship?: string;
+    minority?: string;
     isForeigner?: boolean;
   };
   enrollmentInformation?: Record<string, string>;

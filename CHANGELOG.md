@@ -22,6 +22,7 @@ All notable SAPES changes are recorded here.
 - Added five idempotent BSIT test students sharing the referenced four-term curriculum.
 - Added approved SAPES v1 student profile context and restricted health-accommodation visibility.
 - Added structured student medical-history checklist and emergency-contact details.
+- Added guided Philippine address selection through country, region, province, municipality, and barangay fields.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.
@@ -39,6 +40,7 @@ All notable SAPES changes are recorded here.
 - Protected requests now resolve current account status and role from MongoDB.
 - Administrator account editing now persists supported role and status changes.
 - Student provisioning compensates for profile-creation failures.
+- Personal-information forms now use consistent select controls for sex, civil status, and blood type, and support suffix, dual citizenship, height, and weight.
 - `Student.userId` now enforces a unique one-to-one account relationship.
 
 ### Security

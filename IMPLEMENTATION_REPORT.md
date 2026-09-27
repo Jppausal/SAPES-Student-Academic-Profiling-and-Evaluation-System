@@ -24,6 +24,8 @@ Updated: 2026-09-27
 ### SAPES v1 profile baseline
 
 - Student profiles now support enrollment context, contact information, present/home addresses, educational background, and relevant health accommodation details in the existing `students` collection.
+- Present and home addresses support country, province, municipality, barangay, street, and ZIP code. Philippine selections are guided by the PSGC Cloud hierarchy; selecting Other keeps the address fields manually editable.
+- Personal information supports optional suffix, dual citizenship, height, weight, and blood type. Sex and civil-status entries are standardized select controls.
 - Student self-service updates use explicit server-side field whitelists; institution ID, account linkage, role, academic status, grades, and evaluations remain protected.
 - Faculty reports include enrollment context and only health accommodation signals/notes needed for evaluation; detailed condition descriptions remain excluded from faculty responses.
 - Health profiles support a validated medical-history checklist, allergies, an Other condition, accommodation requirements, private notes, and emergency-contact information. “None” is mutually exclusive with every condition.

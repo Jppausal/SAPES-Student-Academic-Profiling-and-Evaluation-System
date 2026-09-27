@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Save, ShieldCheck } from 'lucide-react';
+import { AddressSelector } from './AddressSelector';
 import {
   StudentIdentity,
   StudentProfileUpdate,
@@ -132,13 +133,18 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
           <label className="text-xs font-semibold text-slate-700">First name *<input required value={personal.firstName || ''} onChange={(event) => setPersonal('firstName', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Middle name<input value={personal.middleName || ''} onChange={(event) => setPersonal('middleName', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Last name *<input required value={personal.lastName || ''} onChange={(event) => setPersonal('lastName', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Suffix<input placeholder="Jr., Sr., III" value={personal.suffix || ''} onChange={(event) => setPersonal('suffix', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Birth date<input type="date" value={personal.birthDate ? String(personal.birthDate).slice(0, 10) : ''} onChange={(event) => setPersonal('birthDate', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Birth place<input value={personal.birthPlace || ''} onChange={(event) => setPersonal('birthPlace', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
-          <label className="text-xs font-semibold text-slate-700">Sex<input value={personal.sex || ''} onChange={(event) => setPersonal('sex', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
-          <label className="text-xs font-semibold text-slate-700">Civil status<input value={personal.civilStatus || ''} onChange={(event) => setPersonal('civilStatus', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Sex<select value={personal.sex || ''} onChange={(event) => setPersonal('sex', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900"><option value="">Select</option><option>Female</option><option>Male</option><option>Prefer not to say</option></select></label>
+          <label className="text-xs font-semibold text-slate-700">Civil status<select value={personal.civilStatus || ''} onChange={(event) => setPersonal('civilStatus', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900"><option value="">Select</option><option>Single</option><option>Married</option><option>Widowed</option><option>Separated</option></select></label>
           <label className="text-xs font-semibold text-slate-700">Nationality<input value={personal.nationality || ''} onChange={(event) => setPersonal('nationality', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Citizenship<input value={personal.citizenship || ''} onChange={(event) => setPersonal('citizenship', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 sm:col-span-2"><input type="checkbox" checked={personal.isForeigner || false} onChange={(event) => setPersonal('isForeigner', event.target.checked)} /> I am a foreign national</label>
+          <label className="text-xs font-semibold text-slate-700">Dual citizenship<input value={personal.dualCitizenship || ''} onChange={(event) => setPersonal('dualCitizenship', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Blood type<select value={personal.bloodType || ''} onChange={(event) => setPersonal('bloodType', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900"><option value="">Select</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option><option>Unknown</option></select></label>
+          <label className="text-xs font-semibold text-slate-700">Height<input value={personal.height || ''} onChange={(event) => setPersonal('height', event.target.value)} placeholder="e.g. 165 cm" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Weight<input value={personal.weight || ''} onChange={(event) => setPersonal('weight', event.target.value)} placeholder="e.g. 60 kg" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
         </div>
       </section>
 
@@ -173,11 +179,10 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="font-bold text-slate-900">Address Information</h2>
+        <p className="mt-1 text-xs text-slate-500">Choose Philippine locations by region, province, municipality, and barangay. International addresses remain manually editable.</p>
         <div className="mt-4 grid gap-5 lg:grid-cols-2">
-          {(['presentAddress', 'homeAddress'] as const).map((addressName) => {
-            const address = addresses[addressName] || {};
-            return <div key={addressName} className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2"><h3 className="sm:col-span-2 text-sm font-semibold text-slate-800">{addressName === 'presentAddress' ? 'Present address' : 'Home address'}</h3>{[['street', 'Street'], ['barangay', 'Barangay'], ['municipality', 'Municipality'], ['province', 'Province'], ['zipCode', 'Zip code']].map(([field, label]) => <label key={field} className="text-xs font-semibold text-slate-700">{label}<input value={address[field] || ''} onChange={(event) => setAddress(addressName, field, event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2" /></label>)}</div>;
-          })}
+          <AddressSelector title="Present address" address={addresses.presentAddress || {}} onChange={(field, value) => setAddress('presentAddress', field, value)} />
+          <AddressSelector title="Home address" address={addresses.homeAddress || {}} onChange={(field, value) => setAddress('homeAddress', field, value)} />
         </div>
       </section>
 

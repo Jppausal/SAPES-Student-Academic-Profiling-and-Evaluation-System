@@ -7,6 +7,7 @@ test('normalizes allowed self-service fields', () => {
   const result = validateAndNormalizeStudentProfile({
     personalInformation: {
       firstName: '  Ana  ',
+      suffix: ' Jr. ',
       birthDate: '2004-05-06'
     },
     classification: {
@@ -20,6 +21,7 @@ test('normalizes allowed self-service fields', () => {
 
   assert.equal(result.error, undefined);
   assert.equal(result.value.personalInformation.firstName, 'Ana');
+  assert.equal(result.value.personalInformation.suffix, 'Jr.');
   assert.equal(result.value.personalInformation.birthDate.toISOString(), '2004-05-06T00:00:00.000Z');
   assert.equal(result.value.classification.isShifter, true);
   assert.equal(result.value.religiousInformation.religion, 'Catholic');
@@ -59,7 +61,7 @@ test('normalizes expanded student context while keeping identifiers protected', 
   const result = validateAndNormalizeStudentProfile({
     enrollmentInformation: { course: ' BSIT ', curriculum: '2024-2025 BSIT' },
     contactInformation: { institutionalEmail: ' student@buksu.edu.ph ' },
-    addresses: { presentAddress: { barangay: ' Malaybalay ', zipCode: '8700' } },
+    addresses: { presentAddress: { barangay: ' Malaybalay ', province: ' Bukidnon ', country: ' Philippines ', zipCode: '8700' } },
     educationalBackground: { seniorHigh: ' BukSU Integrated School ' },
     healthInformation: { hasRelevantHealthConcern: true, accommodationRequired: true, accommodationNotes: 'Accessible seating' }
   });
@@ -68,6 +70,7 @@ test('normalizes expanded student context while keeping identifiers protected', 
   assert.equal(result.value.enrollmentInformation.course, 'BSIT');
   assert.equal(result.value.contactInformation.institutionalEmail, 'student@buksu.edu.ph');
   assert.equal(result.value.addresses.presentAddress.barangay, 'Malaybalay');
+  assert.equal(result.value.addresses.presentAddress.country, 'Philippines');
   assert.equal(result.value.healthInformation.accommodationRequired, true);
 });
 

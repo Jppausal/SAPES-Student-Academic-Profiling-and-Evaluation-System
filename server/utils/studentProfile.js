@@ -2,7 +2,7 @@ const HEALTH_CONDITIONS = ['None', 'Anemia', 'Anxiety', 'Asthma', 'Blood Clots',
 
 const PROFILE_SECTION_RULES = {
   personalInformation: {
-    strings: ['firstName', 'middleName', 'lastName', 'birthPlace', 'sex', 'civilStatus', 'height', 'weight', 'bloodType', 'nationality', 'citizenship', 'dualCitizenship', 'minority'],
+    strings: ['firstName', 'middleName', 'lastName', 'suffix', 'birthPlace', 'sex', 'civilStatus', 'height', 'weight', 'bloodType', 'nationality', 'citizenship', 'dualCitizenship', 'minority'],
     booleans: ['isForeigner'],
     dates: ['birthDate']
   },
@@ -121,7 +121,7 @@ const validateAndNormalizeStudentProfile = (body) => {
     for (const addressName of Object.keys(addresses)) {
       const address = addresses[addressName];
       if (!address || typeof address !== 'object' || Array.isArray(address)) return { error: `addresses.${addressName} must be an object` };
-      const allowedFields = ['street', 'barangay', 'municipality', 'province', 'zipCode'];
+      const allowedFields = ['street', 'barangay', 'municipality', 'province', 'country', 'zipCode'];
       const unsupportedField = Object.keys(address).find((field) => !allowedFields.includes(field));
       if (unsupportedField) return { error: `addresses.${addressName}.${unsupportedField} is not editable` };
       normalized.addresses[addressName] = {};
