@@ -76,6 +76,8 @@ repository: git diff --check
 
 The backend suite contains focused tests for session/account-status enforcement and student-profile validation.
 
+Production dependency audits report zero known vulnerabilities for both the server and client. The backend `qs` transitive dependency was updated to `6.16.0` to resolve two moderate denial-of-service advisories.
+
 The configured MongoDB database was reachable on 2026-09-27. `npm run db:indexes` completed successfully after duplicate detection, and read-only verification confirmed both the unique `Student.userId` index and the unique student/academic-year/semester index are present.
 
 The Express server was started against the configured environment on 2026-09-27. It connected to MongoDB, returned HTTP 200 from `/api/health`, and rejected an unauthenticated `/api/users` request with HTTP 401. The health endpoint now returns HTTP 503 with a degraded state when MongoDB is unavailable.
