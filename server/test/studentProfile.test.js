@@ -54,3 +54,19 @@ test('keeps academic status outside ordinary profile updates', () => {
 
   assert.equal(result.error, 'academicStatus is system-controlled or not editable');
 });
+
+test('normalizes expanded student context while keeping identifiers protected', () => {
+  const result = validateAndNormalizeStudentProfile({
+    enrollmentInformation: { course: ' BSIT ', curriculum: '2024-2025 BSIT' },
+    contactInformation: { institutionalEmail: ' student@buksu.edu.ph ' },
+    addresses: { presentAddress: { barangay: ' Malaybalay ', zipCode: '8700' } },
+    educationalBackground: { seniorHigh: ' BukSU Integrated School ' },
+    healthInformation: { hasRelevantHealthConcern: true, accommodationRequired: true, accommodationNotes: 'Accessible seating' }
+  });
+
+  assert.equal(result.error, undefined);
+  assert.equal(result.value.enrollmentInformation.course, 'BSIT');
+  assert.equal(result.value.contactInformation.institutionalEmail, 'student@buksu.edu.ph');
+  assert.equal(result.value.addresses.presentAddress.barangay, 'Malaybalay');
+  assert.equal(result.value.healthInformation.accommodationRequired, true);
+});

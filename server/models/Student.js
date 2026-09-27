@@ -42,9 +42,16 @@ const studentSchema = new mongoose.Schema(
 
       civilStatus: String,
 
+      height: String,
+      weight: String,
+      bloodType: String,
+
       nationality: String,
 
       citizenship: String,
+
+      dualCitizenship: String,
+      minority: String,
 
       isForeigner: {
         type: Boolean,
@@ -78,8 +85,36 @@ const studentSchema = new mongoose.Schema(
       indigenousGroup: String
     },
 
+    enrollmentInformation: {
+      course: String, level: String, department: String, curriculum: String, yearLevel: String,
+      entryPeriod: String, entryDate: Date, studentType: String, preferredModality: String,
+      campus: String, learnerReferenceNo: String, nstpNumber: String
+    },
+
+    contactInformation: {
+      mobileNumber: String, alternateMobileNumber: String, telephoneNumber: String,
+      institutionalEmail: String, alternateEmail: String
+    },
+
+    addresses: {
+      presentAddress: { street: String, barangay: String, municipality: String, province: String, zipCode: String },
+      homeAddress: { street: String, barangay: String, municipality: String, province: String, zipCode: String }
+    },
+
+    educationalBackground: {
+      previousSchool: String, seniorHigh: String, juniorHigh: String, elementary: String
+    },
+
     religiousInformation: {
       religion: String
+    },
+
+    healthInformation: {
+      hasRelevantHealthConcern: { type: Boolean, default: false },
+      conditionDescription: String,
+      accommodationRequired: { type: Boolean, default: false },
+      accommodationNotes: String,
+      lastUpdated: Date
     },
 
     academicStatus: {

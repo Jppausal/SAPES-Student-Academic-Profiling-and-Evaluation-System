@@ -21,6 +21,12 @@ Updated: 2026-09-27
 - The report endpoint resolves the student through the authenticated user and returns a server-calculated major-subject GWA for every academic term.
 - `npm run seed:student-test-records` idempotently inserts three MongoDB-backed demonstration periods for `student.test` without replacing existing periods.
 
+### SAPES v1 profile baseline
+
+- Student profiles now support enrollment context, contact information, present/home addresses, educational background, and relevant health accommodation details in the existing `students` collection.
+- Student self-service updates use explicit server-side field whitelists; institution ID, account linkage, role, academic status, grades, and evaluations remain protected.
+- Faculty reports include enrollment context and only health accommodation signals/notes needed for evaluation; detailed condition descriptions remain excluded from faculty responses.
+
 The configured database now contains these added `student.test` demonstration records:
 
 - `2024-2025 / 2nd Semester`: IT 121 Computer Programming 2 (3, 1.75, major), IT 122 Discrete Structures (3, 2.00, major), GE 104 Mathematics in the Modern World (3, 1.50, non-major). Period major GWA: 1.88.

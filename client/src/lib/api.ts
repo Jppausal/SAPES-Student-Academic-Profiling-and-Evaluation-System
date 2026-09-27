@@ -281,7 +281,17 @@ export interface StudentIdentity {
     civilStatus?: string;
     nationality?: string;
     citizenship?: string;
+    height?: string;
+    weight?: string;
+    bloodType?: string;
+    dualCitizenship?: string;
+    minority?: string;
   };
+  enrollmentInformation?: Record<string, string>;
+  contactInformation?: Record<string, string>;
+  addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
+  educationalBackground?: Record<string, string>;
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; lastUpdated?: string };
   classification?: {
     studentType?: string;
     isIP?: boolean;
@@ -318,6 +328,11 @@ export type StudentProfileUpdate = {
     citizenship?: string;
     isForeigner?: boolean;
   };
+  enrollmentInformation?: Record<string, string>;
+  contactInformation?: Record<string, string>;
+  addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
+  educationalBackground?: Record<string, string>;
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; lastUpdated?: string };
   classification?: {
     studentType?: string;
     isIP?: boolean;

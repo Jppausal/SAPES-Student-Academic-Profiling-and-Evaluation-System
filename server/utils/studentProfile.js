@@ -1,6 +1,6 @@
 const PROFILE_SECTION_RULES = {
   personalInformation: {
-    strings: ['firstName', 'middleName', 'lastName', 'birthPlace', 'sex', 'civilStatus', 'nationality', 'citizenship'],
+    strings: ['firstName', 'middleName', 'lastName', 'birthPlace', 'sex', 'civilStatus', 'height', 'weight', 'bloodType', 'nationality', 'citizenship', 'dualCitizenship', 'minority'],
     booleans: ['isForeigner'],
     dates: ['birthDate']
   },
@@ -13,6 +13,19 @@ const PROFILE_SECTION_RULES = {
     strings: ['religion'],
     booleans: [],
     dates: []
+  },
+  enrollmentInformation: {
+    strings: ['course', 'level', 'department', 'curriculum', 'yearLevel', 'entryPeriod', 'studentType', 'preferredModality', 'campus', 'learnerReferenceNo', 'nstpNumber'],
+    booleans: [], dates: ['entryDate']
+  },
+  contactInformation: {
+    strings: ['mobileNumber', 'alternateMobileNumber', 'telephoneNumber', 'institutionalEmail', 'alternateEmail'], booleans: [], dates: []
+  },
+  educationalBackground: {
+    strings: ['previousSchool', 'seniorHigh', 'juniorHigh', 'elementary'], booleans: [], dates: []
+  },
+  healthInformation: {
+    strings: ['conditionDescription', 'accommodationNotes'], booleans: ['hasRelevantHealthConcern', 'accommodationRequired'], dates: ['lastUpdated']
   }
 };
 
@@ -21,7 +34,7 @@ const validateAndNormalizeStudentProfile = (body) => {
     return { error: 'Request body must be an object' };
   }
 
-  const allowedSections = Object.keys(PROFILE_SECTION_RULES);
+  const allowedSections = [...Object.keys(PROFILE_SECTION_RULES), 'addresses'];
   const bodySections = Object.keys(body);
 
   if (bodySections.length === 0) {
@@ -36,6 +49,7 @@ const validateAndNormalizeStudentProfile = (body) => {
   const normalized = {};
 
   for (const sectionName of bodySections) {
+    if (sectionName === 'addresses') continue;
     const value = body[sectionName];
     const rules = PROFILE_SECTION_RULES[sectionName];
 
@@ -82,6 +96,27 @@ const validateAndNormalizeStudentProfile = (body) => {
         return { error: `${sectionName}.${field} must be a valid date` };
       }
       normalized[sectionName][field] = parsedDate;
+    }
+  }
+
+  if (body.addresses !== undefined) {
+    const addresses = body.addresses;
+    if (!addresses || typeof addresses !== 'object' || Array.isArray(addresses)) return { error: 'addresses must be an object' };
+    const allowedAddresses = ['presentAddress', 'homeAddress'];
+    const unsupportedAddress = Object.keys(addresses).find((field) => !allowedAddresses.includes(field));
+    if (unsupportedAddress) return { error: `addresses.${unsupportedAddress} is not editable` };
+    normalized.addresses = {};
+    for (const addressName of Object.keys(addresses)) {
+      const address = addresses[addressName];
+      if (!address || typeof address !== 'object' || Array.isArray(address)) return { error: `addresses.${addressName} must be an object` };
+      const allowedFields = ['street', 'barangay', 'municipality', 'province', 'zipCode'];
+      const unsupportedField = Object.keys(address).find((field) => !allowedFields.includes(field));
+      if (unsupportedField) return { error: `addresses.${addressName}.${unsupportedField} is not editable` };
+      normalized.addresses[addressName] = {};
+      for (const field of Object.keys(address)) {
+        if (typeof address[field] !== 'string' || address[field].length > 200) return { error: `addresses.${addressName}.${field} must be a string of at most 200 characters` };
+        normalized.addresses[addressName][field] = address[field].trim();
+      }
     }
   }
 

@@ -23,8 +23,13 @@ router.get(
           _id: 0,
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
+          contactInformation: 1,
+          addresses: 1,
+          educationalBackground: 1,
           classification: 1,
           religiousInformation: 1,
+          healthInformation: 1,
           academicStatus: 1
         }
       ).lean();
@@ -41,7 +46,12 @@ router.get(
         data: {
           ...student,
           classification: student.classification || {},
-          religiousInformation: student.religiousInformation || {}
+          religiousInformation: student.religiousInformation || {},
+          enrollmentInformation: student.enrollmentInformation || {},
+          contactInformation: student.contactInformation || {},
+          addresses: student.addresses || {},
+          educationalBackground: student.educationalBackground || {},
+          healthInformation: student.healthInformation || {}
         }
       });
     } catch (error) {
@@ -105,6 +115,11 @@ router.put(
           personalInformation: student.personalInformation,
           classification: student.classification || {},
           religiousInformation: student.religiousInformation || {},
+          enrollmentInformation: student.enrollmentInformation || {},
+          contactInformation: student.contactInformation || {},
+          addresses: student.addresses || {},
+          educationalBackground: student.educationalBackground || {},
+          healthInformation: student.healthInformation || {},
           academicStatus: student.academicStatus
         }
       });
@@ -128,6 +143,7 @@ router.get(
           _id: 1,
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
           classification: 1,
           religiousInformation: 1,
           academicStatus: 1

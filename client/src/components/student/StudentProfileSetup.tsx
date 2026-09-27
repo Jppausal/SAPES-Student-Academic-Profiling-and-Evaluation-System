@@ -33,6 +33,10 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       personalInformation: { ...identity.personalInformation },
       classification: { ...identity.classification },
       religiousInformation: { ...identity.religiousInformation },
+      enrollmentInformation: { ...identity.enrollmentInformation },
+      contactInformation: { ...identity.contactInformation },
+      educationalBackground: { ...identity.educationalBackground },
+      healthInformation: { ...identity.healthInformation },
     });
   }, [identity]);
 
@@ -50,13 +54,24 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
     }));
   };
 
+  const setContext = (section: 'enrollmentInformation' | 'contactInformation' | 'educationalBackground', field: string, value: string) => {
+    setProfile((current) => ({ ...current, [section]: { ...current[section], [field]: value } }));
+  };
+
+  const setHealth = (field: keyof NonNullable<StudentProfileUpdate['healthInformation']>, value: string | boolean) => {
+    setProfile((current) => ({ ...current, healthInformation: { ...current.healthInformation, [field]: value } }));
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
     setMessage('');
     setError('');
     try {
-      const updatedIdentity = await updateMyStudentProfile(profile);
+      const payload = Object.fromEntries(Object.entries(profile).filter(([, value]) =>
+        value && typeof value === 'object' && Object.keys(value).length > 0
+      )) as StudentProfileUpdate;
+      const updatedIdentity = await updateMyStudentProfile(payload);
       onSaved(updatedIdentity);
       setMessage('Your student profile was saved successfully.');
     } catch (requestError) {
@@ -68,6 +83,10 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
 
   const personal = profile.personalInformation || {};
   const classification = profile.classification || {};
+  const enrollment = profile.enrollmentInformation || {};
+  const contact = profile.contactInformation || {};
+  const education = profile.educationalBackground || {};
+  const health = profile.healthInformation || {};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -102,6 +121,31 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
           <label className="text-xs font-semibold text-slate-700">Nationality<input value={personal.nationality || ''} onChange={(event) => setPersonal('nationality', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Citizenship<input value={personal.citizenship || ''} onChange={(event) => setPersonal('citizenship', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 sm:col-span-2"><input type="checkbox" checked={personal.isForeigner || false} onChange={(event) => setPersonal('isForeigner', event.target.checked)} /> I am a foreign national</label>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <h2 className="font-bold text-slate-900">Academic and Contact Context</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-semibold text-slate-700">Course<input value={enrollment.course || ''} onChange={(event) => setContext('enrollmentInformation', 'course', event.target.value)} placeholder="e.g. Bachelor of Science in Information Technology" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Curriculum<input value={enrollment.curriculum || ''} onChange={(event) => setContext('enrollmentInformation', 'curriculum', event.target.value)} placeholder="e.g. 2024-2025 BSIT" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Year level<input value={enrollment.yearLevel || ''} onChange={(event) => setContext('enrollmentInformation', 'yearLevel', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Department<input value={enrollment.department || ''} onChange={(event) => setContext('enrollmentInformation', 'department', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Institutional email<input type="email" value={contact.institutionalEmail || ''} onChange={(event) => setContext('contactInformation', 'institutionalEmail', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Mobile number<input value={contact.mobileNumber || ''} onChange={(event) => setContext('contactInformation', 'mobileNumber', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Senior high school<input value={education.seniorHigh || ''} onChange={(event) => setContext('educationalBackground', 'seniorHigh', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Previous school<input value={education.previousSchool || ''} onChange={(event) => setContext('educationalBackground', 'previousSchool', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5 shadow-xs">
+        <h2 className="font-bold text-slate-900">Relevant Health Accommodations</h2>
+        <p className="mt-1 text-xs text-slate-600">Only accommodation information necessary for academic evaluation may be shared with authorized faculty.</p>
+        <div className="mt-4 space-y-3">
+          <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(health.hasRelevantHealthConcern)} onChange={(event) => setHealth('hasRelevantHealthConcern', event.target.checked)} /> I have a relevant health concern</label>
+          <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(health.accommodationRequired)} onChange={(event) => setHealth('accommodationRequired', event.target.checked)} /> I require an academic accommodation</label>
+          <label className="block text-xs font-semibold text-slate-700">Accommodation notes<textarea value={health.accommodationNotes || ''} onChange={(event) => setHealth('accommodationNotes', event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="block text-xs font-semibold text-slate-700">Private condition description<textarea value={health.conditionDescription || ''} onChange={(event) => setHealth('conditionDescription', event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
         </div>
       </section>
 

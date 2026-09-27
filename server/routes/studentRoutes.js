@@ -269,8 +269,10 @@ router.get(
         Student.find({}, {
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
           classification: 1,
           religiousInformation: 1,
+          healthInformation: 1,
           academicStatus: 1
         })
           .sort({ institutionId: 1, _id: 1 })
@@ -494,6 +496,13 @@ router.get(
       }
 
       const { _id: studentId, ...student } = studentRecord;
+      if (req.user.role === 'faculty' && student.healthInformation) {
+        student.healthInformation = {
+          hasRelevantHealthConcern: Boolean(student.healthInformation.hasRelevantHealthConcern),
+          accommodationRequired: Boolean(student.healthInformation.accommodationRequired),
+          accommodationNotes: student.healthInformation.accommodationNotes || ''
+        };
+      }
 
       const [academicRecords, facultyEvaluation, statusHistory] = await Promise.all([
         AcademicRecord.find(
