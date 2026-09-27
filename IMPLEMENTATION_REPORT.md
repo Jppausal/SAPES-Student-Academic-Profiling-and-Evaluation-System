@@ -40,6 +40,7 @@ Updated: 2026-09-27
 - Administrators load a paginated institutional summary through `GET /api/students/reports/summary`.
 - The endpoint batches students, academic records, and evaluations without per-student queries.
 - The analytics view reports classifications, religion, record counts, subject counts, academic status, evaluation status, and major-subject GWA from MongoDB.
+- The analytics table retrieves 25 students per page and provides previous/next controls across the complete institution dataset.
 - Student, faculty, and administrator reports share the same server-side major-subject GWA calculation.
 
 ### Authentication and account security

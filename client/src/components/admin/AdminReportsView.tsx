@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, FileCheck2, RefreshCw, Search, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileCheck2, RefreshCw, Search, Users } from 'lucide-react';
 import {
   fetchInstitutionalStudentSummary,
   InstitutionalStudentSummary,
@@ -8,6 +8,8 @@ import {
 export const AdminReportsView: React.FC = () => {
   const [students, setStudents] = useState<InstitutionalStudentSummary[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [statistics, setStatistics] = useState({ ip: 0, pwd: 0, probation: 0, evaluated: 0 });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -17,9 +19,10 @@ export const AdminReportsView: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const result = await fetchInstitutionalStudentSummary();
+      const result = await fetchInstitutionalStudentSummary(page);
       setStudents(result.students);
       setTotal(result.pagination.total);
+      setTotalPages(Math.max(result.pagination.totalPages, 1));
       setStatistics(result.statistics);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to load institutional reports.');
@@ -30,7 +33,7 @@ export const AdminReportsView: React.FC = () => {
 
   useEffect(() => {
     void loadReport();
-  }, []);
+  }, [page]);
 
   const filteredStudents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -78,15 +81,11 @@ export const AdminReportsView: React.FC = () => {
         ))}
       </section>
 
-      {total > students.length && (
-        <p className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800"><AlertTriangle className="h-4 w-4" /> Showing the first {students.length} of {total} students. Server pagination is available for larger reports.</p>
-      )}
-
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
         <div className="border-b border-slate-200 p-4">
           <div className="relative max-w-lg">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter loaded students by ID, name, status, or evaluation" className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter this page by ID, name, status, or evaluation" className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm" />
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -117,6 +116,13 @@ export const AdminReportsView: React.FC = () => {
               {filteredStudents.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500"><Users className="mx-auto mb-2 h-5 w-5" />No matching students.</td></tr>}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <span>Page {page} of {totalPages} · {total} students total</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setSearch(''); setPage((current) => Math.max(1, current - 1)); }} disabled={loading || page <= 1} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"><ChevronLeft className="h-4 w-4" /> Previous</button>
+            <button type="button" onClick={() => { setSearch(''); setPage((current) => Math.min(totalPages, current + 1)); }} disabled={loading || page >= totalPages} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Next <ChevronRight className="h-4 w-4" /></button>
+          </div>
         </div>
       </section>
     </div>

@@ -16,6 +16,7 @@ All notable SAPES changes are recorded here.
 - Safe database-index synchronization command with duplicate detection.
 - Authenticated session-restoration endpoint and client startup validation.
 - Patched the backend `qs` dependency to remove known denial-of-service advisories.
+- Added administrator report pagination controls for institutional datasets larger than one page.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.

@@ -244,7 +244,8 @@ export interface InstitutionalStudentSummary {
   } | null;
 }
 
-export async function fetchInstitutionalStudentSummary() {
+export async function fetchInstitutionalStudentSummary(page = 1, limit = 25) {
+  const query = new URLSearchParams({ page: String(page), limit: String(limit) });
   const response = await request<{
     success: true;
     data: {
@@ -252,7 +253,7 @@ export async function fetchInstitutionalStudentSummary() {
       pagination: { page: number; limit: number; total: number; totalPages: number };
       statistics: { ip: number; pwd: number; probation: number; evaluated: number };
     };
-  }>('/api/students/reports/summary?limit=100');
+  }>(`/api/students/reports/summary?${query.toString()}`);
   return response.data;
 }
 
