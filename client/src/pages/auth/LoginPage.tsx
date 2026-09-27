@@ -93,15 +93,15 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack }: LoginPageP
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-700">
-            ID Number
+            ID Number / Username
           </label>
           <input
             id="username"
             name="username"
             type="text"
             autoComplete="username"
-            placeholder="2021301234"
-            maxLength={10}
+            placeholder="e.g. 2021301234 or admin.test"
+            maxLength={50}
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
           />
         </div>
