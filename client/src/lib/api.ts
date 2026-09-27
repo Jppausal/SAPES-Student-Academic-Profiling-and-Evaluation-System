@@ -83,6 +83,18 @@ export async function logoutRequest() {
   });
 }
 
+export async function requestPasswordReset(username: string) {
+  return request<{ success: true; message: string }>('/api/auth/password-reset/request', {
+    method: 'POST', body: JSON.stringify({ username })
+  });
+}
+
+export async function confirmPasswordReset(username: string, code: string, newPassword: string) {
+  return request<{ success: true; message: string }>('/api/auth/password-reset/confirm', {
+    method: 'POST', body: JSON.stringify({ username, code, newPassword })
+  });
+}
+
 export async function fetchUsers() {
   const response = await request<{ success: true; data: { users: ApiUser[] } }>('/api/users?limit=100');
   return response.data.users;

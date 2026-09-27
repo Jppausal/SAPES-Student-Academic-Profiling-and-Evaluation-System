@@ -11,8 +11,9 @@ import { FacultyPortal } from './components/faculty/FacultyPortal';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 
-type AuthView = 'landing' | 'login' | 'dashboard';
+type AuthView = 'landing' | 'login' | 'forgot-password' | 'dashboard';
 
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus, sessionReady, login, loginWithGoogle } = useApp();
@@ -47,8 +48,13 @@ const AppContent: React.FC = () => {
           return result;
         }}
         onBack={() => setAuthView('landing')}
+        onForgotPassword={() => setAuthView('forgot-password')}
       />
     );
+  }
+
+  if (authView === 'forgot-password') {
+    return <ForgotPasswordPage onBack={() => setAuthView('login')} />;
   }
 
   if (authView === 'landing') {
