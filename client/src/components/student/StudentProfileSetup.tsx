@@ -14,6 +14,7 @@ interface StudentProfileSetupProps {
 }
 
 const HEALTH_CONDITIONS = ['None', 'Anemia', 'Anxiety', 'Asthma', 'Blood Clots', 'Cerebrovascular Accident', 'Depression', 'Hypertension', 'Thyroid Disease', 'Allergies', 'Arthritis', 'Cancer', 'Diabetes', 'Migraine Headaches', 'Peptic Ulcer Disease', 'Seizure Disorder', 'Other'];
+const RELIGION_OPTIONS = ['Catholic', 'Protestant / Other Christian', 'Iglesia ni Cristo', 'Islam', 'Buddhism', 'Hinduism', 'Judaism', 'Sikhism', 'Traditional / Indigenous beliefs', 'No religious affiliation', 'Prefer not to say'];
 
 const emptyProfile: StudentProfileUpdate = {
   personalInformation: {},
@@ -30,6 +31,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [isOtherReligion, setIsOtherReligion] = useState(false);
 
   useEffect(() => {
     setProfile({
@@ -42,6 +44,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       addresses: { presentAddress: { ...identity.addresses?.presentAddress }, homeAddress: { ...identity.addresses?.homeAddress } },
       healthInformation: { ...identity.healthInformation },
     });
+    setIsOtherReligion(false);
   }, [identity]);
 
   const setPersonal = (field: keyof NonNullable<StudentProfileUpdate['personalInformation']>, value: string | boolean) => {
@@ -106,6 +109,8 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const education = profile.educationalBackground || {};
   const health = profile.healthInformation || {};
   const addresses = profile.addresses || {};
+  const religion = profile.religiousInformation?.religion || '';
+  const hasCustomReligion = Boolean(religion && !RELIGION_OPTIONS.includes(religion));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -201,7 +206,18 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="font-bold text-slate-900">Religious Information</h2>
         <p className="mt-1 text-xs text-slate-500">This is optional student-provided information. SAPES does not infer religion.</p>
-        <label className="mt-4 block text-xs font-semibold text-slate-700">Religion or religious affiliation<input value={profile.religiousInformation?.religion || ''} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { religion: event.target.value } }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block text-xs font-semibold text-slate-700">Religion or religious affiliation
+            <select value={hasCustomReligion || isOtherReligion ? 'Other' : religion} onChange={(event) => { const value = event.target.value; setIsOtherReligion(value === 'Other'); setProfile((current) => ({ ...current, religiousInformation: { religion: value === 'Other' ? '' : value } })); }} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900">
+              <option value="">Select an option</option>
+              {RELIGION_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              <option value="Other">Other — specify</option>
+            </select>
+          </label>
+          {(hasCustomReligion || isOtherReligion) && <label className="block text-xs font-semibold text-slate-700">Other religion or affiliation
+            <input value={hasCustomReligion ? religion : ''} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { religion: event.target.value } }))} placeholder="Optional" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" />
+          </label>}
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-xs text-slate-600">

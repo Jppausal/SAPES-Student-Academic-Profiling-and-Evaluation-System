@@ -25,6 +25,7 @@ All notable SAPES changes are recorded here.
 - Added guided Philippine address selection through country, region, province, municipality, and barangay fields.
 - Kept student profile editing available when an academic-report request cannot be loaded.
 - Fixed profile rendering after Philippine location data loads from PSGC Cloud.
+- Added a reliable religion selection with an Other field and a Prefer not to say option.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.

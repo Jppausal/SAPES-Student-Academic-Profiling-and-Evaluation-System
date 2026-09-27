@@ -14,6 +14,7 @@ Updated: 2026-09-27
 - The rendered student portal uses only authenticated profile and report responses for profile, academic records, status, and GWA.
 - A student can open and edit their profile whenever the authenticated profile endpoint succeeds, even if the separate academic-report request fails. The academic view displays its own error state.
 - Philippine location responses are validated and unwrapped from the PSGC Cloud `data` envelope before selectors render.
+- Religious information uses a curated selection, plus Other — specify and Prefer not to say. It remains optional and stored through the existing protected profile API.
 
 ### Student academic history
 
