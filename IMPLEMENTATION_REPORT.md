@@ -18,6 +18,14 @@ Updated: 2026-09-27
 - Institution ID, user linkage, account role, and academic data are excluded from ordinary profile updates.
 - Faculty and administrators update academic status through `PUT /api/students/:institutionId/status`, which preserves status history and writes an audit entry.
 
+### Administrative academic records
+
+- Administrators search for the authoritative student record by institution ID.
+- `PUT /api/students/:institutionId/academic-records` creates or replaces one academic-year and semester record.
+- Subject codes, names, units, grades, major flags, status values, duplicate codes, and record size are validated server-side.
+- Academic-year and semester records are unique per student.
+- Successful changes write an audit entry and refresh the displayed report and major-subject GWA.
+
 ### Authentication and account security
 
 - Every protected request verifies the JWT, stored session, current user record, and current account status.
@@ -51,8 +59,7 @@ The backend suite contains focused tests for session/account-status enforcement 
 
 ## Known remaining work
 
-- Replace browser-local academic records, faculty lists, evaluations, and reports with authoritative backend data.
-- Add database-backed academic-record create/update operations for administrators.
+- Replace the remaining browser-local faculty lists, evaluation dossiers, and institutional reports with authoritative backend data.
 - Perform live end-to-end tests with MongoDB and valid institutional Google credentials.
 - Design offline local MongoDB operation and Atlas synchronization; synchronization is not implemented.
 

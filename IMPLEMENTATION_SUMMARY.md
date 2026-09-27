@@ -15,6 +15,8 @@ The current verified student-profile slice covers:
 
 Security and integrity controls now include current account-status checks on every protected request, session revocation for security-sensitive account changes, immutable student account identifiers, and a unique required `Student.userId` relationship.
 
-The application is still partially transitional. Several administrator and faculty views use mock or browser-local data, while their primary search/report operations use MongoDB-backed APIs. These local workflows must be replaced before the application can be considered fully integrated.
+The administrator academic-record workspace now reads and writes MongoDB-backed term records, validates complete subject payloads, refreshes the calculated major-subject GWA, and records academic-status history through the backend.
+
+The application is still partially transitional. Several faculty list, evaluation dossier, and institutional reporting views use mock or browser-local data, while their primary search/report operations use MongoDB-backed APIs. These local workflows must be replaced before the application can be considered fully integrated.
 
 Local MongoDB-to-Atlas synchronization remains planned and has not been implemented.

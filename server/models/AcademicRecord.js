@@ -72,4 +72,9 @@ const academicRecordSchema = new mongoose.Schema(
 }
 );
 
+academicRecordSchema.index(
+  { studentId: 1, academicYear: 1, semester: 1 },
+  { unique: true }
+);
+
 module.exports = mongoose.model('AcademicRecord', academicRecordSchema);

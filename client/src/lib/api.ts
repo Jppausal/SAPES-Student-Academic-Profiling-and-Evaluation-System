@@ -153,6 +153,21 @@ export async function updateRolePermissions(role: RolePermissionConfig['role'], 
   return response.data;
 }
 
+export interface AcademicSubject {
+  subjectCode: string;
+  subjectName: string;
+  units: number;
+  grade: number;
+  isMajor: boolean;
+  status: string;
+}
+
+export interface AcademicTermRecord {
+  academicYear: string;
+  semester: string;
+  subjects: AcademicSubject[];
+}
+
 export interface StudentReport {
   student: {
     institutionId: string;
@@ -165,18 +180,7 @@ export interface StudentReport {
       statusRemarks?: string;
     };
   };
-  academicRecords: Array<{
-    academicYear: string;
-    semester: string;
-    subjects: Array<{
-      subjectCode: string;
-      subjectName: string;
-      units: number;
-      grade: number;
-      isMajor: boolean;
-      status: string;
-    }>;
-  }>;
+  academicRecords: AcademicTermRecord[];
   majorSubjectGwa: number;
   facultyEvaluation?: {
     evaluationStatus: string;
@@ -195,6 +199,17 @@ export interface StudentReport {
 export async function fetchStudentReport(institutionId: string) {
   const response = await request<{ success: true; data: StudentReport }>(
     `/api/students/${encodeURIComponent(institutionId)}/report`
+  );
+  return response.data;
+}
+
+export async function saveAcademicRecord(
+  institutionId: string,
+  record: AcademicTermRecord
+) {
+  const response = await request<{ success: true; data: AcademicTermRecord }>(
+    `/api/students/${encodeURIComponent(institutionId)}/academic-records`,
+    { method: 'PUT', body: JSON.stringify(record) }
   );
   return response.data;
 }

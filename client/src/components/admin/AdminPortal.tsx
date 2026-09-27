@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { UserAccount, StudentProfile, AcademicRecord } from '../../types';
+import { UserAccount } from '../../types';
 import { UserManagementModal } from './UserManagementModal';
-import { AcademicRecordManagerModal } from './AcademicRecordManagerModal';
+import { BackendAcademicRecordManager } from './BackendAcademicRecordManager';
 import { AdminReportsView } from './AdminReportsView';
 import { SystemAuditLogsView } from './SystemAuditLogsView';
 import { RolePermissionsPanel } from './RolePermissionsPanel';
-import { AcademicStatusBadge, EvaluationBadge, Badge } from '../common/Badge';
 import {
   Users,
-  ShieldCheck,
   GraduationCap,
   FileCheck2,
   Activity,
@@ -19,18 +17,13 @@ import {
   UserX,
   UserCheck,
   Search,
-  CheckCircle2,
   AlertTriangle,
-  Sparkles,
 } from 'lucide-react';
 
 export const AdminPortal: React.FC = () => {
   const {
     currentUser,
     users,
-    students,
-    academicRecords,
-    evaluations,
     deactivateUserAccount,
     reactivateUserAccount,
     updateUserAccountStatus,
@@ -45,12 +38,6 @@ export const AdminPortal: React.FC = () => {
   const [userToEdit, setUserToEdit] = useState<UserAccount | null>(null);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState('');
-
-  // Academic Record Modal State
-  const [academicModalStudent, setAcademicModalStudent] = useState<{
-    student: StudentProfile;
-    academic: AcademicRecord;
-  } | null>(null);
 
   // User search
   const [userSearch, setUserSearch] = useState('');
@@ -95,19 +82,6 @@ export const AdminPortal: React.FC = () => {
       setStatusLoadingId(null);
     }
   };
-
-  // Student academic search
-  const [studentSearch, setStudentSearch] = useState('');
-  const filteredStudents = students.filter((s) => {
-    const q = studentSearch.toLowerCase();
-    return (
-      !q ||
-      s.studentNumber.toLowerCase().includes(q) ||
-      s.personalInfo.firstName.toLowerCase().includes(q) ||
-      s.personalInfo.lastName.toLowerCase().includes(q) ||
-      s.program.toLowerCase().includes(q)
-    );
-  });
 
   return (
     <div className="space-y-6">
@@ -353,128 +327,7 @@ export const AdminPortal: React.FC = () => {
       {activeTab === 'permissions' && <RolePermissionsPanel />}
 
       {/* TAB 2: ACADEMIC RECORDS & MAJOR GWA CONFIGURATION */}
-      {activeTab === 'academic-records' && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                placeholder="Search students by student number, name, or degree program..."
-                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-900"
-              />
-            </div>
-            <p className="text-xs text-slate-500">
-              Click <strong className="text-indigo-600">"Manage Record & GWA"</strong> to toggle major subjects, add course grades, or set academic probation.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Student</th>
-                    <th className="py-3 px-4">Degree Program</th>
-                    <th className="py-3 px-4 text-center">Major GWA (Auto)</th>
-                    <th className="py-3 px-4 text-center">Overall GWA</th>
-                    <th className="py-3 px-4">Academic Status</th>
-                    <th className="py-3 px-4 text-center">Courses Recorded</th>
-                    <th className="py-3 px-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredStudents.map((s) => {
-                    const a =
-                      academicRecords.find((rec) => rec.studentNumber === s.studentNumber) || {
-                        studentNumber: s.studentNumber,
-                        program: s.program,
-                        curriculumYear: '2023 Curriculum',
-                        yearLevel: s.yearLevel,
-                        currentTerm: s.enrollmentTerm,
-                        academicStatus: 'Regular' as const,
-                        isUnderProbation: false,
-                        subjects: [],
-                        overallGWA: 0,
-                        majorSubjectGWA: 0,
-                        totalUnitsEarned: 0,
-                        totalDeficientUnits: 0,
-                        maxAllowedUnits: 23,
-                      };
-
-                    return (
-                      <tr
-                        key={s.studentNumber}
-                        className={`hover:bg-slate-50/70 transition-colors ${
-                          a.isUnderProbation ? 'bg-rose-50/30' : ''
-                        }`}
-                      >
-                        <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">
-                            {s.personalInfo.lastName}, {s.personalInfo.firstName}
-                          </div>
-                          <div className="font-mono text-[11px] text-slate-500">
-                            #{s.studentNumber}
-                          </div>
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <div className="font-medium text-slate-800">{s.program}</div>
-                          <span className="text-[10px] text-slate-400">
-                            Year {s.yearLevel} • {s.enrollmentTerm}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-4 text-center">
-                          <span className="font-mono font-black text-sm text-indigo-900">
-                            {a.majorSubjectGWA > 0 ? a.majorSubjectGWA.toFixed(2) : '0.00'}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-4 text-center">
-                          <span className="font-mono font-bold text-slate-700">
-                            {a.overallGWA > 0 ? a.overallGWA.toFixed(2) : '0.00'}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <AcademicStatusBadge
-                            status={a.academicStatus}
-                            isProbation={a.isUnderProbation}
-                            size="sm"
-                          />
-                        </td>
-
-                        <td className="py-3 px-4 text-center font-mono font-semibold text-slate-600">
-                          {a.subjects.length} Courses
-                        </td>
-
-                        <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() =>
-                              setAcademicModalStudent({
-                                student: s,
-                                academic: a,
-                              })
-                            }
-                            className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white font-bold transition-all inline-flex items-center gap-1.5 shadow-2xs"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            Manage Record & GWA
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {activeTab === 'academic-records' && <BackendAcademicRecordManager />}
       {/* TAB 3: INSTITUTIONAL REPORTS */}
       {activeTab === 'reports' && <AdminReportsView />}
 
@@ -493,14 +346,6 @@ export const AdminPortal: React.FC = () => {
         />
       )}
 
-      {academicModalStudent && (
-        <AcademicRecordManagerModal
-          isOpen={!!academicModalStudent}
-          onClose={() => setAcademicModalStudent(null)}
-          student={academicModalStudent.student}
-          academicRecord={academicModalStudent.academic}
-        />
-      )}
     </div>
   );
 };

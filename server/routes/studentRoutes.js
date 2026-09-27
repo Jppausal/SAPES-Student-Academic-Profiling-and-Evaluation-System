@@ -8,6 +8,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
+const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
 
 const router = express.Router();
 
@@ -310,6 +311,75 @@ router.get(
         success: false,
         message: 'Server error'
       });
+    }
+  }
+);
+
+// Create or replace one academic-year/semester record (admin only)
+router.put(
+  '/:institutionId/academic-records',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizePermission('manage_academic_records'),
+  async (req, res) => {
+    try {
+      const { institutionId } = req.params;
+      const academicRecordUpdate = validateAndNormalizeAcademicRecord(req.body);
+      if (academicRecordUpdate.error) {
+        return res.status(400).json({ success: false, message: academicRecordUpdate.error });
+      }
+
+      const student = await Student.findOne(
+        { institutionId },
+        { _id: 1, institutionId: 1 }
+      ).lean();
+      if (!student) {
+        return res.status(404).json({ success: false, message: 'Student not found' });
+      }
+
+      const { academicYear, semester, subjects } = academicRecordUpdate.value;
+      const academicRecord = await AcademicRecord.findOneAndUpdate(
+        { studentId: student._id, academicYear, semester },
+        { $set: { subjects } },
+        {
+          returnDocument: 'after',
+          runValidators: true,
+          setDefaultsOnInsert: true,
+          upsert: true
+        }
+      );
+
+      await AuditLog.create({
+        userId: req.user.userId,
+        action: 'ACADEMIC_RECORD_SAVED',
+        targetType: 'academic_record',
+        targetId: academicRecord._id,
+        details: {
+          institutionId: student.institutionId,
+          academicYear,
+          semester,
+          subjectCount: subjects.length
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Academic record saved successfully',
+        data: {
+          academicYear: academicRecord.academicYear,
+          semester: academicRecord.semester,
+          subjects: academicRecord.subjects
+        }
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message: 'An academic record already exists for this year and semester'
+        });
+      }
+      console.error('Error saving academic record:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
     }
   }
 );

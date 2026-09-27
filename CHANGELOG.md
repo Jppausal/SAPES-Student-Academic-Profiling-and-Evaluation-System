@@ -6,6 +6,9 @@ All notable SAPES changes are recorded here.
 
 ### Added
 
+- MongoDB-backed administrator upsert API for academic-year and semester records.
+- Academic-record validation for term identity, subjects, grades, units, and duplicate subject codes.
+- Administrator academic-record workspace backed by shared student report and status APIs.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.
