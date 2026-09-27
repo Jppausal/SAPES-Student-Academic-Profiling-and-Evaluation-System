@@ -13,6 +13,7 @@ Updated: 2026-09-27
 - A shared validator rejects protected sections, unsupported nested fields, invalid types, oversized strings, and invalid dates.
 - The rendered student portal uses only authenticated profile and report responses for profile, academic records, status, and GWA.
 - A student can open and edit their profile whenever the authenticated profile endpoint succeeds, even if the separate academic-report request fails. The academic view displays its own error state.
+- Philippine location responses are validated and unwrapped from the PSGC Cloud `data` envelope before selectors render.
 
 ### Student academic history
 

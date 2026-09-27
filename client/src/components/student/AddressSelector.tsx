@@ -6,7 +6,12 @@ const BASE = 'https://psgc.cloud/api/v2';
 const load = async (path: string): Promise<Place[]> => {
   const response = await fetch(`${BASE}${path}`);
   if (!response.ok) throw new Error('Location service is unavailable');
-  return response.json();
+  const payload: unknown = await response.json();
+  if (Array.isArray(payload)) return payload as Place[];
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown }).data)) {
+    return (payload as { data: Place[] }).data;
+  }
+  throw new Error('Location service returned an invalid response');
 };
 const selectClass = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2';
 
