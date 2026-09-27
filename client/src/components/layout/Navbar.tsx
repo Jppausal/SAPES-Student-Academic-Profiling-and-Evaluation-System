@@ -29,9 +29,6 @@ export const Navbar: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold tracking-tight text-slate-900">SAPES</span>
-              <span className="hidden rounded-md border border-indigo-200/60 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 sm:inline-block">
-                A.Y. 2026-2027 • 1st Sem
-              </span>
             </div>
             <p className="mt-0.5 hidden text-[11px] leading-none text-slate-500 md:block">
               Student Enrollment & Academic Status Management System
