@@ -203,6 +203,43 @@ export async function fetchStudentReport(institutionId: string) {
   return response.data;
 }
 
+export interface InstitutionalStudentSummary {
+  institutionId: string;
+  personalInformation: {
+    firstName?: string;
+    middleName?: string;
+    lastName?: string;
+  };
+  classification: {
+    studentType?: string;
+    isIP?: boolean;
+    isPWD?: boolean;
+    isShifter?: boolean;
+    isTransferee?: boolean;
+  };
+  religiousInformation: { religion?: string };
+  academicStatus: { currentStatus?: string; isOnProbation?: boolean };
+  academicRecordCount: number;
+  subjectCount: number;
+  majorSubjectGwa: number;
+  facultyEvaluation: {
+    evaluationStatus: string;
+    evaluatedAt?: string;
+  } | null;
+}
+
+export async function fetchInstitutionalStudentSummary() {
+  const response = await request<{
+    success: true;
+    data: {
+      students: InstitutionalStudentSummary[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+      statistics: { ip: number; pwd: number; probation: number; evaluated: number };
+    };
+  }>('/api/students/reports/summary?limit=100');
+  return response.data;
+}
+
 export async function saveAcademicRecord(
   institutionId: string,
   record: AcademicTermRecord

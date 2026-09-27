@@ -34,6 +34,13 @@ Updated: 2026-09-27
 - Academic status and its reason are saved through the status-history endpoint.
 - The former browser-local faculty roster and dossier are no longer rendered by the faculty portal.
 
+### Institutional reporting
+
+- Administrators load a paginated institutional summary through `GET /api/students/reports/summary`.
+- The endpoint batches students, academic records, and evaluations without per-student queries.
+- The analytics view reports classifications, religion, record counts, subject counts, academic status, evaluation status, and major-subject GWA from MongoDB.
+- Student, faculty, and administrator reports share the same server-side major-subject GWA calculation.
+
 ### Authentication and account security
 
 - Every protected request verifies the JWT, stored session, current user record, and current account status.
@@ -67,7 +74,7 @@ The backend suite contains focused tests for session/account-status enforcement 
 
 ## Known remaining work
 
-- Replace the remaining browser-local institutional reporting views with authoritative backend data.
+- Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers.
 - Perform live end-to-end tests with MongoDB and valid institutional Google credentials.
 - Design offline local MongoDB operation and Atlas synchronization; synchronization is not implemented.
 

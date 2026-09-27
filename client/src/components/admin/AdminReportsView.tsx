@@ -1,290 +1,124 @@
-import React, { useState, useMemo } from 'react';
-import { useApp } from '../../context/AppContext';
-import { EvaluationBadge, AcademicStatusBadge, Badge } from '../common/Badge';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, FileCheck2, RefreshCw, Search, Users } from 'lucide-react';
 import {
-  FileCheck2,
-  Printer,
-  Download,
-  Users,
-  GraduationCap,
-  Layers,
-  HeartPulse,
-  Church,
-  AlertTriangle,
-  Sparkles,
-} from 'lucide-react';
+  fetchInstitutionalStudentSummary,
+  InstitutionalStudentSummary,
+} from '../../lib/api';
 
 export const AdminReportsView: React.FC = () => {
-  const { students, academicRecords, evaluations } = useApp();
+  const [students, setStudents] = useState<InstitutionalStudentSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [statistics, setStatistics] = useState({ ip: 0, pwd: 0, probation: 0, evaluated: 0 });
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [activeReportTab, setActiveReportTab] = useState<
-    'all' | 'special-classifications' | 'probation' | 'evaluations'
-  >('all');
-
-  const reportData = useMemo(() => {
-    return students.map((s) => {
-      const a =
-        academicRecords.find((rec) => rec.studentNumber === s.studentNumber) || {
-          studentNumber: s.studentNumber,
-          program: s.program,
-          curriculumYear: '2023',
-          yearLevel: s.yearLevel,
-          currentTerm: s.enrollmentTerm,
-          academicStatus: 'Regular' as const,
-          isUnderProbation: false,
-          subjects: [],
-          overallGWA: 0,
-          majorSubjectGWA: 0,
-          totalUnitsEarned: 0,
-          totalDeficientUnits: 0,
-          maxAllowedUnits: 23,
-        };
-      const e = evaluations.find((ev) => ev.studentNumber === s.studentNumber) || null;
-      return { s, a, e };
-    });
-  }, [students, academicRecords, evaluations]);
-
-  // Statistics
-  const total = reportData.length;
-  const ipCount = reportData.filter((r) => r.s.classifications.isIP).length;
-  const pwdCount = reportData.filter((r) => r.s.classifications.isPWD).length;
-  const shifterCount = reportData.filter((r) => r.s.classifications.isShifter).length;
-  const transfereeCount = reportData.filter((r) => r.s.classifications.isTransferee).length;
-  const probationCount = reportData.filter((r) => r.a.isUnderProbation).length;
-  const eligibleCount = reportData.filter(
-    (r) => r.e && r.e.evaluationStatus === 'Eligible'
-  ).length;
-  const forReviewCount = reportData.filter(
-    (r) => r.e && r.e.evaluationStatus === 'For Review'
-  ).length;
-  const notEligibleCount = reportData.filter(
-    (r) => r.e && r.e.evaluationStatus === 'Not Eligible'
-  ).length;
-
-  const handlePrint = () => {
-    window.print();
+  const loadReport = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await fetchInstitutionalStudentSummary();
+      setStudents(result.students);
+      setTotal(result.pagination.total);
+      setStatistics(result.statistics);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to load institutional reports.');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    void loadReport();
+  }, []);
+
+  const filteredStudents = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return students;
+    return students.filter((student) => [
+      student.institutionId,
+      student.personalInformation.firstName,
+      student.personalInformation.middleName,
+      student.personalInformation.lastName,
+      student.academicStatus.currentStatus,
+      student.facultyEvaluation?.evaluationStatus,
+    ].some((value) => String(value || '').toLowerCase().includes(query)));
+  }, [search, students]);
+
+  if (loading && students.length === 0) {
+    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading institutional reports…</div>;
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <FileCheck2 className="w-5 h-5 text-indigo-600" />
-            Consolidated University Profiling & Enrollment Analytics
-          </h2>
-          <p className="text-xs text-slate-500">
-            Institutional master report for special classifications, academic retention, and faculty advisement statuses.
-          </p>
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-700"><FileCheck2 className="h-4 w-4" /> Institutional analytics</div>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900">Shared student-record summary</h2>
+            <p className="mt-1 text-xs text-slate-500">Data is loaded from MongoDB through the protected administrator report API.</p>
+          </div>
+          <button type="button" onClick={() => void loadReport()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
         </div>
+        {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      </section>
 
-        <button
-          onClick={handlePrint}
-          className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 flex items-center gap-1.5 shadow-sm transition-all"
-        >
-          <Printer className="w-4 h-4" />
-          Print / Export Report
-        </button>
-      </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {[
+          ['Total students', total],
+          ['IP students', statistics.ip],
+          ['PWD students', statistics.pwd],
+          ['On probation', statistics.probation],
+          ['Evaluated', statistics.evaluated],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <p className="text-xs text-slate-500">{label}</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
+          </div>
+        ))}
+      </section>
 
-      {/* Profiling Demographic Highlights */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-purple-900 block">
-            Indigenous Peoples (IP)
-          </span>
-          <span className="text-2xl font-black text-purple-700 font-mono mt-1 block">
-            {ipCount}
-          </span>
-          <span className="text-[11px] text-slate-400">
-            {total > 0 ? `${Math.round((ipCount / total) * 100)}%` : 0}% of student body
-          </span>
+      {total > students.length && (
+        <p className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800"><AlertTriangle className="h-4 w-4" /> Showing the first {students.length} of {total} students. Server pagination is available for larger reports.</p>
+      )}
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <div className="border-b border-slate-200 p-4">
+          <div className="relative max-w-lg">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter loaded students by ID, name, status, or evaluation" className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm" />
+          </div>
         </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-sky-900 block">
-            PWD / Accessibility
-          </span>
-          <span className="text-2xl font-black text-sky-700 font-mono mt-1 block">
-            {pwdCount}
-          </span>
-          <span className="text-[11px] text-slate-400">
-            Requires room accommodations
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 block">
-            Shifters & Transferees
-          </span>
-          <span className="text-2xl font-black text-amber-700 font-mono mt-1 block">
-            {shifterCount + transfereeCount}
-          </span>
-          <span className="text-[11px] text-slate-400">
-            {shifterCount} Shifters • {transfereeCount} Transferees
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-rose-900 block">
-            Academic Probation
-          </span>
-          <span className="text-2xl font-black text-rose-700 font-mono mt-1 block">
-            {probationCount}
-          </span>
-          <span className="text-[11px] text-slate-400">
-            Major GWA deficiency
-          </span>
-        </div>
-      </div>
-
-      {/* Report Filter Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-white rounded-2xl border border-slate-200 shadow-xs text-xs">
-        <button
-          onClick={() => setActiveReportTab('all')}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-            activeReportTab === 'all'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          All Enrolled ({total})
-        </button>
-        <button
-          onClick={() => setActiveReportTab('special-classifications')}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-            activeReportTab === 'special-classifications'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          Special Classifications ({ipCount + pwdCount + shifterCount + transfereeCount})
-        </button>
-        <button
-          onClick={() => setActiveReportTab('probation')}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-            activeReportTab === 'probation'
-              ? 'bg-rose-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          Academic Probation ({probationCount})
-        </button>
-        <button
-          onClick={() => setActiveReportTab('evaluations')}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-            activeReportTab === 'evaluations'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          Faculty Advisement Breakdown ({eligibleCount} Eligible, {forReviewCount} Review,{' '}
-          {notEligibleCount} Hold)
-        </button>
-      </div>
-
-      {/* Master Data Sheet */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden print:border-none">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-              <tr>
-                <th className="py-3 px-4">Student</th>
-                <th className="py-3 px-4">Program & Year</th>
-                <th className="py-3 px-4 text-center">Major GWA</th>
-                <th className="py-3 px-4 text-center">Overall GWA</th>
-                <th className="py-3 px-4">Special Profiling (IP / PWD)</th>
-                <th className="py-3 px-4">Religion / Medical</th>
-                <th className="py-3 px-4">Faculty Evaluation</th>
-              </tr>
-            </thead>
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500"><tr><th className="px-4 py-3">Student</th><th className="px-4 py-3">Classification</th><th className="px-4 py-3">Religion</th><th className="px-4 py-3">Records</th><th className="px-4 py-3">Major GWA</th><th className="px-4 py-3">Academic status</th><th className="px-4 py-3">Evaluation</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {reportData.map(({ s, a, e }) => (
-                <tr key={s.studentNumber} className="hover:bg-slate-50">
-                  <td className="py-3 px-4">
-                    <div className="font-bold text-slate-900">
-                      {s.personalInfo.lastName}, {s.personalInfo.firstName}
-                    </div>
-                    <div className="font-mono text-[11px] text-slate-500">
-                      #{s.studentNumber}
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-slate-800">{s.program}</div>
-                    <div className="mt-0.5">
-                      <AcademicStatusBadge
-                        status={a.academicStatus}
-                        isProbation={a.isUnderProbation}
-                        size="sm"
-                      />
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-4 text-center font-mono font-black text-indigo-900 text-sm">
-                    {a.majorSubjectGWA > 0 ? a.majorSubjectGWA.toFixed(2) : '0.00'}
-                  </td>
-
-                  <td className="py-3 px-4 text-center font-mono font-bold text-slate-700">
-                    {a.overallGWA > 0 ? a.overallGWA.toFixed(2) : '0.00'}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {s.classifications.isIP && (
-                        <Badge variant="purple" size="sm">
-                          IP: {s.classifications.ipGroupName}
-                        </Badge>
-                      )}
-                      {s.classifications.isPWD && (
-                        <Badge variant="info" size="sm">
-                          PWD: {s.classifications.pwdType}
-                        </Badge>
-                      )}
-                      {s.classifications.isShifter && (
-                        <Badge variant="amber" size="sm">
-                          Shifter
-                        </Badge>
-                      )}
-                      {s.classifications.isTransferee && (
-                        <Badge variant="success" size="sm">
-                          Transferee
-                        </Badge>
-                      )}
-                      {!s.classifications.isIP &&
-                        !s.classifications.isPWD &&
-                        !s.classifications.isShifter &&
-                        !s.classifications.isTransferee && (
-                          <span className="text-slate-400">Regular</span>
-                        )}
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-4 text-[11px] text-slate-600">
-                    <span className="font-medium text-slate-800">
-                      {s.religionProfiling.religion}
-                    </span>
-                    {s.religionProfiling.restrictedDays?.length ? (
-                      <span className="block text-[10px] text-amber-800">
-                        ⚠ Restricted: {s.religionProfiling.restrictedDays.join(', ')}
-                      </span>
-                    ) : null}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    {e ? (
-                      <EvaluationBadge status={e.evaluationStatus} size="sm" />
-                    ) : (
-                      <EvaluationBadge status="Pending" size="sm" />
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {filteredStudents.map((student) => {
+                const name = [student.personalInformation.lastName, student.personalInformation.firstName, student.personalInformation.middleName].filter(Boolean).join(', ');
+                const classifications = [
+                  student.classification.studentType,
+                  student.classification.isIP ? 'IP' : '',
+                  student.classification.isPWD ? 'PWD' : '',
+                  student.classification.isShifter ? 'Shifter' : '',
+                  student.classification.isTransferee ? 'Transferee' : '',
+                ].filter(Boolean).join(' · ');
+                return (
+                  <tr key={student.institutionId}>
+                    <td className="px-4 py-3"><strong className="block text-slate-900">{name || 'Name not recorded'}</strong><span className="font-mono text-slate-500">{student.institutionId}</span></td>
+                    <td className="px-4 py-3 text-slate-700">{classifications || 'Not recorded'}</td>
+                    <td className="px-4 py-3 text-slate-700">{student.religiousInformation.religion || 'Not recorded'}</td>
+                    <td className="px-4 py-3 text-slate-700">{student.academicRecordCount} terms · {student.subjectCount} subjects</td>
+                    <td className="px-4 py-3 font-bold text-indigo-800">{student.majorSubjectGwa.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-slate-700">{student.academicStatus.currentStatus || 'Not recorded'}</td>
+                    <td className="px-4 py-3 text-slate-700">{student.facultyEvaluation?.evaluationStatus || 'Pending'}</td>
+                  </tr>
+                );
+              })}
+              {filteredStudents.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500"><Users className="mx-auto mb-2 h-5 w-5" />No matching students.</td></tr>}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

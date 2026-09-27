@@ -6,6 +6,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
+const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
 
 const router = express.Router();
 
@@ -145,24 +146,7 @@ router.get(
         { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
       ).sort({ academicYear: -1, semester: -1 }).lean();
 
-      const majorSubjects = academicRecords.flatMap((record) =>
-        record.subjects.filter((subject) =>
-          subject.isMajor &&
-          String(subject.status || '').toLowerCase() !== 'dropped' &&
-          typeof subject.grade === 'number' &&
-          subject.grade > 0 &&
-          subject.units > 0
-        )
-      );
-      const totalMajorUnits = majorSubjects.reduce((sum, subject) => sum + subject.units, 0);
-      const majorSubjectGwa = totalMajorUnits === 0
-        ? 0
-        : Number(
-          (
-            majorSubjects.reduce((sum, subject) => sum + subject.grade * subject.units, 0) /
-            totalMajorUnits
-          ).toFixed(2)
-        );
+      const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
 
       const { _id, ...safeStudent } = student;
       res.json({

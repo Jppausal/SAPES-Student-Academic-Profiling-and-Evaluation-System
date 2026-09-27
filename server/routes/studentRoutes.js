@@ -9,35 +9,9 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
+const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
 
 const router = express.Router();
-
-const calculateMajorSubjectGwa = (academicRecords) => {
-  const majorSubjects = academicRecords.flatMap((record) =>
-    record.subjects.filter((subject) =>
-      subject.isMajor &&
-      String(subject.status || '').toLowerCase() !== 'dropped' &&
-      typeof subject.grade === 'number' &&
-      subject.grade > 0 &&
-      subject.units > 0
-    )
-  );
-  const totalMajorUnits = majorSubjects.reduce(
-    (sum, subject) => sum + subject.units,
-    0
-  );
-
-  return totalMajorUnits === 0
-    ? 0
-    : Number(
-      (
-        majorSubjects.reduce(
-          (sum, subject) => sum + subject.grade * subject.units,
-          0
-        ) / totalMajorUnits
-      ).toFixed(2)
-    );
-};
 
 // Record an authorized student status update and preserve its history
 router.put(
@@ -262,6 +236,113 @@ router.put(
         success: false,
         message: 'Server error'
       });
+    }
+  }
+);
+
+// Paginated institutional student summary (admin only)
+router.get(
+  '/reports/summary',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizePermission('view_reports'),
+  async (req, res) => {
+    try {
+      const page = Number(req.query.page || 1);
+      const limit = Number(req.query.limit || 20);
+      if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'page must be positive and limit must be an integer from 1 to 100'
+        });
+      }
+
+      const [total, ipCount, pwdCount, probationCount, evaluatedCounts, students] = await Promise.all([
+        Student.countDocuments({}),
+        Student.countDocuments({ 'classification.isIP': true }),
+        Student.countDocuments({ 'classification.isPWD': true }),
+        Student.countDocuments({ 'academicStatus.isOnProbation': true }),
+        FacultyEvaluation.aggregate([
+          { $group: { _id: '$studentId' } },
+          { $count: 'total' }
+        ]),
+        Student.find({}, {
+          institutionId: 1,
+          personalInformation: 1,
+          classification: 1,
+          religiousInformation: 1,
+          academicStatus: 1
+        })
+          .sort({ institutionId: 1, _id: 1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean()
+      ]);
+
+      const studentIds = students.map((student) => student._id);
+      const [academicRecords, evaluations] = studentIds.length
+        ? await Promise.all([
+          AcademicRecord.find(
+            { studentId: { $in: studentIds } },
+            { studentId: 1, subjects: 1 }
+          ).lean(),
+          FacultyEvaluation.find({ studentId: { $in: studentIds } })
+            .sort({ evaluatedAt: -1 })
+            .select('studentId evaluationStatus evaluatedAt')
+            .lean()
+        ])
+        : [[], []];
+
+      const recordsByStudent = new Map();
+      for (const record of academicRecords) {
+        const studentId = String(record.studentId);
+        recordsByStudent.set(studentId, [...(recordsByStudent.get(studentId) || []), record]);
+      }
+
+      const evaluationByStudent = new Map();
+      for (const evaluation of evaluations) {
+        const studentId = String(evaluation.studentId);
+        if (!evaluationByStudent.has(studentId)) evaluationByStudent.set(studentId, evaluation);
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          students: students.map((student) => {
+            const studentRecords = recordsByStudent.get(String(student._id)) || [];
+            const evaluation = evaluationByStudent.get(String(student._id));
+            return {
+              institutionId: student.institutionId,
+              personalInformation: student.personalInformation || {},
+              classification: student.classification || {},
+              religiousInformation: student.religiousInformation || {},
+              academicStatus: student.academicStatus || {},
+              academicRecordCount: studentRecords.length,
+              subjectCount: studentRecords.reduce((count, record) => count + record.subjects.length, 0),
+              majorSubjectGwa: calculateMajorSubjectGwa(studentRecords),
+              facultyEvaluation: evaluation ? {
+                evaluationStatus: evaluation.evaluationStatus,
+                evaluatedAt: evaluation.evaluatedAt
+              } : null
+            };
+          }),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+          },
+          statistics: {
+            ip: ipCount,
+            pwd: pwdCount,
+            probation: probationCount,
+            evaluated: evaluatedCounts[0]?.total || 0
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error generating institutional student summary:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
     }
   }
 );
