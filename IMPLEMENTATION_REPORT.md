@@ -77,6 +77,8 @@ The configured MongoDB database was reachable on 2026-09-27. `npm run db:indexes
 
 The Express server was started against the configured environment on 2026-09-27. It connected to MongoDB, returned HTTP 200 from `/api/health`, and rejected an unauthenticated `/api/users` request with HTTP 401. The health endpoint now returns HTTP 503 with a degraded state when MongoDB is unavailable.
 
+An authenticated API smoke test also passed using an isolated temporary administrator: password login, protected user listing, protected institutional reporting, and logout all succeeded. Cleanup removed the temporary account and its sessions, and a follow-up query confirmed no temporary smoke-test users remained. The existing database account was not modified.
+
 ## Known remaining work
 
 - Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.
