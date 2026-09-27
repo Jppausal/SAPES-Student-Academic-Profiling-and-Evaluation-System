@@ -17,7 +17,7 @@ test('normalizes allowed self-service fields', () => {
     religiousInformation: {
       religion: '  Catholic  '
     }
-  });
+  }, { allowClassification: true });
 
   assert.equal(result.error, undefined);
   assert.equal(result.value.personalInformation.firstName, 'Ana');
@@ -31,16 +31,21 @@ test('rejects protected and unsupported fields', () => {
   const protectedResult = validateAndNormalizeStudentProfile({ institutionId: 'changed-id' });
   const nestedResult = validateAndNormalizeStudentProfile({
     classification: { role: 'admin' }
-  });
+  }, { allowClassification: true });
 
   assert.equal(protectedResult.error, 'institutionId is system-controlled or not editable');
   assert.equal(nestedResult.error, 'classification.role is not editable');
 });
 
+test('rejects classification through student self-service validation', () => {
+  const result = validateAndNormalizeStudentProfile({ classification: { isShifter: true } });
+  assert.equal(result.error, 'classification is system-controlled or not editable');
+});
+
 test('rejects incorrect field types and invalid dates', () => {
   const booleanResult = validateAndNormalizeStudentProfile({
     classification: { isPWD: 'yes' }
-  });
+  }, { allowClassification: true });
   const dateResult = validateAndNormalizeStudentProfile({
     personalInformation: { birthDate: 'not-a-date' }
   });

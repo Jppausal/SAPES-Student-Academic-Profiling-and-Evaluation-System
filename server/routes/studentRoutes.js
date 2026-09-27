@@ -14,6 +14,19 @@ const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConfli
 
 const router = express.Router();
 
+router.put('/:institutionId/classification', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
+  try {
+    const profileUpdate = validateAndNormalizeStudentProfile({ classification: req.body?.classification }, { allowClassification: true });
+    if (profileUpdate.error) return res.status(400).json({ success: false, message: profileUpdate.error });
+    const student = await Student.findOne({ institutionId: req.params.institutionId });
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    Object.assign(student.classification, profileUpdate.value.classification);
+    await student.save();
+    await AuditLog.create({ userId: req.user.userId, action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
+    return res.json({ success: true, data: student.classification });
+  } catch (error) { console.error('Classification update failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
+});
+
 router.post('/:institutionId/schedule-conflicts', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
   try {
     const meetings = req.body?.meetings;
@@ -612,7 +625,7 @@ router.put(
     try {
       const { institutionId } = req.params;
       const body = req.body || {};
-      const profileUpdate = validateAndNormalizeStudentProfile(body);
+      const profileUpdate = validateAndNormalizeStudentProfile(body, { allowClassification: true });
       if (profileUpdate.error) {
         return res.status(400).json({ success: false, message: profileUpdate.error });
       }

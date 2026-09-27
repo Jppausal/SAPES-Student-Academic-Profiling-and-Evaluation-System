@@ -32,12 +32,12 @@ const PROFILE_SECTION_RULES = {
   }
 };
 
-const validateAndNormalizeStudentProfile = (body) => {
+const validateAndNormalizeStudentProfile = (body, { allowClassification = false } = {}) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { error: 'Request body must be an object' };
   }
 
-  const allowedSections = [...Object.keys(PROFILE_SECTION_RULES), 'addresses'];
+  const allowedSections = [...Object.keys(PROFILE_SECTION_RULES).filter((section) => allowClassification || section !== 'classification'), 'addresses'];
   const bodySections = Object.keys(body);
 
   if (bodySections.length === 0) {
