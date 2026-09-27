@@ -145,10 +145,19 @@ router.post('/google', async (req, res) => {
     }
 
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID
+      });
+    } catch (verificationError) {
+      console.warn('Google token verification failed:', verificationError.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Google account verification failed'
+      });
+    }
     const payload = ticket.getPayload();
 
     if (!payload) {
@@ -222,6 +231,13 @@ router.post('/google', async (req, res) => {
         });
       }
 
+      if (user && user.accountStatus !== 'active') {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not active'
+        });
+      }
+
       if (!user) {
         user = await User.create({
           username: institutionId,
@@ -233,24 +249,29 @@ router.post('/google', async (req, res) => {
           accountStatus: 'active'
         });
 
-        if (student) {
-          student.userId = user._id;
-          await student.save();
-        } else {
-          await Student.create({
-            userId: user._id,
-            institutionId,
-            personalInformation: {
-              firstName: 'New',
-              lastName: 'Student'
-            },
-            classification: {
-              studentType: 'regular'
-            },
-            academicStatus: {
-              currentStatus: 'regular'
-            }
-          });
+        try {
+          if (student) {
+            student.userId = user._id;
+            await student.save();
+          } else {
+            await Student.create({
+              userId: user._id,
+              institutionId,
+              personalInformation: {
+                firstName: 'New',
+                lastName: 'Student'
+              },
+              classification: {
+                studentType: 'regular'
+              },
+              academicStatus: {
+                currentStatus: 'regular'
+              }
+            });
+          }
+        } catch (profileError) {
+          await User.deleteOne({ _id: user._id });
+          throw profileError;
         }
       } else {
         user.googleId = payload.sub;
@@ -284,10 +305,10 @@ router.post('/google', async (req, res) => {
       user: safeUser(user, studentEmailMatch?.[1])
     });
   } catch (error) {
-    console.error('Google login error:', error.message, error.stack);
+    console.error('Google login error:', error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Google login failed'
+      message: 'Google login failed'
     });
   }
 });

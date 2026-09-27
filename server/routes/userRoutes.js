@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Student = require('../models/Student');
 const AuditLog = require('../models/AuditLog');
+const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
@@ -236,15 +237,20 @@ router.post(
       });
 
       if (role === 'student') {
-        await Student.create({
-          userId: user._id,
-          institutionId: studentNumber.trim(),
-          personalInformation: {
-            firstName: String(firstName).trim(),
-            lastName: String(lastName).trim()
-          },
-          classification: { studentType: 'regular' }
-        });
+        try {
+          await Student.create({
+            userId: user._id,
+            institutionId: studentNumber.trim(),
+            personalInformation: {
+              firstName: String(firstName).trim(),
+              lastName: String(lastName).trim()
+            },
+            classification: { studentType: 'regular' }
+          });
+        } catch (profileError) {
+          await User.deleteOne({ _id: user._id });
+          throw profileError;
+        }
       }
 
       await AuditLog.create({
@@ -332,16 +338,47 @@ router.put(
       if (accountStatus !== undefined && !validAccountStatuses.includes(accountStatus)) {
         return res.status(400).json({ success: false, message: 'accountStatus must be one of active, inactive, or suspended' });
       }
-      if (String(req.user.userId) === String(userId) && accountStatus === 'inactive') {
-        return res.status(400).json({ success: false, message: 'Administrators cannot deactivate their own account' });
+      if (String(req.user.userId) === String(userId) && accountStatus !== undefined && accountStatus !== 'active') {
+        return res.status(400).json({ success: false, message: 'Administrators cannot disable their own account' });
       }
 
       const existingUser = await User.findById(userId);
       if (!existingUser) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
+
+      const linkedStudent = existingUser.role === 'student'
+        ? await Student.findOne({ userId: existingUser._id }).select('institutionId').lean()
+        : null;
+      const currentStudentNumber = linkedStudent?.institutionId || existingUser.studentNumber;
+
+      if (
+        role !== undefined &&
+        role !== existingUser.role &&
+        (role === 'student' || existingUser.role === 'student')
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'Student accounts cannot be converted to or from another role'
+        });
+      }
+
+      if (
+        existingUser.role === 'student' &&
+        studentNumber !== undefined &&
+        studentNumber.trim() !== currentStudentNumber
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'A student institution ID cannot be changed through account management'
+        });
+      }
+
+      if (role !== undefined) updates.role = role;
+      if (accountStatus !== undefined) updates.accountStatus = accountStatus;
+
       const effectiveRole = role || existingUser.role;
-      const effectiveStudentNumber = studentNumber || existingUser.studentNumber;
+      const effectiveStudentNumber = studentNumber || currentStudentNumber;
       if (effectiveRole === 'student' && !effectiveStudentNumber) {
         return res.status(400).json({ success: false, message: 'Student number is required for student accounts' });
       }
@@ -356,6 +393,17 @@ router.put(
       }
 
       await syncStudentIdentity(user);
+
+      if (
+        password !== undefined ||
+        role !== undefined && role !== existingUser.role ||
+        accountStatus !== undefined && accountStatus !== 'active'
+      ) {
+        await SessionToken.updateMany(
+          { userId: user._id, revokedAt: null },
+          { revokedAt: new Date() }
+        );
+      }
 
       await AuditLog.create({
         userId: req.user.userId,
@@ -418,11 +466,11 @@ router.put(
 
       if (
         String(req.user.userId) === String(userId) &&
-        accountStatus === 'inactive'
+        accountStatus !== 'active'
       ) {
         return res.status(400).json({
           success: false,
-          message: 'Administrators cannot deactivate their own account'
+          message: 'Administrators cannot disable their own account'
         });
       }
 
@@ -437,6 +485,13 @@ router.put(
 
       user.accountStatus = accountStatus;
       await user.save();
+
+      if (accountStatus !== 'active') {
+        await SessionToken.updateMany(
+          { userId: user._id, revokedAt: null },
+          { revokedAt: new Date() }
+        );
+      }
 
       await AuditLog.create({
         userId: req.user.userId,

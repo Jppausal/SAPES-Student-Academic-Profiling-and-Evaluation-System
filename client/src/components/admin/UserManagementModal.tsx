@@ -130,11 +130,16 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               <button
                 type="button"
                 key={r}
+                disabled={Boolean(
+                  userToEdit &&
+                  r !== userToEdit.role &&
+                  (r === 'student' || userToEdit.role === 'student')
+                )}
                 onClick={() => {
                   setRole(r);
                   if (r === 'student') setUsername(studentNumber);
                 }}
-                className={`py-2 px-3 rounded-xl border font-bold capitalize transition-all ${
+                className={`py-2 px-3 rounded-xl border font-bold capitalize transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                   role === r
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -144,6 +149,12 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               </button>
             ))}
           </div>
+
+          {userToEdit?.role === 'student' && (
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              Student roles and institution IDs are fixed after account creation to protect the linked academic profile.
+            </p>
+          )}
 
         </div>
 
@@ -214,6 +225,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
             <input
               type="text"
               value={role === 'student' ? studentNumber : facultyId}
+              disabled={Boolean(userToEdit && role === 'student')}
               onChange={(e) => {
                 if (role === 'student') {
                   setStudentNumber(e.target.value);
@@ -222,7 +234,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                   setFacultyId(e.target.value);
                 }
               }}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-mono"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-mono disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
               placeholder={role === 'student' ? '2023-XXXXX' : 'FAC-XXXX'}
             />
           </div>
