@@ -73,10 +73,13 @@ repository: git diff --check
 
 The backend suite contains focused tests for session/account-status enforcement and student-profile validation.
 
+The configured MongoDB database was reachable on 2026-09-27. Its academic-term unique index was present. The `Student.userId` unique index defined by the updated schema was not yet present in that database, so `npm run db:indexes` was added to detect duplicate relationships and create required indexes during deployment. The command has not been run automatically because it changes database infrastructure.
+
 ## Known remaining work
 
 - Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.
 - Perform live end-to-end tests with MongoDB and valid institutional Google credentials.
+- Apply required database indexes with `cd server && npm run db:indexes` after reviewing the target database.
 - Design offline local MongoDB operation and Atlas synchronization; synchronization is not implemented.
 
 No `.env` files or credentials are included in source control.

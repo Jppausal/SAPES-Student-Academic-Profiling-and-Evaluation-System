@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test",
     "start": "node server.js",
-    "seed": "node scripts/seedAccounts.js"
+    "seed": "node scripts/seedAccounts.js",
+    "db:indexes": "node scripts/syncIndexes.js"
   },
   "keywords": [],
   "author": "",

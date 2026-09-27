@@ -13,6 +13,7 @@ All notable SAPES changes are recorded here.
 - Paginated administrator institutional-summary API and MongoDB-backed analytics view.
 - Shared server-side major-subject GWA calculator with regression coverage.
 - Student portal navigation backed exclusively by authenticated profile and report APIs.
+- Safe database-index synchronization command with duplicate detection.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.

@@ -20,3 +20,5 @@ The administrator academic-record workspace now reads and writes MongoDB-backed 
 Student, faculty, and administrator academic workflows now use protected backend APIs as their rendered sources of truth. Administrator institutional analytics load profiles, academic summaries, classifications, statuses, evaluations, and major-subject GWA from MongoDB. Legacy mock context code remains in the repository for cleanup, but these primary role workflows no longer render it.
 
 Local MongoDB-to-Atlas synchronization remains planned and has not been implemented.
+
+The configured MongoDB connection is reachable. Deployment still needs to run `npm run db:indexes` in the server directory to apply the new `Student.userId` unique index after duplicate detection.
