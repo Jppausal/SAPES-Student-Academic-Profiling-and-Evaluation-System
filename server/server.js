@@ -16,9 +16,13 @@ app.use(cors());
 app.use(express.json());
 
 
-app.get('/api/health', (req, res) =>
-  res.json({ status: 'ok' })
-);
+app.get('/api/health', (req, res) => {
+  const databaseConnected = mongoose.connection.readyState === 1;
+  return res.status(databaseConnected ? 200 : 503).json({
+    status: databaseConnected ? 'ok' : 'degraded',
+    database: databaseConnected ? 'connected' : 'disconnected'
+  });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
