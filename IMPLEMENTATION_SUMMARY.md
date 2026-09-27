@@ -21,4 +21,4 @@ Student, faculty, and administrator academic workflows now use protected backend
 
 Local MongoDB-to-Atlas synchronization remains planned and has not been implemented.
 
-The configured MongoDB connection is reachable. Deployment still needs to run `npm run db:indexes` in the server directory to apply the new `Student.userId` unique index after duplicate detection.
+The configured MongoDB connection is reachable. Required unique indexes for `Student.userId` and student academic terms were applied and verified on 2026-09-27.

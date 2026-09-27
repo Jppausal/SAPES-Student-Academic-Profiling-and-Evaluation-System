@@ -21,6 +21,7 @@ All notable SAPES changes are recorded here.
 
 ### Changed
 
+- Applied and verified required unique indexes in the configured MongoDB database.
 - Faculty reports now display persisted term subjects and capture evaluation and status reasons.
 - Administrator analytics no longer read student, academic, or evaluation data from browser storage.
 - Removed duplicate browser-local academic and dossier views from the rendered student portal.
