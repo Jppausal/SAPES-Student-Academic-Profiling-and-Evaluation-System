@@ -12,6 +12,7 @@ Updated: 2026-09-27
 - The student dashboard displays all structured classification flags.
 - A shared validator rejects protected sections, unsupported nested fields, invalid types, oversized strings, and invalid dates.
 - The rendered student portal uses only authenticated profile and report responses for profile, academic records, status, and GWA.
+- A student can open and edit their profile whenever the authenticated profile endpoint succeeds, even if the separate academic-report request fails. The academic view displays its own error state.
 
 ### Student academic history
 

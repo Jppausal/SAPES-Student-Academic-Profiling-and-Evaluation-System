@@ -23,6 +23,7 @@ All notable SAPES changes are recorded here.
 - Added approved SAPES v1 student profile context and restricted health-accommodation visibility.
 - Added structured student medical-history checklist and emergency-contact details.
 - Added guided Philippine address selection through country, region, province, municipality, and barangay fields.
+- Kept student profile editing available when an academic-report request cannot be loaded.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.
