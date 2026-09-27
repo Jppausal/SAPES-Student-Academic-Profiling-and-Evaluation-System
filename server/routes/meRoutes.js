@@ -5,60 +5,9 @@ const AcademicRecord = require('../models/AcademicRecord');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
+const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 
 const router = express.Router();
-
-const editableProfileSections = {
-  personalInformation: {
-    strings: ['firstName', 'middleName', 'lastName', 'birthDate', 'birthPlace', 'sex', 'civilStatus', 'nationality', 'citizenship'],
-    booleans: ['isForeigner']
-  },
-  classification: {
-    strings: ['studentType', 'indigenousGroup'],
-    booleans: ['isIP', 'isPWD']
-  },
-  religiousInformation: {
-    strings: ['religion'],
-    booleans: []
-  }
-};
-
-const validateProfileSection = (sectionName, value) => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return `${sectionName} must be an object`;
-  }
-
-  const schema = editableProfileSections[sectionName];
-  const supportedFields = [...schema.strings, ...schema.booleans];
-  const unsupportedField = Object.keys(value).find((field) => !supportedFields.includes(field));
-  if (unsupportedField) {
-    return `${sectionName}.${unsupportedField} is not editable`;
-  }
-
-  for (const field of schema.strings) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      return `${sectionName}.${field} must be a string`;
-    }
-    if (typeof value[field] === 'string' && value[field].length > 200) {
-      return `${sectionName}.${field} is too long`;
-    }
-  }
-  for (const field of schema.booleans) {
-    if (value[field] !== undefined && typeof value[field] !== 'boolean') {
-      return `${sectionName}.${field} must be a boolean`;
-    }
-  }
-
-  return null;
-};
-
-const normalizeProfileSection = (sectionName, value) => {
-  const schema = editableProfileSections[sectionName];
-  return Object.fromEntries(Object.entries(value).map(([field, fieldValue]) => [
-    field,
-    schema.strings.includes(field) && typeof fieldValue === 'string' ? fieldValue.trim() : fieldValue
-  ]));
-};
 
 router.get(
   '/student',
@@ -113,20 +62,9 @@ router.put(
   async (req, res) => {
     try {
       const body = req.body || {};
-      const sectionNames = Object.keys(editableProfileSections);
-      const unsupportedField = Object.keys(body).find((field) => !sectionNames.includes(field));
-      if (unsupportedField) {
-        return res.status(400).json({
-          success: false,
-          message: `${unsupportedField} is system-controlled or not editable`
-        });
-      }
-
-      for (const sectionName of Object.keys(body)) {
-        const validationError = validateProfileSection(sectionName, body[sectionName]);
-        if (validationError) {
-          return res.status(400).json({ success: false, message: validationError });
-        }
+      const profileUpdate = validateAndNormalizeStudentProfile(body);
+      if (profileUpdate.error) {
+        return res.status(400).json({ success: false, message: profileUpdate.error });
       }
 
       const student = await Student.findOne({ userId: req.user.userId });
@@ -134,9 +72,9 @@ router.put(
         return res.status(404).json({ success: false, message: 'Student profile not found' });
       }
 
-      for (const sectionName of Object.keys(body)) {
+      for (const sectionName of Object.keys(profileUpdate.value)) {
         if (!student[sectionName]) student[sectionName] = {};
-        Object.assign(student[sectionName], normalizeProfileSection(sectionName, body[sectionName]));
+        Object.assign(student[sectionName], profileUpdate.value[sectionName]);
       }
 
       const firstName = student.personalInformation?.firstName?.trim();

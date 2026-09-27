@@ -7,6 +7,7 @@ const AuditLog = require('../models/AuditLog');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
+const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 
 const router = express.Router();
 
@@ -37,12 +38,12 @@ const calculateMajorSubjectGwa = (academicRecords) => {
     );
 };
 
-// Record a faculty-submitted student status and preserve its history
+// Record an authorized student status update and preserve its history
 router.put(
   '/:institutionId/status',
   authenticateToken,
-  authorizeRoles('faculty'),
-  authorizePermission('submit_evaluations'),
+  authorizeRoles('faculty', 'admin'),
+  authorizeAnyPermission('submit_evaluations', 'manage_academic_records'),
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -418,6 +419,65 @@ router.get(
       message: 'Server error'
     });
   }
+  }
+);
+
+// Update student profile (admin only)
+router.put(
+  '/:institutionId',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizePermission('manage_academic_records'),
+  async (req, res) => {
+    try {
+      const { institutionId } = req.params;
+      const body = req.body || {};
+      const profileUpdate = validateAndNormalizeStudentProfile(body);
+      if (profileUpdate.error) {
+        return res.status(400).json({ success: false, message: profileUpdate.error });
+      }
+      const updateFields = Object.keys(profileUpdate.value);
+
+      const student = await Student.findOne({ institutionId });
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found'
+        });
+      }
+
+      for (const sectionName of updateFields) {
+        if (!student[sectionName]) student[sectionName] = {};
+        Object.assign(student[sectionName], profileUpdate.value[sectionName]);
+      }
+
+      await student.save();
+
+      await AuditLog.create({
+        userId: req.user.userId,
+        action: 'UPDATE_STUDENT_PROFILE',
+        targetType: 'student',
+        targetId: student._id,
+        details: {
+          institutionId,
+          updatedFields: updateFields
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Student profile updated successfully',
+        data: student
+      });
+    } catch (error) {
+      console.error('Error updating student profile:', error);
+
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
   }
 );
 

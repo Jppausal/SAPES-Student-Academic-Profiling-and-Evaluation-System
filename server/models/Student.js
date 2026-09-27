@@ -5,7 +5,8 @@ const studentSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true
+      required: true,
+      unique: true
     },
 
     institutionId: {
@@ -60,6 +61,16 @@ const studentSchema = new mongoose.Schema(
       },
 
       isPWD: {
+        type: Boolean,
+        default: false
+      },
+
+      isShifter: {
+        type: Boolean,
+        default: false
+      },
+
+      isTransferee: {
         type: Boolean,
         default: false
       },

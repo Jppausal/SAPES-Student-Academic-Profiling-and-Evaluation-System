@@ -108,10 +108,12 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="font-bold text-slate-900">Student Classification</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-xs font-semibold text-slate-700">Student type<input value={classification.studentType || ''} onChange={(event) => setClassification('studentType', event.target.value)} placeholder="e.g. regular, shifter, transferee" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Student type<input value={classification.studentType || ''} onChange={(event) => setClassification('studentType', event.target.value)} placeholder="e.g. regular, irregular" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Indigenous group<input value={classification.indigenousGroup || ''} onChange={(event) => setClassification('indigenousGroup', event.target.value)} disabled={!classification.isIP} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 disabled:bg-slate-100" /></label>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={classification.isIP || false} onChange={(event) => setClassification('isIP', event.target.checked)} /> I identify as Indigenous Peoples (IP)</label>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={classification.isPWD || false} onChange={(event) => setClassification('isPWD', event.target.checked)} /> I identify as a Person with Disability (PWD)</label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={classification.isShifter || false} onChange={(event) => setClassification('isShifter', event.target.checked)} /> I am a Shifter</label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={classification.isTransferee || false} onChange={(event) => setClassification('isTransferee', event.target.checked)} /> I am a Transferee</label>
         </div>
       </section>
 

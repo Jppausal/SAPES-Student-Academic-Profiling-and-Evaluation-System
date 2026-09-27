@@ -216,6 +216,8 @@ export interface StudentIdentity {
     studentType?: string;
     isIP?: boolean;
     isPWD?: boolean;
+    isShifter?: boolean;
+    isTransferee?: boolean;
     indigenousGroup?: string;
   };
   religiousInformation?: { religion?: string };
@@ -250,6 +252,8 @@ export type StudentProfileUpdate = {
     studentType?: string;
     isIP?: boolean;
     isPWD?: boolean;
+    isShifter?: boolean;
+    isTransferee?: boolean;
     indigenousGroup?: string;
   };
   religiousInformation?: { religion?: string };

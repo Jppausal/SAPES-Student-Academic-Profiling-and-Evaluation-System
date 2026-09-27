@@ -39,7 +39,7 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
       </section>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4"><UserRound className="h-5 w-5 text-emerald-600" /><p className="mt-3 text-xs text-slate-500">Student type</p><strong className="block text-slate-900">{identity.classification?.studentType || 'Not recorded'}</strong></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4"><UserRound className="h-5 w-5 text-emerald-600" /><p className="mt-3 text-xs text-slate-500">Student type</p><strong className="block text-slate-900">{[identity.classification?.studentType || 'Not recorded', identity.classification?.isShifter ? 'Shifter' : '', identity.classification?.isTransferee ? 'Transferee' : '', identity.classification?.isIP ? 'IP' : '', identity.classification?.isPWD ? 'PWD' : ''].filter(Boolean).join(' • ')}</strong></div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4"><GraduationCap className="h-5 w-5 text-indigo-600" /><p className="mt-3 text-xs text-slate-500">Major-subject GWA</p><strong className="block text-2xl text-slate-900">{report.majorSubjectGwa.toFixed(2)}</strong></div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4"><BookOpen className="h-5 w-5 text-amber-600" /><p className="mt-3 text-xs text-slate-500">Academic status</p><strong className="block text-slate-900">{identity.academicStatus?.currentStatus || 'Not recorded'}</strong></div>
       </div>
@@ -58,7 +58,7 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
           <div><dt className="text-xs text-slate-500">Civil status</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.civilStatus || 'Not recorded'}</dd></div>
           <div><dt className="text-xs text-slate-500">Citizenship</dt><dd className="mt-1 font-semibold text-slate-900">{identity.personalInformation?.citizenship || 'Not recorded'}</dd></div>
           <div><dt className="text-xs text-slate-500">Religion</dt><dd className="mt-1 font-semibold text-slate-900">{identity.religiousInformation?.religion || 'Not recorded'}</dd></div>
-          <div><dt className="text-xs text-slate-500">Student classification</dt><dd className="mt-1 font-semibold text-slate-900">{identity.classification?.studentType || 'Not recorded'}</dd></div>
+          <div><dt className="text-xs text-slate-500">Student classification</dt><dd className="mt-1 font-semibold text-slate-900">{[identity.classification?.studentType || 'Not recorded', identity.classification?.isShifter ? 'Shifter' : '', identity.classification?.isTransferee ? 'Transferee' : '', identity.classification?.isIP ? 'IP' : '', identity.classification?.isPWD ? 'PWD' : ''].filter(Boolean).join(' • ')}</dd></div>
         </dl>
       </section>
 
