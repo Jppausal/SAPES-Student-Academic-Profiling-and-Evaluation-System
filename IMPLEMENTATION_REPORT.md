@@ -11,6 +11,7 @@ Updated: 2026-09-27
 - Classification supports IP, PWD, shifter, and transferee flags.
 - The student dashboard displays all structured classification flags.
 - A shared validator rejects protected sections, unsupported nested fields, invalid types, oversized strings, and invalid dates.
+- The rendered student portal uses only authenticated profile and report responses for profile, academic records, status, and GWA.
 
 ### Administrative student profile management
 
@@ -74,7 +75,7 @@ The backend suite contains focused tests for session/account-status enforcement 
 
 ## Known remaining work
 
-- Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers.
+- Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.
 - Perform live end-to-end tests with MongoDB and valid institutional Google credentials.
 - Design offline local MongoDB operation and Atlas synchronization; synchronization is not implemented.
 

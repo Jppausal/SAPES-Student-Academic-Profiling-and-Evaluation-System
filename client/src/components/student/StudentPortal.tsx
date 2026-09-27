@@ -1,42 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { useApp } from '../../context/AppContext';
-import { fetchMyStudentIdentity, fetchMyStudentReport, StudentIdentity, StudentReport } from '../../lib/api';
-import { BackendStudentWorkspace } from './BackendStudentWorkspace';
-import { StudentOverview } from './StudentOverview';
-import { StudentProfileSetup } from './StudentProfileSetup';
-import { StudentAcademicRecordView } from './StudentAcademicRecordView';
-import { StudentDossierSummary } from './StudentDossierSummary';
+import { LayoutDashboard, UserCheck } from 'lucide-react';
 import {
-  LayoutDashboard,
-  UserCheck,
-  GraduationCap,
-  FileText,
-  Sparkles,
-} from 'lucide-react';
+  fetchMyStudentIdentity,
+  fetchMyStudentReport,
+  StudentIdentity,
+  StudentReport,
+} from '../../lib/api';
+import { BackendStudentWorkspace } from './BackendStudentWorkspace';
+import { StudentProfileSetup } from './StudentProfileSetup';
 
 export const StudentPortal: React.FC = () => {
-  const { currentStudentProfile } = useApp();
   const [identity, setIdentity] = useState<StudentIdentity | null>(null);
   const [report, setReport] = useState<StudentReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'academics' | 'summary'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<'overview' | 'profile'>('overview');
 
   useEffect(() => {
     let active = true;
-    Promise.resolve()
-      .then(fetchMyStudentIdentity)
-      .then(async (student) => {
-        const studentReport = await fetchMyStudentReport();
-        if (active) {
-          setIdentity(student);
-          setReport(studentReport);
-          const firstName = student.personalInformation?.firstName?.trim();
-          const lastName = student.personalInformation?.lastName?.trim();
-          const needsProfileSetup = !firstName || !lastName || (firstName === 'New' && lastName === 'Student');
-          if (needsProfileSetup) setActiveTab('profile');
+    Promise.all([fetchMyStudentIdentity(), fetchMyStudentReport()])
+      .then(([student, studentReport]) => {
+        if (!active) return;
+        setIdentity(student);
+        setReport(studentReport);
+        const firstName = student.personalInformation?.firstName?.trim();
+        const lastName = student.personalInformation?.lastName?.trim();
+        if (!firstName || !lastName || (firstName === 'New' && lastName === 'Student')) {
+          setActiveTab('profile');
         }
       })
       .catch((requestError) => {
@@ -64,65 +54,17 @@ export const StudentPortal: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Sub-Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-white rounded-2xl border border-slate-200 shadow-xs max-w-full overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'overview'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          Dashboard Overview
+      <div className="flex max-w-full items-center gap-1.5 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-xs">
+        <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'overview' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>
+          <LayoutDashboard className="h-4 w-4" /> Profile & Academic Records
         </button>
-
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'profile'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <UserCheck className="w-4 h-4" />
-          Student Profiling Form
-          {(!profileComplete || currentStudentProfile?.profileCompletionPercentage !== 100) && (
-            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('academics')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'academics'
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <GraduationCap className="w-4 h-4" />
-          Academic Record & Major GWA
-        </button>
-
-        <button
-          onClick={() => setActiveTab('summary')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'summary'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          Official Profiling Dossier
+        <button onClick={() => setActiveTab('profile')} className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>
+          <UserCheck className="h-4 w-4" /> Edit Student Profile
+          {!profileComplete && <span className="h-2 w-2 rounded-full bg-amber-400" />}
         </button>
       </div>
 
-      {/* Main Tab Render */}
-      {(activeTab === 'overview' || activeTab === 'academics') && (
-        <BackendStudentWorkspace identity={identity} report={report} />
-      )}
-
+      {activeTab === 'overview' && <BackendStudentWorkspace identity={identity} report={report} />}
       {activeTab === 'profile' && (
         <StudentProfileSetup
           identity={identity}
@@ -133,10 +75,6 @@ export const StudentPortal: React.FC = () => {
           }}
         />
       )}
-
-      {activeTab === 'academics' && <StudentAcademicRecordView />}
-
-      {activeTab === 'summary' && <StudentDossierSummary />}
     </div>
   );
 };

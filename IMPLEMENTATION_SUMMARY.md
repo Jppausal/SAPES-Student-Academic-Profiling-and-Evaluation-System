@@ -17,6 +17,6 @@ Security and integrity controls now include current account-status checks on eve
 
 The administrator academic-record workspace now reads and writes MongoDB-backed term records, validates complete subject payloads, refreshes the calculated major-subject GWA, and records academic-status history through the backend.
 
-The faculty portal now uses the protected backend report, evaluation, and status APIs as its rendered source of truth. Administrator institutional analytics also load profiles, academic summaries, classifications, statuses, evaluations, and major-subject GWA from MongoDB. Legacy mock context code remains in the repository for cleanup, but these primary role workflows no longer render it.
+Student, faculty, and administrator academic workflows now use protected backend APIs as their rendered sources of truth. Administrator institutional analytics load profiles, academic summaries, classifications, statuses, evaluations, and major-subject GWA from MongoDB. Legacy mock context code remains in the repository for cleanup, but these primary role workflows no longer render it.
 
 Local MongoDB-to-Atlas synchronization remains planned and has not been implemented.
