@@ -88,6 +88,8 @@ export async function requestPasswordReset(username: string) {
     method: 'POST', body: JSON.stringify({ username })
   });
 }
+export async function fetchUserSettings() { const response = await request<{ success: true; data: { notificationPreferences: { profileAndAcademicUpdates: boolean } } }>('/api/auth/settings'); return response.data; }
+export async function saveUserSettings(profileAndAcademicUpdates: boolean) { return request('/api/auth/settings', { method: 'PUT', body: JSON.stringify({ notificationPreferences: { profileAndAcademicUpdates } }) }); }
 
 export async function confirmPasswordReset(username: string, code: string, newPassword: string) {
   return request<{ success: true; message: string }>('/api/auth/password-reset/confirm', {

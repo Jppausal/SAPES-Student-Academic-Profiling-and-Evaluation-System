@@ -52,7 +52,8 @@ const userSchema = new mongoose.Schema(
     passwordResetCodeHash: { type: String, select: false },
     passwordResetExpiresAt: { type: Date, select: false },
     passwordResetAttempts: { type: Number, default: 0, select: false },
-    passwordResetRequestedAt: { type: Date, select: false }
+    passwordResetRequestedAt: { type: Date, select: false },
+    notificationPreferences: { profileAndAcademicUpdates: { type: Boolean, default: true } }
   },
   {
   timestamps: true,

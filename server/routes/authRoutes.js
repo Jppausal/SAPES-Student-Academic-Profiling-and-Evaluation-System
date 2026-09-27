@@ -151,6 +151,18 @@ router.post('/password-reset/request', async (req, res) => {
   }
 });
 
+router.get('/settings', authenticateToken, async (req, res) => {
+  const user = await User.findById(req.user.userId).select('notificationPreferences').lean();
+  return res.json({ success: true, data: { notificationPreferences: user?.notificationPreferences || { profileAndAcademicUpdates: true } } });
+});
+
+router.put('/settings', authenticateToken, async (req, res) => {
+  const value = req.body?.notificationPreferences?.profileAndAcademicUpdates;
+  if (typeof value !== 'boolean') return res.status(400).json({ success: false, message: 'notification preference must be a boolean' });
+  await User.findByIdAndUpdate(req.user.userId, { 'notificationPreferences.profileAndAcademicUpdates': value });
+  return res.json({ success: true, data: { notificationPreferences: { profileAndAcademicUpdates: value } } });
+});
+
 router.post('/password-reset/confirm', async (req, res) => {
   try {
     const { username, code, newPassword } = req.body || {};

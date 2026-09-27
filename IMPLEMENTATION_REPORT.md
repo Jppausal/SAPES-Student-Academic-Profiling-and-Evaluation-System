@@ -18,6 +18,7 @@ Updated: 2026-09-27
 - Students may opt in to share recurring unavailable time slots for spiritual activities. Faculty reports expose only day/time restrictions, never a religion or activity description; a protected schedule-conflict endpoint supports enrollment checks.
 - Classification is staff-managed: faculty or administrators set continuing, shifter, transferee, and related classification information. Academic status is maintained through the audited staff status workflow and supports Regular, Irregular, Probationary, and FDA labels.
 - The account menu provides Settings for every role. It starts an email-verified password change and presents role-appropriate notification categories; protected role, permission, classification, academic-status, and academic-record fields are excluded.
+- Notification preferences now load from and save to the authenticated user record through `/api/auth/settings`.
 
 ### Student academic history
 

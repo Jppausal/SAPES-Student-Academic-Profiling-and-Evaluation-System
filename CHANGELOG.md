@@ -30,6 +30,7 @@ All notable SAPES changes are recorded here.
 - Restricted student classification changes to authorized faculty and administrators; student profiles now show classification read-only.
 - Removed the staff-managed classification display from the student profile editor.
 - Added a role-aware account Settings panel with email-verified password changes.
+- Persisted account notification preferences through authenticated settings APIs.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.
