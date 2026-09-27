@@ -148,6 +148,8 @@ export const BackendStudentSearch: React.FC = () => {
             </div>
           </div>
 
+          {report.student.schedulingRestrictions && report.student.schedulingRestrictions.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>Scheduling restrictions</strong><p className="mt-1 text-xs">Do not enroll the student in meeting times that overlap: {report.student.schedulingRestrictions.map((slot) => `${slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`).join('; ')}.</p></div>}
+
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
             {report.academicRecords.length === 0 && (

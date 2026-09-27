@@ -82,6 +82,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const setAddress = (address: 'presentAddress' | 'homeAddress', field: string, value: string) => {
     setProfile((current) => ({ ...current, addresses: { ...current.addresses, [address]: { ...current.addresses?.[address], [field]: value } } }));
   };
+  const setActivities = (spiritualActivities: Array<{ dayOfWeek: string; startTime: string; endTime: string }>) => setProfile((current) => ({ ...current, religiousInformation: { ...current.religiousInformation, spiritualActivities } }));
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -217,6 +218,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
           {(hasCustomReligion || isOtherReligion) && <label className="block text-xs font-semibold text-slate-700">Other religion or affiliation
             <input value={hasCustomReligion ? religion : ''} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { religion: event.target.value } }))} placeholder="Optional" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" />
           </label>}
+        </div>
+        <div className="mt-4 rounded-xl bg-slate-50 p-4">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={Boolean(profile.religiousInformation?.shareSpiritualSchedule)} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { ...current.religiousInformation, shareSpiritualSchedule: event.target.checked } }))} /> Share recurring unavailable times with faculty scheduling staff</label>
+          <p className="mt-1 text-xs text-slate-500">Faculty see only unavailable times, never your religion or activity details.</p>
+          {profile.religiousInformation?.shareSpiritualSchedule && <div className="mt-3 space-y-2">{(profile.religiousInformation.spiritualActivities || []).map((activity, index) => <div key={index} className="grid gap-2 sm:grid-cols-4"><select value={activity.dayOfWeek} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, dayOfWeek: event.target.value } : item))} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select><input type="time" value={activity.startTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, startTime: event.target.value } : item))} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" /><input type="time" value={activity.endTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, endTime: event.target.value } : item))} className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs" /><button type="button" onClick={() => setActivities((profile.religiousInformation?.spiritualActivities || []).filter((_, i) => i !== index))} className="text-xs font-semibold text-rose-700">Remove</button></div>) }<button type="button" onClick={() => setActivities([...(profile.religiousInformation?.spiritualActivities || []), { dayOfWeek: 'Thursday', startTime: '18:00', endTime: '20:00' }])} className="text-xs font-bold text-indigo-700">+ Add unavailable time</button></div>}
         </div>
       </section>
 

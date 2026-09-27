@@ -80,3 +80,11 @@ test('validates structured health conditions and none exclusivity', () => {
   assert.deepEqual(valid.value.healthInformation.conditions, ['Asthma', 'Allergies']);
   assert.equal(invalid.error, 'healthInformation.conditions cannot include None with another condition');
 });
+
+test('accepts valid recurring spiritual activity times and rejects invalid ranges', () => {
+  const valid = validateAndNormalizeStudentProfile({ religiousInformation: { shareSpiritualSchedule: true, spiritualActivities: [{ dayOfWeek: 'Thursday', startTime: '18:00', endTime: '20:00' }] } });
+  const invalid = validateAndNormalizeStudentProfile({ religiousInformation: { spiritualActivities: [{ dayOfWeek: 'Thursday', startTime: '20:00', endTime: '18:00' }] } });
+  assert.equal(valid.error, undefined);
+  assert.equal(valid.value.religiousInformation.spiritualActivities[0].startTime, '18:00');
+  assert.equal(invalid.error, 'Each spiritual activity must have a valid day and time range');
+});

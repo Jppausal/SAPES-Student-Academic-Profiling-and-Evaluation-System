@@ -108,7 +108,9 @@ const studentSchema = new mongoose.Schema(
     },
 
     religiousInformation: {
-      religion: String
+      religion: String,
+      shareSpiritualSchedule: { type: Boolean, default: false },
+      spiritualActivities: [{ dayOfWeek: String, startTime: String, endTime: String, _id: false }]
     },
 
     healthInformation: {

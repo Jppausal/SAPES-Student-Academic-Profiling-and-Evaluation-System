@@ -208,6 +208,7 @@ export interface StudentReport {
       currentStatus?: string;
       statusRemarks?: string;
     };
+    schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   };
   academicRecords: AcademicTermRecord[];
   majorSubjectGwa: number;
@@ -267,6 +268,7 @@ export async function fetchInstitutionalStudentSummary(page = 1, limit = 25) {
       pagination: { page: number; limit: number; total: number; totalPages: number };
       statistics: { ip: number; pwd: number; probation: number; evaluated: number };
     };
+    schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   }>(`/api/students/reports/summary?${query.toString()}`);
   return response.data;
 }
@@ -314,7 +316,7 @@ export interface StudentIdentity {
     isTransferee?: boolean;
     indigenousGroup?: string;
   };
-  religiousInformation?: { religion?: string };
+  religiousInformation?: { religion?: string; shareSpiritualSchedule?: boolean; spiritualActivities?: Array<{ dayOfWeek: string; startTime: string; endTime: string }> };
   academicStatus?: {
     currentStatus?: string;
     isOnProbation?: boolean;
@@ -361,7 +363,7 @@ export type StudentProfileUpdate = {
     isTransferee?: boolean;
     indigenousGroup?: string;
   };
-  religiousInformation?: { religion?: string };
+  religiousInformation?: { religion?: string; shareSpiritualSchedule?: boolean; spiritualActivities?: Array<{ dayOfWeek: string; startTime: string; endTime: string }> };
 };
 
 export async function updateMyStudentProfile(payload: StudentProfileUpdate) {
@@ -397,6 +399,11 @@ export async function updateStudentStatus(
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+}
+
+export async function checkStudentScheduleConflicts(institutionId: string, meetings: Array<{ dayOfWeek: string; startTime: string; endTime: string }>) {
+  const response = await request<{ success: true; data: { eligible: boolean; conflicts: Array<{ meeting: { dayOfWeek: string; startTime: string; endTime: string } }> } }>(`/api/students/${encodeURIComponent(institutionId)}/schedule-conflicts`, { method: 'POST', body: JSON.stringify({ meetings }) });
+  return response.data;
 }
 
 export async function checkServerHealth(): Promise<boolean> {

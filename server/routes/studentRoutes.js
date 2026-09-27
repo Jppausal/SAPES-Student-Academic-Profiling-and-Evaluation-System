@@ -10,8 +10,21 @@ const { authorizePermission, authorizeAnyPermission } = require('../middleware/p
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
 const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
+const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
 
 const router = express.Router();
+
+router.post('/:institutionId/schedule-conflicts', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
+  try {
+    const meetings = req.body?.meetings;
+    if (!Array.isArray(meetings) || meetings.length < 1 || meetings.some((meeting) => !meeting || !DAYS.includes(meeting.dayOfWeek) || !isTime(meeting.startTime) || !isTime(meeting.endTime) || meeting.startTime >= meeting.endTime)) return res.status(400).json({ success: false, message: 'Provide valid meeting day and time ranges.' });
+    const student = await Student.findOne({ institutionId: req.params.institutionId }, { religiousInformation: 1 }).lean();
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    const activities = student.religiousInformation?.shareSpiritualSchedule ? student.religiousInformation.spiritualActivities || [] : [];
+    const conflicts = findScheduleConflicts(activities, meetings);
+    return res.json({ success: true, data: { eligible: conflicts.length === 0, conflicts } });
+  } catch (error) { console.error('Schedule conflict check failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
+});
 
 // Record an authorized student status update and preserve its history
 router.put(
@@ -504,6 +517,11 @@ router.get(
           accommodationRequired: Boolean(student.healthInformation.accommodationRequired),
           accommodationNotes: student.healthInformation.accommodationNotes || ''
         };
+      }
+      if (req.user.role === 'faculty') {
+        const activities = student.religiousInformation?.shareSpiritualSchedule ? student.religiousInformation.spiritualActivities || [] : [];
+        delete student.religiousInformation;
+        student.schedulingRestrictions = activities;
       }
 
       const [academicRecords, facultyEvaluation, statusHistory] = await Promise.all([

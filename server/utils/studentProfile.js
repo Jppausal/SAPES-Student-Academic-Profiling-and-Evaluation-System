@@ -1,4 +1,5 @@
 const HEALTH_CONDITIONS = ['None', 'Anemia', 'Anxiety', 'Asthma', 'Blood Clots', 'Cerebrovascular Accident', 'Depression', 'Hypertension', 'Thyroid Disease', 'Allergies', 'Arthritis', 'Cancer', 'Diabetes', 'Migraine Headaches', 'Peptic Ulcer Disease', 'Seizure Disorder', 'Other'];
+const { validateActivities } = require('./scheduleConflicts');
 
 const PROFILE_SECTION_RULES = {
   personalInformation: {
@@ -13,7 +14,7 @@ const PROFILE_SECTION_RULES = {
   },
   religiousInformation: {
     strings: ['religion'],
-    booleans: [],
+    booleans: ['shareSpiritualSchedule'],
     dates: []
   },
   enrollmentInformation: {
@@ -64,7 +65,7 @@ const validateAndNormalizeStudentProfile = (body) => {
       return { error: `${sectionName} must include at least one field` };
     }
 
-    const supportedFields = [...rules.strings, ...rules.booleans, ...rules.dates, ...(rules.arrays || [])];
+    const supportedFields = [...rules.strings, ...rules.booleans, ...rules.dates, ...(rules.arrays || []), ...(sectionName === 'religiousInformation' ? ['spiritualActivities'] : [])];
     const unsupportedField = fields.find((field) => !supportedFields.includes(field));
     if (unsupportedField) {
       return { error: `${sectionName}.${unsupportedField} is not editable` };
@@ -107,6 +108,11 @@ const validateAndNormalizeStudentProfile = (body) => {
       if (items.some((item) => !HEALTH_CONDITIONS.includes(item))) return { error: `${sectionName}.${field} contains an unsupported condition` };
       if (items.includes('None') && items.length > 1) return { error: `${sectionName}.${field} cannot include None with another condition` };
       normalized[sectionName][field] = items;
+    }
+    if (sectionName === 'religiousInformation' && value.spiritualActivities !== undefined) {
+      const activities = validateActivities(value.spiritualActivities);
+      if (activities.error) return activities;
+      normalized[sectionName].spiritualActivities = activities.value;
     }
     if (sectionName === 'healthInformation' && value.hasRelevantHealthConcern === false && (value.conditions || []).length > 0) return { error: 'healthInformation.conditions must be empty when no relevant health concern is reported' };
   }
