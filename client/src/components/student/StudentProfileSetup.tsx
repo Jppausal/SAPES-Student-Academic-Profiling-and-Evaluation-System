@@ -36,6 +36,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       enrollmentInformation: { ...identity.enrollmentInformation },
       contactInformation: { ...identity.contactInformation },
       educationalBackground: { ...identity.educationalBackground },
+      addresses: { presentAddress: { ...identity.addresses?.presentAddress }, homeAddress: { ...identity.addresses?.homeAddress } },
       healthInformation: { ...identity.healthInformation },
     });
   }, [identity]);
@@ -60,6 +61,10 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
 
   const setHealth = (field: keyof NonNullable<StudentProfileUpdate['healthInformation']>, value: string | boolean) => {
     setProfile((current) => ({ ...current, healthInformation: { ...current.healthInformation, [field]: value } }));
+  };
+
+  const setAddress = (address: 'presentAddress' | 'homeAddress', field: string, value: string) => {
+    setProfile((current) => ({ ...current, addresses: { ...current.addresses, [address]: { ...current.addresses?.[address], [field]: value } } }));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -87,6 +92,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const contact = profile.contactInformation || {};
   const education = profile.educationalBackground || {};
   const health = profile.healthInformation || {};
+  const addresses = profile.addresses || {};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -146,6 +152,16 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
           <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(health.accommodationRequired)} onChange={(event) => setHealth('accommodationRequired', event.target.checked)} /> I require an academic accommodation</label>
           <label className="block text-xs font-semibold text-slate-700">Accommodation notes<textarea value={health.accommodationNotes || ''} onChange={(event) => setHealth('accommodationNotes', event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
           <label className="block text-xs font-semibold text-slate-700">Private condition description<textarea value={health.conditionDescription || ''} onChange={(event) => setHealth('conditionDescription', event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <h2 className="font-bold text-slate-900">Address Information</h2>
+        <div className="mt-4 grid gap-5 lg:grid-cols-2">
+          {(['presentAddress', 'homeAddress'] as const).map((addressName) => {
+            const address = addresses[addressName] || {};
+            return <div key={addressName} className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2"><h3 className="sm:col-span-2 text-sm font-semibold text-slate-800">{addressName === 'presentAddress' ? 'Present address' : 'Home address'}</h3>{[['street', 'Street'], ['barangay', 'Barangay'], ['municipality', 'Municipality'], ['province', 'Province'], ['zipCode', 'Zip code']].map(([field, label]) => <label key={field} className="text-xs font-semibold text-slate-700">{label}<input value={address[field] || ''} onChange={(event) => setAddress(addressName, field, event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2" /></label>)}</div>;
+          })}
         </div>
       </section>
 
