@@ -26,6 +26,14 @@ Updated: 2026-09-27
 - Academic-year and semester records are unique per student.
 - Successful changes write an audit entry and refresh the displayed report and major-subject GWA.
 
+### Faculty evaluation workspace
+
+- Faculty search students by institution ID through the protected report API.
+- Persisted term subjects and major-subject GWA are displayed from MongoDB.
+- Faculty evaluation status, reasons, and remarks are saved through the authorized evaluation endpoint.
+- Academic status and its reason are saved through the status-history endpoint.
+- The former browser-local faculty roster and dossier are no longer rendered by the faculty portal.
+
 ### Authentication and account security
 
 - Every protected request verifies the JWT, stored session, current user record, and current account status.
@@ -59,7 +67,7 @@ The backend suite contains focused tests for session/account-status enforcement 
 
 ## Known remaining work
 
-- Replace the remaining browser-local faculty lists, evaluation dossiers, and institutional reports with authoritative backend data.
+- Replace the remaining browser-local institutional reporting views with authoritative backend data.
 - Perform live end-to-end tests with MongoDB and valid institutional Google credentials.
 - Design offline local MongoDB operation and Atlas synchronization; synchronization is not implemented.
 

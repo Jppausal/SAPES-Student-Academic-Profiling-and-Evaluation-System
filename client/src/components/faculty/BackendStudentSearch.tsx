@@ -11,8 +11,10 @@ export const BackendStudentSearch: React.FC = () => {
   const [institutionId, setInstitutionId] = useState('');
   const [report, setReport] = useState<StudentReport | null>(null);
   const [evaluationStatus, setEvaluationStatus] = useState('for_review');
+  const [reasons, setReasons] = useState('');
   const [remarks, setRemarks] = useState('');
   const [studentStatus, setStudentStatus] = useState('');
+  const [statusReason, setStatusReason] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,9 @@ export const BackendStudentSearch: React.FC = () => {
       const result = await fetchStudentReport(institutionId.trim());
       setReport(result);
       setEvaluationStatus(result.facultyEvaluation?.evaluationStatus || 'for_review');
+      setReasons(result.facultyEvaluation?.reasons?.join(', ') || '');
       setRemarks(result.facultyEvaluation?.remarks || '');
+      setStudentStatus(result.student.academicStatus?.currentStatus || '');
     } catch (requestError) {
       setReport(null);
       setError(requestError instanceof Error ? requestError.message : 'Unable to find student.');
@@ -42,7 +46,7 @@ export const BackendStudentSearch: React.FC = () => {
     try {
       await saveStudentEvaluation(report.student.institutionId, {
         evaluationStatus,
-        reasons: [],
+        reasons: reasons.split(',').map((reason) => reason.trim()).filter(Boolean),
         remarks,
       });
       setMessage('Faculty evaluation saved.');
@@ -61,6 +65,7 @@ export const BackendStudentSearch: React.FC = () => {
     try {
       await updateStudentStatus(report.student.institutionId, {
         status: studentStatus.trim(),
+        reason: statusReason.trim() || undefined,
         remarks: 'Updated from faculty dashboard.',
       });
       setMessage('Student status updated.');
@@ -130,15 +135,46 @@ export const BackendStudentSearch: React.FC = () => {
                 <option value="not_eligible">Not eligible</option>
                 <option value="for_review">For review</option>
               </select>
+              <input value={reasons} onChange={(event) => setReasons(event.target.value)} placeholder="Reasons, separated by commas" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder="Evaluation remarks" className="mt-2 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <button onClick={saveEvaluation} disabled={loading} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> Save evaluation</button>
             </div>
             <div className="rounded-xl border border-slate-200 p-4">
               <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><ShieldAlert className="h-4 w-4 text-amber-600" /> Current status</h3>
               <input value={studentStatus} onChange={(event) => setStudentStatus(event.target.value)} placeholder="e.g. Regular, On probation" className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <input value={statusReason} onChange={(event) => setStatusReason(event.target.value)} placeholder="Reason for status update" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <button onClick={saveStatus} disabled={loading || !studentStatus.trim()} className="mt-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">Update student status</button>
               <p className="mt-3 text-xs text-slate-500">Status history entries are refreshed after a successful update.</p>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
+            {report.academicRecords.length === 0 && (
+              <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No academic records have been entered.</p>
+            )}
+            {report.academicRecords.map((term) => (
+              <div key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700">{term.academicYear} · {term.semester}</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-y border-slate-200 text-slate-500"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Status</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {term.subjects.map((subject) => (
+                        <tr key={subject.subjectCode}>
+                          <td className="px-3 py-2 font-mono font-semibold">{subject.subjectCode}</td>
+                          <td className="px-3 py-2">{subject.subjectName}</td>
+                          <td className="px-3 py-2">{subject.units}</td>
+                          <td className="px-3 py-2 font-semibold">{subject.grade || '—'}</td>
+                          <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'General'}</td>
+                          <td className="px-3 py-2">{subject.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -17,6 +17,6 @@ Security and integrity controls now include current account-status checks on eve
 
 The administrator academic-record workspace now reads and writes MongoDB-backed term records, validates complete subject payloads, refreshes the calculated major-subject GWA, and records academic-status history through the backend.
 
-The application is still partially transitional. Several faculty list, evaluation dossier, and institutional reporting views use mock or browser-local data, while their primary search/report operations use MongoDB-backed APIs. These local workflows must be replaced before the application can be considered fully integrated.
+The faculty portal now uses the protected backend report, evaluation, and status APIs as its rendered source of truth. The application remains partially transitional because institutional reporting views still use browser-local data and must be replaced before the application can be considered fully integrated.
 
 Local MongoDB-to-Atlas synchronization remains planned and has not been implemented.
