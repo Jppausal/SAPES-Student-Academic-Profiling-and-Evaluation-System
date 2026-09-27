@@ -184,12 +184,6 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-        <h2 className="font-bold text-slate-900">Student Classification</h2>
-        <p className="mt-1 text-xs text-slate-500">Set and verified by authorized faculty or administrators.</p>
-        <p className="mt-3 text-sm font-semibold text-slate-800">{[identity.classification?.studentType, identity.classification?.isShifter ? 'Shifter' : '', identity.classification?.isTransferee ? 'Transferee' : '', identity.classification?.isIP ? 'IP' : '', identity.classification?.isPWD ? 'PWD' : ''].filter(Boolean).join(' · ') || 'Not yet classified'}</p>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="font-bold text-slate-900">Religious Information</h2>
         <p className="mt-1 text-xs text-slate-500">This is optional student-provided information. SAPES does not infer religion.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">

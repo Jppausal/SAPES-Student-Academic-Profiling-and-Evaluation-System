@@ -28,6 +28,7 @@ All notable SAPES changes are recorded here.
 - Added a reliable religion selection with an Other field and a Prefer not to say option.
 - Added student-controlled recurring spiritual-activity scheduling restrictions for authorized faculty review.
 - Restricted student classification changes to authorized faculty and administrators; student profiles now show classification read-only.
+- Removed the staff-managed classification display from the student profile editor.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.
