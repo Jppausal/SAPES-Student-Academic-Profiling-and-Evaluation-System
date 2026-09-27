@@ -31,11 +31,14 @@ import {
   updateUserStatus,
   updateUser,
   logoutRequest,
+  fetchCurrentSession,
   ServerStatus,
+  SessionUser,
 } from '../lib/api';
 
 interface AppContextType {
   serverStatus: ServerStatus;
+  sessionReady: boolean;
   currentUser: UserAccount | null;
   users: UserAccount[];
   students: StudentProfile[];
@@ -86,6 +89,7 @@ const STORAGE_KEYS = {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [serverStatus, setServerStatus] = useState<ServerStatus>('checking');
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
     checkServerHealth().then((isOnline) => setServerStatus(isOnline ? 'online' : 'offline'));
@@ -118,6 +122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+    if (!localStorage.getItem('sapes_jwt')) return null;
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
     return saved || null;
   });
@@ -153,6 +158,95 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const currentUser = users.find((u) => u.id === currentUserId) || null;
 
+  const sessionUserToAccount = (sessionUser: SessionUser, existing?: UserAccount): UserAccount => ({
+    ...existing,
+    id: sessionUser.id,
+    username: sessionUser.username,
+    firstName: sessionUser.firstName,
+    lastName: sessionUser.lastName,
+    fullName: [sessionUser.firstName, sessionUser.lastName].filter(Boolean).join(' ') || sessionUser.username,
+    email: sessionUser.email,
+    role: sessionUser.role,
+    studentNumber: sessionUser.studentNumber,
+    employeeId: sessionUser.employeeId,
+    department: sessionUser.department || '',
+    isActive: true,
+    accountStatus: 'active',
+    createdAt: existing?.createdAt || new Date().toISOString(),
+  });
+
+  const loadAdminData = async () => {
+    const [apiUsers, apiLogs] = await Promise.all([fetchUsers(), fetchAuditLogs()]);
+    setUsers((currentUsers) => {
+      const localById = new Map(currentUsers.map((item) => [item.id, item]));
+      return apiUsers.map((item) => {
+        const local = localById.get(item.id);
+        return {
+          ...local,
+          id: item.id,
+          username: item.username,
+          firstName: item.firstName,
+          lastName: item.lastName,
+          fullName: [item.firstName, item.lastName].filter(Boolean).join(' ') || item.username,
+          email: item.email,
+          role: item.role,
+          studentNumber: item.studentNumber || undefined,
+          employeeId: item.employeeId || undefined,
+          department: item.department,
+          isActive: item.accountStatus === 'active',
+          accountStatus: item.accountStatus,
+          createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
+        };
+      });
+    });
+    setAuditLogs(apiLogs.map((log, index) => ({
+      id: `${log.timestamp}-${index}`,
+      timestamp: log.timestamp,
+      userId: log.userId?.username || 'system',
+      userName: log.userId?.username || 'System',
+      userRole: log.userId?.role || 'admin',
+      action: log.action,
+      category: 'SYSTEM_CONFIG',
+      details: JSON.stringify(log.details),
+    })));
+  };
+
+  useEffect(() => {
+    let active = true;
+    const restoreSession = async () => {
+      if (!localStorage.getItem('sapes_jwt')) {
+        if (active) {
+          setCurrentUserId(null);
+          setSessionReady(true);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetchCurrentSession();
+        if (!active) return;
+        setUsers((currentUsers) => {
+          const existing = currentUsers.find((user) => user.id === response.user.id);
+          const restoredUser = sessionUserToAccount(response.user, existing);
+          return existing
+            ? currentUsers.map((user) => user.id === restoredUser.id ? restoredUser : user)
+            : [...currentUsers, restoredUser];
+        });
+        setCurrentUserId(response.user.id);
+        if (response.user.role === 'admin') await loadAdminData();
+      } catch {
+        if (!active) return;
+        localStorage.removeItem('sapes_jwt');
+        setCurrentUserId(null);
+      } finally {
+        if (active) setSessionReady(true);
+      }
+    };
+
+    void restoreSession();
+    return () => { active = false; };
+  }, []);
+
   // Helper to add audit log
   const addAuditLog = (
     action: string,
@@ -178,60 +272,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const response = await loginRequest(username, password);
       return await completeLogin(response);
     } catch (error) {
+      if (localStorage.getItem('sapes_jwt')) {
+        try { await logoutRequest(); } catch { /* The token is cleared locally below. */ }
+        localStorage.removeItem('sapes_jwt');
+        setCurrentUserId(null);
+      }
       return { success: false, message: error instanceof Error ? error.message : 'Login failed' };
     }
   };
 
   const completeLogin = async (response: {
     token: string;
-    user: { id: string; username: string; role: UserRole; studentNumber?: string };
+    user: SessionUser;
   }) => {
     localStorage.setItem('sapes_jwt', response.token);
     const existingUser = users.find((user) => user.id === response.user.id);
-    const user: UserAccount = existingUser || {
-      id: response.user.id,
-      username: response.user.username,
-      fullName: response.user.username,
-      email: '',
-      role: response.user.role,
-      studentNumber: response.user.studentNumber,
-      department: '',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    };
-    setUsers((prev) => (existingUser ? prev : [...prev, user]));
+    const user = sessionUserToAccount(response.user, existingUser);
+    setUsers((prev) => existingUser
+      ? prev.map((item) => item.id === user.id ? user : item)
+      : [...prev, user]);
     setCurrentUserId(user.id);
+    setSessionReady(true);
 
     if (response.user.role === 'admin') {
-      const [apiUsers, apiLogs] = await Promise.all([fetchUsers(), fetchAuditLogs()]);
-      setUsers((prev) => {
-        const localById = new Map(prev.map((item) => [item.id, item]));
-        return apiUsers.map((item) => {
-          const local = localById.get(item.id);
-          return {
-            ...local,
-            id: item.id,
-            username: item.username,
-            fullName: local?.fullName || item.username,
-            email: local?.email || '',
-            role: item.role,
-            department: local?.department || '',
-            isActive: item.accountStatus === 'active',
-            accountStatus: item.accountStatus,
-            createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
-          };
-        });
-      });
-      setAuditLogs(apiLogs.map((log, index) => ({
-        id: `${log.timestamp}-${index}`,
-        timestamp: log.timestamp,
-        userId: log.userId?.username || 'system',
-        userName: log.userId?.username || 'System',
-        userRole: log.userId?.role || 'admin',
-        action: log.action,
-        category: 'SYSTEM_CONFIG',
-        details: JSON.stringify(log.details),
-      })));
+      await loadAdminData();
     }
     return { success: true };
   };
@@ -241,6 +305,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const response = await googleLoginRequest(credential);
       return await completeLogin(response);
     } catch (error) {
+      if (localStorage.getItem('sapes_jwt')) {
+        try { await logoutRequest(); } catch { /* The token is cleared locally below. */ }
+        localStorage.removeItem('sapes_jwt');
+        setCurrentUserId(null);
+      }
       return { success: false, message: error instanceof Error ? error.message : 'Google login failed' };
     }
   };
@@ -659,6 +728,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         serverStatus,
+        sessionReady,
         currentUser,
         users,
         students,

@@ -16,6 +16,18 @@ export interface ApiUser {
   createdAt?: string;
 }
 
+export interface SessionUser {
+  id: string;
+  username: string;
+  role: ApiUser['role'];
+  firstName: string;
+  lastName: string;
+  email: string;
+  studentNumber?: string;
+  employeeId?: string;
+  department?: string;
+}
+
 export interface ApiAuditLog {
   userId: { username: string; role: 'student' | 'faculty' | 'admin' } | null;
   action: string;
@@ -47,7 +59,7 @@ export async function loginRequest(username: string, password: string) {
   return request<{
     success: true;
     token: string;
-    user: { id: string; username: string; role: ApiUser['role'] };
+    user: SessionUser;
   }>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
@@ -58,7 +70,7 @@ export async function googleLoginRequest(credential: string) {
   return request<{
     success: true;
     token: string;
-    user: { id: string; username: string; role: ApiUser['role']; studentNumber?: string };
+    user: SessionUser;
   }>('/api/auth/google', {
     method: 'POST',
     body: JSON.stringify({ credential }),
@@ -160,6 +172,10 @@ export interface AcademicSubject {
   grade: number;
   isMajor: boolean;
   status: string;
+}
+
+export async function fetchCurrentSession() {
+  return request<{ success: true; user: SessionUser }>('/api/auth/session');
 }
 
 export interface AcademicTermRecord {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
 import { StudentPortal } from './components/student/StudentPortal';
@@ -15,10 +15,23 @@ import LoginPage from './pages/auth/LoginPage';
 type AuthView = 'landing' | 'login' | 'dashboard';
 
 const AppContent: React.FC = () => {
-  const { currentUser, serverStatus, login, loginWithGoogle } = useApp();
+  const { currentUser, serverStatus, sessionReady, login, loginWithGoogle } = useApp();
   const [authView, setAuthView] = useState<AuthView>(() => (
     currentUser ? 'dashboard' : 'landing'
   ));
+
+  useEffect(() => {
+    if (!sessionReady) return;
+    if (currentUser) {
+      setAuthView('dashboard');
+    } else if (authView === 'dashboard') {
+      setAuthView('landing');
+    }
+  }, [authView, currentUser, sessionReady]);
+
+  if (!sessionReady) {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm font-medium text-slate-500">Validating your session…</div>;
+  }
 
   if (authView === 'login') {
     return (

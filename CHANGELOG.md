@@ -14,6 +14,7 @@ All notable SAPES changes are recorded here.
 - Shared server-side major-subject GWA calculator with regression coverage.
 - Student portal navigation backed exclusively by authenticated profile and report APIs.
 - Safe database-index synchronization command with duplicate detection.
+- Authenticated session-restoration endpoint and client startup validation.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.
@@ -23,6 +24,7 @@ All notable SAPES changes are recorded here.
 
 - Applied and verified required unique indexes in the configured MongoDB database.
 - Health checks now report degraded service when MongoDB is disconnected.
+- Saved browser sessions are validated with the backend before a role dashboard renders.
 - Faculty reports now display persisted term subjects and capture evaluation and status reasons.
 - Administrator analytics no longer read student, academic, or evaluation data from browser storage.
 - Removed duplicate browser-local academic and dossier views from the rendered student portal.

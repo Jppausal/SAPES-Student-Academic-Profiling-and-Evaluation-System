@@ -34,6 +34,11 @@ const safeUser = (user, studentNumber) => ({
   id: user._id,
   username: user.username,
   role: user.role,
+  firstName: user.firstName || '',
+  lastName: user.lastName || '',
+  email: user.email || '',
+  employeeId: user.employeeId || '',
+  department: user.department || '',
   ...(studentNumber ? { studentNumber } : {})
 });
 
@@ -92,11 +97,7 @@ router.post('/login', async (req, res) => {
       success: true,
       message: 'Login successful',
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        role: user.role
-      }
+      user: safeUser(user, user.studentNumber)
     });
 
   } catch (error) {
@@ -120,6 +121,26 @@ router.post('/logout', authenticateToken, async (req, res) => {
     return res.json({ success: true, message: 'Logout successful' });
   } catch (error) {
     console.error('Logout error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET /api/auth/session
+router.get('/session', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId)
+      .select('username role firstName lastName email studentNumber employeeId department')
+      .lean();
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Account no longer exists' });
+    }
+
+    return res.json({
+      success: true,
+      user: safeUser(user, user.studentNumber)
+    });
+  } catch (error) {
+    console.error('Session lookup error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });

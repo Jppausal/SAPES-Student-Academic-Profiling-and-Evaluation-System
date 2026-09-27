@@ -50,6 +50,9 @@ Updated: 2026-09-27
 - Google sign-in checks account status in every account-linking branch.
 - Invalid Google credentials produce a controlled authentication response rather than exposing internal errors.
 - Password resets, role changes, suspension, and deactivation revoke active sessions.
+- `GET /api/auth/session` restores only a currently valid, active, non-revoked session.
+- The client waits for backend session validation before rendering any role dashboard and clears invalid saved tokens.
+- An authenticated runtime smoke test confirmed login (`200`), session restoration (`200`), logout (`200`), and rejection of the revoked token (`401`); the temporary account was removed afterward.
 
 ### User and student integrity
 
