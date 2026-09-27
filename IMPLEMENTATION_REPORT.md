@@ -13,6 +13,22 @@ Updated: 2026-09-27
 - A shared validator rejects protected sections, unsupported nested fields, invalid types, oversized strings, and invalid dates.
 - The rendered student portal uses only authenticated profile and report responses for profile, academic records, status, and GWA.
 
+### Student academic history
+
+- Students select an academic year and semester from periods returned by `GET /api/me/student/report`.
+- Only the subjects, units, grades, major classification, status, and major-subject GWA for the selected period are rendered.
+- The newest stored period is selected by default, and empty or malformed record states are handled without exposing edit controls.
+- The report endpoint resolves the student through the authenticated user and returns a server-calculated major-subject GWA for every academic term.
+- `npm run seed:student-test-records` idempotently inserts three MongoDB-backed demonstration periods for `student.test` without replacing existing periods.
+
+The configured database now contains these added `student.test` demonstration records:
+
+- `2024-2025 / 2nd Semester`: IT 121 Computer Programming 2 (3, 1.75, major), IT 122 Discrete Structures (3, 2.00, major), GE 104 Mathematics in the Modern World (3, 1.50, non-major). Period major GWA: 1.88.
+- `2025-2026 / 1st Semester`: IT 201 Data Structures and Algorithms (3, 2.00, major), IT 202 Object-Oriented Programming (3, 1.50, major), GE 201 Science, Technology and Society (3, 2.00, non-major). Period major GWA: 1.75.
+- `2025-2026 / 2nd Semester`: IT 211 Database Systems (3, 1.50, major), IT 212 Web Systems and Technologies (3, 1.75, major), GE 205 Ethics (3, 1.50, non-major). Period major GWA: 1.63.
+
+The existing `2026-2027 / 1st` test record was preserved. A second seed run made no changes and reported all three added periods as already existing.
+
 ### Administrative student profile management
 
 - Administrators with `manage_academic_records` can update allowed profile sections through `PUT /api/students/:institutionId`.
@@ -76,6 +92,8 @@ repository: git diff --check
 ```
 
 The backend suite contains focused tests for session/account-status enforcement and student-profile validation.
+
+The academic-history runtime check confirmed `student.test` login (`200`), own report access (`200`), exact period separation and GWA values, unauthenticated rejection (`401`), denial on the arbitrary institution-ID report route for a student (`403`), and continued faculty/admin report access (`200` each).
 
 Production dependency audits report zero known vulnerabilities for both the server and client. The backend `qs` transitive dependency was updated to `6.16.0` to resolve two moderate denial-of-service advisories.
 

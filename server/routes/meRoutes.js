@@ -146,6 +146,10 @@ router.get(
         { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
       ).sort({ academicYear: -1, semester: -1 }).lean();
 
+      const academicRecordsWithGwa = academicRecords.map((record) => ({
+        ...record,
+        majorSubjectGwa: calculateMajorSubjectGwa([record])
+      }));
       const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
 
       const { _id, ...safeStudent } = student;
@@ -153,7 +157,7 @@ router.get(
         success: true,
         data: {
           student: safeStudent,
-          academicRecords,
+          academicRecords: academicRecordsWithGwa,
           majorSubjectGwa
         }
       });

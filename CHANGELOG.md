@@ -17,6 +17,8 @@ All notable SAPES changes are recorded here.
 - Authenticated session-restoration endpoint and client startup validation.
 - Patched the backend `qs` dependency to remove known denial-of-service advisories.
 - Added administrator report pagination controls for institutional datasets larger than one page.
+- Added authenticated period selectors and period-specific major GWA to the student academic-record view.
+- Added an idempotent MongoDB seed for historical `student.test` academic records.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.

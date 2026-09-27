@@ -182,6 +182,7 @@ export interface AcademicTermRecord {
   academicYear: string;
   semester: string;
   subjects: AcademicSubject[];
+  majorSubjectGwa?: number;
 }
 
 export interface StudentReport {
