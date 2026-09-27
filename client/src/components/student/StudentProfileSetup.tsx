@@ -12,6 +12,8 @@ interface StudentProfileSetupProps {
   onSaved: (identity: StudentIdentity) => void;
 }
 
+const HEALTH_CONDITIONS = ['None', 'Anemia', 'Anxiety', 'Asthma', 'Blood Clots', 'Cerebrovascular Accident', 'Depression', 'Hypertension', 'Thyroid Disease', 'Allergies', 'Arthritis', 'Cancer', 'Diabetes', 'Migraine Headaches', 'Peptic Ulcer Disease', 'Seizure Disorder', 'Other'];
+
 const emptyProfile: StudentProfileUpdate = {
   personalInformation: {},
   classification: {},
@@ -59,8 +61,18 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
     setProfile((current) => ({ ...current, [section]: { ...current[section], [field]: value } }));
   };
 
-  const setHealth = (field: keyof NonNullable<StudentProfileUpdate['healthInformation']>, value: string | boolean) => {
+  const setHealth = (field: keyof NonNullable<StudentProfileUpdate['healthInformation']>, value: string | boolean | string[]) => {
     setProfile((current) => ({ ...current, healthInformation: { ...current.healthInformation, [field]: value } }));
+  };
+
+  const toggleCondition = (condition: string) => {
+    const conditions = health.conditions || [];
+    const next = condition === 'None'
+      ? (conditions.includes('None') ? [] : ['None'])
+      : conditions.includes(condition)
+        ? conditions.filter((item) => item !== condition)
+        : [...conditions.filter((item) => item !== 'None'), condition];
+    setProfile((current) => ({ ...current, healthInformation: { ...current.healthInformation, conditions: next, hasRelevantHealthConcern: next.length > 0 } }));
   };
 
   const setAddress = (address: 'presentAddress' | 'homeAddress', field: string, value: string) => {
@@ -149,9 +161,13 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
         <p className="mt-1 text-xs text-slate-600">Only accommodation information necessary for academic evaluation may be shared with authorized faculty.</p>
         <div className="mt-4 space-y-3">
           <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(health.hasRelevantHealthConcern)} onChange={(event) => setHealth('hasRelevantHealthConcern', event.target.checked)} /> I have a relevant health concern</label>
+          {health.hasRelevantHealthConcern && <div className="rounded-xl border border-amber-200 bg-white p-4"><p className="text-xs font-semibold text-slate-700">Medical history — select all that apply</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{HEALTH_CONDITIONS.map((condition) => <label key={condition} className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={(health.conditions || []).includes(condition)} onChange={() => toggleCondition(condition)} /> {condition}</label>)}</div></div>}
+          {(health.conditions || []).includes('Other') && <label className="block text-xs font-semibold text-slate-700">Other condition<textarea value={health.otherCondition || ''} onChange={(event) => setHealth('otherCondition', event.target.value)} className="mt-1 min-h-16 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>}
+          {(health.conditions || []).includes('Allergies') && <label className="block text-xs font-semibold text-slate-700">Allergy details<textarea value={health.allergyDetails || ''} onChange={(event) => setHealth('allergyDetails', event.target.value)} className="mt-1 min-h-16 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>}
           <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(health.accommodationRequired)} onChange={(event) => setHealth('accommodationRequired', event.target.checked)} /> I require an academic accommodation</label>
           <label className="block text-xs font-semibold text-slate-700">Accommodation notes<textarea value={health.accommodationNotes || ''} onChange={(event) => setHealth('accommodationNotes', event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
           <label className="block text-xs font-semibold text-slate-700">Private condition description<textarea value={health.conditionDescription || ''} onChange={(event) => setHealth('conditionDescription', event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-semibold text-slate-700">Emergency contact name<input value={health.emergencyContactName || ''} onChange={(event) => setHealth('emergencyContactName', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label><label className="block text-xs font-semibold text-slate-700">Emergency contact number<input value={health.emergencyContactNumber || ''} onChange={(event) => setHealth('emergencyContactNumber', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label></div>
         </div>
       </section>
 

@@ -482,8 +482,10 @@ router.get(
           _id: 1,
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
           classification: 1,
           religiousInformation: 1,
+          healthInformation: 1,
           academicStatus: 1
         }
       ).lean();

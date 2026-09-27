@@ -70,3 +70,10 @@ test('normalizes expanded student context while keeping identifiers protected', 
   assert.equal(result.value.addresses.presentAddress.barangay, 'Malaybalay');
   assert.equal(result.value.healthInformation.accommodationRequired, true);
 });
+
+test('validates structured health conditions and none exclusivity', () => {
+  const valid = validateAndNormalizeStudentProfile({ healthInformation: { hasRelevantHealthConcern: true, conditions: ['Asthma', 'Allergies'], allergyDetails: 'Dust' } });
+  const invalid = validateAndNormalizeStudentProfile({ healthInformation: { hasRelevantHealthConcern: true, conditions: ['None', 'Asthma'] } });
+  assert.deepEqual(valid.value.healthInformation.conditions, ['Asthma', 'Allergies']);
+  assert.equal(invalid.error, 'healthInformation.conditions cannot include None with another condition');
+});

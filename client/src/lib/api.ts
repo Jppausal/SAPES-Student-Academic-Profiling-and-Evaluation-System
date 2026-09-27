@@ -291,7 +291,7 @@ export interface StudentIdentity {
   contactInformation?: Record<string, string>;
   addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
   educationalBackground?: Record<string, string>;
-  healthInformation?: { hasRelevantHealthConcern?: boolean; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; lastUpdated?: string };
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
     studentType?: string;
     isIP?: boolean;
@@ -332,7 +332,7 @@ export type StudentProfileUpdate = {
   contactInformation?: Record<string, string>;
   addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
   educationalBackground?: Record<string, string>;
-  healthInformation?: { hasRelevantHealthConcern?: boolean; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; lastUpdated?: string };
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
     studentType?: string;
     isIP?: boolean;

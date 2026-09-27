@@ -111,9 +111,14 @@ const studentSchema = new mongoose.Schema(
 
     healthInformation: {
       hasRelevantHealthConcern: { type: Boolean, default: false },
+      conditions: { type: [String], default: [] },
+      otherCondition: String,
+      allergyDetails: String,
       conditionDescription: String,
       accommodationRequired: { type: Boolean, default: false },
       accommodationNotes: String,
+      emergencyContactName: String,
+      emergencyContactNumber: String,
       lastUpdated: Date
     },
 
