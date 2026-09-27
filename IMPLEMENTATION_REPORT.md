@@ -29,6 +29,23 @@ The configured database now contains these added `student.test` demonstration re
 
 The existing `2026-2027 / 1st` test record was preserved. A second seed run made no changes and reported all three added periods as already existing.
 
+### BSIT curriculum demonstration cohort
+
+- `npm run seed:bsit-students` creates five fictional student accounts and linked profiles using the existing User, Student, and AcademicRecord collections.
+- All five students share the referenced 2024-2025 BSIT curriculum subject sequence across four terms, with varied fictional grades.
+- The seed validates every academic record and uses the existing unique student/year/semester key with insert-only upserts, so reruns do not duplicate or overwrite terms.
+- SAPES does not currently have a separate curriculum model; shared enrollment is represented by the same period and subject structure in each authoritative student record.
+
+Created test accounts (shared development password: `Test1234!`):
+
+- `bsit.test01` / `TEST-BSIT-0001` / Alex Rivera
+- `bsit.test02` / `TEST-BSIT-0002` / Bianca Santos
+- `bsit.test03` / `TEST-BSIT-0003` / Carlo Mendoza
+- `bsit.test04` / `TEST-BSIT-0004` / Dana Flores
+- `bsit.test05` / `TEST-BSIT-0005` / Ethan Garcia
+
+Each account has 32 subjects across `2024-2025 / 1st Semester`, `2024-2025 / 2nd Semester`, `2025-2026 / 1st Semester`, and `2025-2026 / 2nd Semester`. Runtime verification confirmed login and authenticated report responses returned `200` for all five accounts, all curriculum subject-code sequences matched, and all five grade sets were distinct. A second seed run reported all 20 term records as already existing.
+
 ### Administrative student profile management
 
 - Administrators with `manage_academic_records` can update allowed profile sections through `PUT /api/students/:institutionId`.

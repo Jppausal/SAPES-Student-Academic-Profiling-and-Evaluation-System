@@ -8,6 +8,7 @@
     "start": "node server.js",
     "seed": "node scripts/seedAccounts.js",
     "seed:student-test-records": "node scripts/seedStudentTestAcademicRecords.js",
+    "seed:bsit-students": "node scripts/seedBsitCurriculumStudents.js",
     "db:indexes": "node scripts/syncIndexes.js"
   },
   "keywords": [],
