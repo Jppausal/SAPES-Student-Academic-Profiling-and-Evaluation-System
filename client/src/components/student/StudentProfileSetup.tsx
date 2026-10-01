@@ -5,6 +5,7 @@ import {
   StudentProfileUpdate,
   updateMyStudentProfile,
 } from '../../lib/api';
+import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 
 interface StudentProfileSetupProps {
   identity: StudentIdentity;
@@ -108,6 +109,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="font-bold text-slate-900">Student Classification</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-semibold text-slate-700">Degree program<select value={classification.program || ''} onChange={(event) => setClassification('program', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900"><option value="">Select a program</option>{TECHNOLOGY_PROGRAMS.map((program) => <option key={program.value} value={program.value}>{program.label}</option>)}</select></label>
           <label className="text-xs font-semibold text-slate-700">Student type<input value={classification.studentType || ''} onChange={(event) => setClassification('studentType', event.target.value)} placeholder="e.g. regular, irregular" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
           <label className="text-xs font-semibold text-slate-700">Indigenous group<input value={classification.indigenousGroup || ''} onChange={(event) => setClassification('indigenousGroup', event.target.value)} disabled={!classification.isIP} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 disabled:bg-slate-100" /></label>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700"><input type="checkbox" checked={classification.isIP || false} onChange={(event) => setClassification('isIP', event.target.checked)} /> I identify as Indigenous Peoples (IP)</label>

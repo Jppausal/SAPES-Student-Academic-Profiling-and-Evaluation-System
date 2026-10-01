@@ -5,7 +5,7 @@ const PROFILE_SECTION_RULES = {
     dates: ['birthDate']
   },
   classification: {
-    strings: ['studentType', 'indigenousGroup'],
+    strings: ['program', 'studentType', 'indigenousGroup'],
     booleans: ['isIP', 'isPWD', 'isShifter', 'isTransferee'],
     dates: []
   },
@@ -15,6 +15,14 @@ const PROFILE_SECTION_RULES = {
     dates: []
   }
 };
+
+const TECHNOLOGY_PROGRAMS = [
+  'Bachelor of Information Technology',
+  'Entertainment and Multimedia Computing',
+  'Electronics',
+  'Food Technology',
+  'Automotive Technology'
+];
 
 const validateAndNormalizeStudentProfile = (body) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -60,6 +68,9 @@ const validateAndNormalizeStudentProfile = (body) => {
       if (value[field] === undefined) continue;
       if (typeof value[field] !== 'string') {
         return { error: `${sectionName}.${field} must be a string` };
+      }
+      if (field === 'program' && value[field] && !TECHNOLOGY_PROGRAMS.includes(value[field])) {
+        return { error: 'classification.program must be a College of Technologies program' };
       }
       if (value[field].length > 200) {
         return { error: `${sectionName}.${field} is too long` };

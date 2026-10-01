@@ -2,9 +2,14 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import logo from '../../assets/branding/coloredlogo.png';
 import { ChevronDown, GraduationCap, LogOut, RotateCcw, ShieldCheck, Users } from 'lucide-react';
-import { UserRole } from '../../types';
+import { FacultyPage, UserRole } from '../../types';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  activePage: FacultyPage;
+  onNavigate: (page: FacultyPage) => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate }) => {
   const { currentUser, logout, resetAllData } = useApp();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -20,6 +25,7 @@ export const Navbar: React.FC = () => {
     : currentUser?.role === 'faculty'
       ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
       : 'bg-amber-50 text-amber-700 border-amber-200';
+  const navItemClass = (active: boolean) => `rounded-lg px-3 py-2 transition ${active ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`;
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-xs">
@@ -41,8 +47,12 @@ export const Navbar: React.FC = () => {
 
         {currentUser && (
           <nav aria-label="Role navigation" className="hidden items-center gap-3 text-xs font-semibold text-slate-500 lg:flex">
-            <span className="rounded-lg bg-slate-100 px-3 py-2 text-slate-700">Dashboard</span>
-            {currentUser.role === 'faculty' && <><span>Student Search</span><span>Evaluations</span><span>Academic Records</span></>}
+            <button type="button" onClick={() => onNavigate('dashboard')} aria-current={activePage === 'dashboard' ? 'page' : undefined} className={navItemClass(activePage === 'dashboard')}>Dashboard</button>
+            {currentUser.role === 'faculty' && <>
+              <button type="button" onClick={() => onNavigate('student-search')} aria-current={activePage === 'student-search' ? 'page' : undefined} className={navItemClass(activePage === 'student-search')}>Student Search</button>
+              <button type="button" onClick={() => onNavigate('evaluations')} aria-current={activePage === 'evaluations' ? 'page' : undefined} className={navItemClass(activePage === 'evaluations')}>Evaluations</button>
+              <button type="button" onClick={() => onNavigate('student-records')} aria-current={activePage === 'student-records' ? 'page' : undefined} className={navItemClass(activePage === 'student-records')}>Academic Records</button>
+            </>}
             {currentUser.role === 'admin' && <><span>User Management</span><span>Audit Logs</span></>}
             {currentUser.role === 'student' && <span>Academic Records</span>}
           </nav>
@@ -94,6 +104,15 @@ export const Navbar: React.FC = () => {
           </div>
         )}
       </div>
+
+      {currentUser?.role === 'faculty' && (
+        <nav aria-label="Faculty navigation" className="flex items-center gap-2 overflow-x-auto border-t border-slate-100 px-4 py-2 text-xs font-semibold lg:hidden">
+          <button type="button" onClick={() => onNavigate('dashboard')} aria-current={activePage === 'dashboard' ? 'page' : undefined} className={navItemClass(activePage === 'dashboard')}>Dashboard</button>
+          <button type="button" onClick={() => onNavigate('student-search')} aria-current={activePage === 'student-search' ? 'page' : undefined} className={navItemClass(activePage === 'student-search')}>Student Search</button>
+          <button type="button" onClick={() => onNavigate('evaluations')} aria-current={activePage === 'evaluations' ? 'page' : undefined} className={navItemClass(activePage === 'evaluations')}>Evaluations</button>
+          <button type="button" onClick={() => onNavigate('student-records')} aria-current={activePage === 'student-records' ? 'page' : undefined} className={navItemClass(activePage === 'student-records')}>Academic Records</button>
+        </nav>
+      )}
 
       {showResetConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">

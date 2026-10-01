@@ -25,6 +25,19 @@ test('normalizes allowed self-service fields', () => {
   assert.equal(result.value.religiousInformation.religion, 'Catholic');
 });
 
+test('accepts a College of Technologies program and rejects unknown programs', () => {
+  const validResult = validateAndNormalizeStudentProfile({
+    classification: { program: 'Food Technology' }
+  });
+  const invalidResult = validateAndNormalizeStudentProfile({
+    classification: { program: 'Unlisted Program' }
+  });
+
+  assert.equal(validResult.error, undefined);
+  assert.equal(validResult.value.classification.program, 'Food Technology');
+  assert.equal(invalidResult.error, 'classification.program must be a College of Technologies program');
+});
+
 test('rejects protected and unsupported fields', () => {
   const protectedResult = validateAndNormalizeStudentProfile({ institutionId: 'changed-id' });
   const nestedResult = validateAndNormalizeStudentProfile({

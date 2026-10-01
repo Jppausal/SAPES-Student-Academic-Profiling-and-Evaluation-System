@@ -9,6 +9,9 @@ const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile'
 const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
 
 const router = express.Router();
+const studentAccountFilter = (userId) => ({
+  $or: [{ userId }, { _id: userId }]
+});
 
 router.get(
   '/student',
@@ -18,7 +21,7 @@ router.get(
   async (req, res) => {
     try {
       const student = await Student.findOne(
-        { userId: req.user.userId },
+        studentAccountFilter(req.user.userId),
         {
           _id: 0,
           institutionId: 1,
@@ -68,7 +71,7 @@ router.put(
         return res.status(400).json({ success: false, message: profileUpdate.error });
       }
 
-      const student = await Student.findOne({ userId: req.user.userId });
+      const student = await Student.findOne(studentAccountFilter(req.user.userId));
       if (!student) {
         return res.status(404).json({ success: false, message: 'Student profile not found' });
       }
@@ -123,7 +126,7 @@ router.get(
   async (req, res) => {
     try {
       const student = await Student.findOne(
-        { userId: req.user.userId },
+        studentAccountFilter(req.user.userId),
         {
           _id: 1,
           institutionId: 1,

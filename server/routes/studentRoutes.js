@@ -12,6 +12,15 @@ const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord'
 const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
 
 const router = express.Router();
+const TECHNOLOGY_PROGRAMS = [
+  'Bachelor of Information Technology',
+  'Entertainment and Multimedia Computing',
+  'Electronics',
+  'Food Technology',
+  'Automotive Technology'
+];
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Record an authorized student status update and preserve its history
 router.put(
@@ -236,6 +245,148 @@ router.put(
         success: false,
         message: 'Server error'
       });
+    }
+  }
+);
+
+// Enrollment totals for College of Technologies programs
+router.get(
+  '/search',
+  authenticateToken,
+  authorizeRoles('admin', 'faculty'),
+  authorizeAnyPermission('view_student_records', 'view_reports'),
+  async (req, res) => {
+    try {
+      const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+      if (!query) {
+        return res.json({ success: true, data: { students: [] } });
+      }
+      if (query.length > 100) {
+        return res.status(400).json({ success: false, message: 'Search query is too long' });
+      }
+
+      const escapedQuery = escapeRegex(query);
+      const matchingText = new RegExp(escapedQuery, 'i');
+      const matchingIdPrefix = new RegExp(`^${escapedQuery}`, 'i');
+      const students = await Student.find({
+        accountStatus: 'active',
+        $or: [
+          { institutionId: matchingIdPrefix },
+          { username: matchingText },
+          { 'personalInformation.firstName': matchingText },
+          { 'personalInformation.lastName': matchingText },
+          {
+            $expr: {
+              $regexMatch: {
+                input: {
+                  $concat: [
+                    { $ifNull: ['$personalInformation.firstName', ''] },
+                    ' ',
+                    { $ifNull: ['$personalInformation.lastName', ''] }
+                  ]
+                },
+                regex: escapedQuery,
+                options: 'i'
+              }
+            }
+          }
+        ]
+      }, {
+        institutionId: 1,
+        username: 1,
+        'personalInformation.firstName': 1,
+        'personalInformation.lastName': 1
+      })
+        .sort({ institutionId: 1 })
+        .limit(8)
+        .lean();
+
+      return res.json({
+        success: true,
+        data: {
+          students: students.map((student) => ({
+            institutionId: student.institutionId,
+            username: student.username || '',
+            firstName: student.personalInformation?.firstName || '',
+            lastName: student.personalInformation?.lastName || ''
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('Error searching student suggestions:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+  }
+);
+
+router.get(
+  '/courses/enrollment-summary',
+  authenticateToken,
+  authorizeRoles('admin', 'faculty'),
+  authorizeAnyPermission('view_student_records', 'view_reports'),
+  async (req, res) => {
+    try {
+      const [programCounts, pendingStudents, totalActiveStudents] = await Promise.all([
+        Student.aggregate([
+          {
+            $match: {
+              accountStatus: 'active',
+              'classification.program': { $in: TECHNOLOGY_PROGRAMS }
+            }
+          },
+          {
+            $group: {
+              _id: '$classification.program',
+              assignedCount: { $sum: 1 },
+              enrolledCount: {
+                $sum: { $cond: [{ $eq: ['$enrollmentStatus', 'enrolled'] }, 1, 0] }
+              }
+            }
+          }
+        ]),
+        Student.find({
+          accountStatus: 'active',
+          'classification.program': { $in: TECHNOLOGY_PROGRAMS },
+          enrollmentStatus: { $in: ['not_enrolled', 'processing'] }
+        }, {
+          institutionId: 1,
+          personalInformation: 1,
+          'classification.program': 1,
+          yearLevel: 1,
+          enrollmentStatus: 1
+        }).sort({ institutionId: 1 }).lean(),
+        Student.countDocuments({ accountStatus: 'active' })
+      ]);
+
+      const countsByProgram = new Map(programCounts.map(({ _id, enrolledCount }) => [_id, enrolledCount]));
+      const programs = TECHNOLOGY_PROGRAMS.map((program) => ({
+        program,
+        count: countsByProgram.get(program) || 0
+      }));
+      const assignedCount = programCounts.reduce((total, program) => total + program.assignedCount, 0);
+      const pendingEnrollmentStudents = pendingStudents.map((student) => ({
+        institutionId: student.institutionId,
+        name: [student.personalInformation?.firstName, student.personalInformation?.lastName]
+          .filter(Boolean)
+          .join(' ') || student.institutionId,
+        program: student.classification?.program,
+        yearLevel: student.yearLevel || null,
+        enrollmentStatus: student.enrollmentStatus
+      }));
+
+      return res.json({
+        success: true,
+        data: {
+          programs,
+          totalActiveStudents,
+          pendingEnrollmentCount: pendingEnrollmentStudents.length,
+          pendingEnrollmentStudents,
+          unassignedCount: Math.max(0, totalActiveStudents - assignedCount)
+        }
+      });
+    } catch (error) {
+      console.error('Error generating course enrollment summary:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
     }
   }
 );
