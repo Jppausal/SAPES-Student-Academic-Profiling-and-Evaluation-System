@@ -1,0 +1,351 @@
+import React, { useState } from 'react';
+import { useApp } from '../../context/AppContext';
+import { UserAccount } from '../../types';
+import { UserManagementModal } from './UserManagementModal';
+import { BackendAcademicRecordManager } from './BackendAcademicRecordManager';
+import { AdminReportsView } from './AdminReportsView';
+import { SystemAuditLogsView } from './SystemAuditLogsView';
+import { RolePermissionsPanel } from './RolePermissionsPanel';
+import {
+  Users,
+  GraduationCap,
+  FileCheck2,
+  Activity,
+  KeyRound,
+  Plus,
+  Edit3,
+  UserX,
+  UserCheck,
+  Search,
+  AlertTriangle,
+} from 'lucide-react';
+
+export const AdminPortal: React.FC = () => {
+  const {
+    currentUser,
+    users,
+    deactivateUserAccount,
+    reactivateUserAccount,
+    updateUserAccountStatus,
+  } = useApp();
+
+  const [activeTab, setActiveTab] = useState<
+    'users' | 'permissions' | 'academic-records' | 'reports' | 'logs'
+  >('users');
+
+  // User Management Modal State
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<UserAccount | null>(null);
+  const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
+  const [userActionError, setUserActionError] = useState('');
+
+  // User search
+  const [userSearch, setUserSearch] = useState('');
+  const filteredUsers = users.filter((u) => {
+    const q = userSearch.toLowerCase();
+    return (
+      !q ||
+      u.fullName.toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q)
+    );
+  });
+
+  const handleUserStatus = async (userId: string, active: boolean) => {
+    setStatusLoadingId(userId);
+    setUserActionError('');
+    try {
+      if (active) {
+        await deactivateUserAccount(userId);
+      } else {
+        await reactivateUserAccount(userId);
+      }
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Unable to update user status.');
+    } finally {
+      setStatusLoadingId(null);
+    }
+  };
+
+  const handleStatusSelect = async (
+    userId: string,
+    status: 'active' | 'inactive' | 'suspended'
+  ) => {
+    setStatusLoadingId(userId);
+    setUserActionError('');
+    try {
+      await updateUserAccountStatus(userId, status);
+    } catch (error) {
+      setUserActionError(error instanceof Error ? error.message : 'Unable to update user status.');
+    } finally {
+      setStatusLoadingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold">
+              Registrar & System Administrator
+            </span>
+            <span className="text-xs text-slate-300 font-mono">
+              Admin: {currentUser?.fullName || 'Registrar Admin'}
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Academic Records & Security Management Portal
+          </h1>
+          <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+            Maintain authorized user access roles, student profiling records, academic probation statuses, Major-Subject GWA configurations, and real-time security audit trails.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              setUserToEdit(null);
+              setIsUserModalOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/30 flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            Create User Account
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-1.5 p-1 bg-white rounded-2xl border border-slate-200 shadow-xs max-w-full overflow-x-auto text-xs">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'users'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          User & Access Control ({users.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('permissions')}
+          className={`px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'permissions'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <KeyRound className="w-4 h-4" />
+          Role Permissions
+        </button>
+
+        <button
+          onClick={() => setActiveTab('academic-records')}
+          className={`px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'academic-records'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <GraduationCap className="w-4 h-4" />
+          Academic Records & Major GWA
+        </button>
+
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={`px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'reports'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <FileCheck2 className="w-4 h-4" />
+          Institutional Analytics
+        </button>
+
+        <button
+          onClick={() => setActiveTab('logs')}
+          className={`px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'logs'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          Security Audit Trail
+        </button>
+      </div>
+
+      {/* TAB 1: USERS & ACCESS CONTROL */}
+      {activeTab === 'users' && (
+        <div className="space-y-4">
+          {userActionError && (
+            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+              {userActionError}
+            </p>
+          )}
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Search user accounts by name, username, email, or role..."
+                className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-900"
+              />
+            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              Total Accounts: <strong className="text-slate-900">{users.length}</strong>
+            </span>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">User Details</th>
+                    <th className="py-3 px-4">Role & Access Tier</th>
+                    <th className="py-3 px-4">Identifier / ID</th>
+                    <th className="py-3 px-4">Department</th>
+                    <th className="py-3 px-4">Account Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredUsers.map((u) => (
+                    <tr
+                      key={u.id}
+                      className={`hover:bg-slate-50/70 transition-colors ${
+                        !u.isActive ? 'bg-slate-50/50 opacity-60' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900">{u.fullName}</div>
+                        <div className="text-[11px] text-slate-500 font-mono">{u.email}</div>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase ${
+                            u.role === 'admin'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                              : u.role === 'faculty'
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}
+                        >
+                          {u.role === 'admin' ? 'Registrar Admin' : u.role}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-700">
+                        {u.studentNumber || u.facultyId || u.employeeId || 'N/A'}
+                      </td>
+
+                      <td className="py-3 px-4 text-slate-600">{u.department}</td>
+
+                      <td className="py-3 px-4">
+                        {u.accountStatus === 'suspended' ? (
+                          <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                            <AlertTriangle className="h-3 w-3 text-amber-600" /> Suspended
+                          </span>
+                        ) : u.isActive ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            <UserCheck className="w-3 h-3 text-emerald-600" /> Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                            <UserX className="w-3 h-3 text-rose-600" /> Deactivated
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <select
+                            value={u.accountStatus || (u.isActive ? 'active' : 'inactive')}
+                            onChange={(event) => handleStatusSelect(
+                              u.id,
+                              event.target.value as 'active' | 'inactive' | 'suspended'
+                            )}
+                            disabled={statusLoadingId === u.id}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"
+                            aria-label={`Status for ${u.username}`}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="suspended">Suspended</option>
+                          </select>
+                          <button
+                            onClick={() => {
+                              setUserToEdit(u);
+                              setIsUserModalOpen(true);
+                            }}
+                            className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
+                            title="Edit User Information"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+
+                          {u.isActive ? (
+                            <button
+                              onClick={() => handleUserStatus(u.id, true)}
+                              disabled={statusLoadingId === u.id}
+                              className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200"
+                              title="Deactivate Account"
+                            >
+                              Deactivate
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleUserStatus(u.id, false)}
+                              disabled={statusLoadingId === u.id}
+                              className="px-2 py-1 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-emerald-200"
+                              title="Reactivate Account"
+                            >
+                              Reactivate
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'permissions' && <RolePermissionsPanel />}
+
+      {/* TAB 2: ACADEMIC RECORDS & MAJOR GWA CONFIGURATION */}
+      {activeTab === 'academic-records' && <BackendAcademicRecordManager />}
+      {/* TAB 3: INSTITUTIONAL REPORTS */}
+      {activeTab === 'reports' && <AdminReportsView />}
+
+      {/* TAB 4: SECURITY AUDIT TRAIL */}
+      {activeTab === 'logs' && <SystemAuditLogsView />}
+
+      {/* MODALS */}
+      {isUserModalOpen && (
+        <UserManagementModal
+          isOpen={isUserModalOpen}
+          onClose={() => {
+            setIsUserModalOpen(false);
+            setUserToEdit(null);
+          }}
+          userToEdit={userToEdit}
+        />
+      )}
+
+    </div>
+  );
+};

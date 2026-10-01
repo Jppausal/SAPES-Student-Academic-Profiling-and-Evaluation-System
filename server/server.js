@@ -1,0 +1,44 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+require('dotenv').config();
+
+const studentRoutes = require('./routes/studentRoutes');
+const facultyEvaluationRoutes = require('./routes/facultyEvaluationRoutes');
+const authRoutes = require('./routes/authRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
+const userRoutes = require('./routes/userRoutes');
+const meRoutes = require('./routes/meRoutes');
+const permissionRoutes = require('./routes/permissionRoutes');
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+
+app.get('/api/health', (req, res) => {
+  const databaseConnected = mongoose.connection.readyState === 1;
+  return res.status(databaseConnected ? 200 : 503).json({
+    status: databaseConnected ? 'ok' : 'degraded',
+    database: databaseConnected ? 'connected' : 'disconnected'
+  });
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/faculty-evaluations', facultyEvaluationRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/me', meRoutes);
+app.use('/api/permissions', permissionRoutes);
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error(err));
+
+const PORT = process.env.PORT || 5001;
+
+app.listen(PORT, () =>
+  console.log(`Server running on port ${PORT}`)
+);
