@@ -165,13 +165,13 @@ router.put('/settings', authenticateToken, async (req, res) => {
 
 router.post('/password-reset/confirm', async (req, res) => {
   try {
-    const { username, code, newPassword } = req.body || {};
-    if (typeof username !== 'string' || typeof code !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8) return res.status(400).json({ success: false, message: 'Username, 6-digit code, and a password of at least 8 characters are required' });
-    const user = await User.findOne({ username: username.trim() }).select('+passwordResetCodeHash +passwordResetExpiresAt +passwordResetAttempts');
-    if (!user || !user.passwordResetCodeHash || !user.passwordResetExpiresAt || user.passwordResetExpiresAt <= new Date() || user.passwordResetAttempts >= 5 || !crypto.timingSafeEqual(Buffer.from(user.passwordResetCodeHash), Buffer.from(resetCodeHash(code)))) {
-      if (user) { user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1; await user.save(); }
-      return res.status(400).json({ success: false, message: 'The verification code is invalid or expired' });
-    }
+    const { resetAuthorization, newPassword } = req.body || {};
+    if (typeof resetAuthorization !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8) return res.status(400).json({ success: false, message: 'Verified reset authorization and a password of at least 8 characters are required' });
+    let authorization;
+    try { authorization = jwt.verify(resetAuthorization, process.env.JWT_SECRET); } catch { return res.status(400).json({ success: false, message: 'Password-reset verification has expired. Request a new code.' }); }
+    if (authorization.purpose !== 'password_reset' || !authorization.userId) return res.status(400).json({ success: false, message: 'Invalid password-reset verification' });
+    const user = await User.findById(authorization.userId);
+    if (!user || user.accountStatus !== 'active') return res.status(400).json({ success: false, message: 'Password-reset verification is no longer valid' });
     user.passwordHash = await bcrypt.hash(newPassword, 12);
     user.passwordResetCodeHash = undefined; user.passwordResetExpiresAt = undefined; user.passwordResetAttempts = 0;
     await user.save();
@@ -181,6 +181,16 @@ router.post('/password-reset/confirm', async (req, res) => {
     console.error('Password reset confirmation error:', error);
     return res.status(500).json({ success: false, message: 'Unable to update password' });
   }
+});
+
+router.post('/password-reset/verify', async (req, res) => {
+  const { username, code } = req.body || {};
+  if (typeof username !== 'string' || typeof code !== 'string') return res.status(400).json({ success: false, message: 'Username and verification code are required' });
+  const user = await User.findOne({ username: username.trim() }).select('+passwordResetCodeHash +passwordResetExpiresAt +passwordResetAttempts');
+  const matches = user?.passwordResetCodeHash && crypto.timingSafeEqual(Buffer.from(user.passwordResetCodeHash), Buffer.from(resetCodeHash(code)));
+  if (!user || !matches || !user.passwordResetExpiresAt || user.passwordResetExpiresAt <= new Date() || user.passwordResetAttempts >= 5) { if (user) { user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1; await user.save(); } return res.status(400).json({ success: false, message: 'The verification code is invalid or expired' }); }
+  user.passwordResetCodeHash = undefined; user.passwordResetExpiresAt = undefined; user.passwordResetAttempts = 0; await user.save();
+  return res.json({ success: true, resetAuthorization: jwt.sign({ purpose: 'password_reset', userId: user._id }, process.env.JWT_SECRET, { expiresIn: '10m' }) });
 });
 
 // GET /api/auth/session

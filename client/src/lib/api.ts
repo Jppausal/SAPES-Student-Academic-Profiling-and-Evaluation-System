@@ -91,9 +91,10 @@ export async function requestPasswordReset(username: string) {
 export async function fetchUserSettings() { const response = await request<{ success: true; data: { notificationPreferences: { profileAndAcademicUpdates: boolean } } }>('/api/auth/settings'); return response.data; }
 export async function saveUserSettings(profileAndAcademicUpdates: boolean) { return request('/api/auth/settings', { method: 'PUT', body: JSON.stringify({ notificationPreferences: { profileAndAcademicUpdates } }) }); }
 
-export async function confirmPasswordReset(username: string, code: string, newPassword: string) {
+export async function verifyPasswordReset(username: string, code: string) { return request<{ success: true; resetAuthorization: string }>('/api/auth/password-reset/verify', { method: 'POST', body: JSON.stringify({ username, code }) }); }
+export async function confirmPasswordReset(resetAuthorization: string, newPassword: string) {
   return request<{ success: true; message: string }>('/api/auth/password-reset/confirm', {
-    method: 'POST', body: JSON.stringify({ username, code, newPassword })
+    method: 'POST', body: JSON.stringify({ resetAuthorization, newPassword })
   });
 }
 
