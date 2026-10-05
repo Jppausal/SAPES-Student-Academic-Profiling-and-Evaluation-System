@@ -6,9 +6,10 @@ type LoginPageProps = {
   onLogin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   onGoogleLogin: (credential: string) => Promise<{ success: boolean; message?: string }>;
   onBack?: () => void;
+  onForgotPassword?: () => void;
 };
 
-export default function LoginPage({ onLogin, onGoogleLogin, onBack }: LoginPageProps) {
+export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPassword }: LoginPageProps) {
   const [error, setError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
@@ -133,9 +134,9 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack }: LoginPageP
               {showPassword ? <EyeOff className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" /> : <Eye className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" />}
             </button>
           </div>
-          <a href="/forgot-password" className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-500">
+          <button type="button" onClick={onForgotPassword} className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-500">
             Forgot password?
-          </a>
+          </button>
         </div>
 
         {error && (

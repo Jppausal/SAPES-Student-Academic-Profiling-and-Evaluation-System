@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import logo from '../../assets/branding/coloredlogo.png';
-import { ChevronDown, GraduationCap, LogOut, RotateCcw, ShieldCheck, Users } from 'lucide-react';
+import { ChevronDown, GraduationCap, LogOut, RotateCcw, Settings, ShieldCheck, Users } from 'lucide-react';
 import { FacultyPage, UserRole } from '../../types';
+import { UserSettingsModal } from './UserSettingsModal';
 
 interface NavbarProps {
   activePage: FacultyPage;
@@ -13,6 +14,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate }) => {
   const { currentUser, logout, resetAllData } = useApp();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const roleIcon = (role: UserRole) => {
     if (role === 'student') return <GraduationCap className="h-4 w-4 text-emerald-600" />;
@@ -35,9 +37,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate }) => {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold tracking-tight text-slate-900">SAPES</span>
-              <span className="hidden rounded-md border border-indigo-200/60 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 sm:inline-block">
-                A.Y. 2026-2027 • 1st Sem
-              </span>
             </div>
             <p className="mt-0.5 hidden text-[11px] leading-none text-slate-500 md:block">
               Student Enrollment & Academic Status Management System
@@ -84,6 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate }) => {
                     <p className="font-bold text-slate-800">{currentUser.fullName}</p>
                     <p className="truncate text-slate-500">{currentUser.username}</p>
                   </div>
+                  <button onClick={() => { setShowSettings(true); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 font-medium text-slate-700 hover:bg-slate-100"><Settings className="h-3.5 w-3.5" /> Settings</button>
                   <button
                     onClick={async () => { await logout(); setIsUserMenuOpen(false); }}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 font-medium text-rose-600 hover:bg-rose-50"
@@ -126,6 +126,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate }) => {
           </div>
         </div>
       )}
+      {showSettings && currentUser && <UserSettingsModal username={currentUser.username} role={currentUser.role} onClose={() => setShowSettings(false)} />}
     </header>
   );
 };

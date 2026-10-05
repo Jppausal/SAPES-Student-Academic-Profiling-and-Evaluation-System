@@ -7,6 +7,8 @@
     "test": "node --test",
     "start": "node server.js",
     "seed": "node scripts/seedAccounts.js",
+    "seed:student-test-records": "node scripts/seedStudentTestAcademicRecords.js",
+    "seed:bsit-students": "node scripts/seedBsitCurriculumStudents.js",
     "db:indexes": "node scripts/syncIndexes.js"
   },
   "keywords": [],
@@ -20,7 +22,8 @@
     "express": "^5.2.1",
     "google-auth-library": "^10.5.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.10.1"
+    "mongoose": "^9.10.1",
+    "nodemailer": "^10.0.11"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

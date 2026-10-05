@@ -13,16 +13,16 @@ export const StudentPortal: React.FC = () => {
   const [identity, setIdentity] = useState<StudentIdentity | null>(null);
   const [report, setReport] = useState<StudentReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [reportError, setReportError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'profile'>('overview');
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetchMyStudentIdentity(), fetchMyStudentReport()])
-      .then(([student, studentReport]) => {
+    fetchMyStudentIdentity()
+      .then((student) => {
         if (!active) return;
         setIdentity(student);
-        setReport(studentReport);
         const firstName = student.personalInformation?.firstName?.trim();
         const lastName = student.personalInformation?.lastName?.trim();
         if (!firstName || !lastName || (firstName === 'New' && lastName === 'Student')) {
@@ -30,10 +30,17 @@ export const StudentPortal: React.FC = () => {
         }
       })
       .catch((requestError) => {
-        if (active) setError(requestError instanceof Error ? requestError.message : 'Unable to load student data.');
+        if (active) setProfileError(requestError instanceof Error ? requestError.message : 'Unable to load your student profile.');
       })
       .finally(() => {
         if (active) setLoading(false);
+      });
+    fetchMyStudentReport()
+      .then((studentReport) => {
+        if (active) setReport(studentReport);
+      })
+      .catch((requestError) => {
+        if (active) setReportError(requestError instanceof Error ? requestError.message : 'Unable to load academic records.');
       });
     return () => { active = false; };
   }, []);
@@ -42,8 +49,8 @@ export const StudentPortal: React.FC = () => {
     return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading your authenticated student profile…</div>;
   }
 
-  if (error || !identity || !report) {
-    return <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">{error || 'Student profile not found.'}</div>;
+  if (profileError || !identity) {
+    return <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">{profileError || 'Student profile not found.'}</div>;
   }
 
   const profileComplete = Boolean(
@@ -64,7 +71,10 @@ export const StudentPortal: React.FC = () => {
         </button>
       </div>
 
-      {activeTab === 'overview' && <BackendStudentWorkspace identity={identity} report={report} />}
+      {activeTab === 'overview' && (report
+        ? <BackendStudentWorkspace identity={identity} report={report} />
+        : <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800">{reportError || 'Academic records are still loading.'} You can still edit your student profile.</div>
+      )}
       {activeTab === 'profile' && (
         <StudentProfileSetup
           identity={identity}

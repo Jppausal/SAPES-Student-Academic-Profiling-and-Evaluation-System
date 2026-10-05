@@ -1,6 +1,9 @@
+const HEALTH_CONDITIONS = ['None', 'Anemia', 'Anxiety', 'Asthma', 'Blood Clots', 'Cerebrovascular Accident', 'Depression', 'Hypertension', 'Thyroid Disease', 'Allergies', 'Arthritis', 'Cancer', 'Diabetes', 'Migraine Headaches', 'Peptic Ulcer Disease', 'Seizure Disorder', 'Other'];
+const { validateActivities } = require('./scheduleConflicts');
+
 const PROFILE_SECTION_RULES = {
   personalInformation: {
-    strings: ['firstName', 'middleName', 'lastName', 'birthPlace', 'sex', 'civilStatus', 'nationality', 'citizenship'],
+    strings: ['firstName', 'middleName', 'lastName', 'suffix', 'birthPlace', 'sex', 'civilStatus', 'height', 'weight', 'bloodType', 'nationality', 'citizenship', 'dualCitizenship', 'minority'],
     booleans: ['isForeigner'],
     dates: ['birthDate']
   },
@@ -11,8 +14,21 @@ const PROFILE_SECTION_RULES = {
   },
   religiousInformation: {
     strings: ['religion'],
-    booleans: [],
+    booleans: ['shareSpiritualSchedule'],
     dates: []
+  },
+  enrollmentInformation: {
+    strings: ['course', 'level', 'department', 'curriculum', 'yearLevel', 'entryPeriod', 'studentType', 'preferredModality', 'campus', 'learnerReferenceNo', 'nstpNumber'],
+    booleans: [], dates: ['entryDate']
+  },
+  contactInformation: {
+    strings: ['mobileNumber', 'alternateMobileNumber', 'telephoneNumber', 'institutionalEmail', 'alternateEmail'], booleans: [], dates: []
+  },
+  educationalBackground: {
+    strings: ['previousSchool', 'seniorHigh', 'juniorHigh', 'elementary'], booleans: [], dates: []
+  },
+  healthInformation: {
+    strings: ['otherCondition', 'allergyDetails', 'conditionDescription', 'accommodationNotes', 'emergencyContactName', 'emergencyContactNumber'], booleans: ['hasRelevantHealthConcern', 'accommodationRequired'], dates: ['lastUpdated'], arrays: ['conditions']
   }
 };
 
@@ -24,19 +40,25 @@ const TECHNOLOGY_PROGRAMS = [
   'Automotive Technology'
 ];
 
-const validateAndNormalizeStudentProfile = (body) => {
+const validateAndNormalizeStudentProfile = (body, { allowClassification = false } = {}) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { error: 'Request body must be an object' };
   }
 
-  const allowedSections = Object.keys(PROFILE_SECTION_RULES);
+  const classificationProgramOnly = body.classification && typeof body.classification === 'object' && !Array.isArray(body.classification)
+    && Object.keys(body.classification).length === 1 && Object.prototype.hasOwnProperty.call(body.classification, 'program');
+  const allowedSections = [...Object.keys(PROFILE_SECTION_RULES).filter((section) => allowClassification || section !== 'classification'), 'addresses'];
   const bodySections = Object.keys(body);
 
   if (bodySections.length === 0) {
     return { error: 'At least one profile section is required' };
   }
 
-  const unsupportedSection = bodySections.find((section) => !allowedSections.includes(section));
+  if (body.classification && !allowClassification && !classificationProgramOnly) {
+    return { error: 'classification is system-controlled or not editable' };
+  }
+
+  const unsupportedSection = bodySections.find((section) => !allowedSections.includes(section) && !(section === 'classification' && classificationProgramOnly));
   if (unsupportedSection) {
     return { error: `${unsupportedSection} is system-controlled or not editable` };
   }
@@ -44,6 +66,7 @@ const validateAndNormalizeStudentProfile = (body) => {
   const normalized = {};
 
   for (const sectionName of bodySections) {
+    if (sectionName === 'addresses') continue;
     const value = body[sectionName];
     const rules = PROFILE_SECTION_RULES[sectionName];
 
@@ -56,7 +79,7 @@ const validateAndNormalizeStudentProfile = (body) => {
       return { error: `${sectionName} must include at least one field` };
     }
 
-    const supportedFields = [...rules.strings, ...rules.booleans, ...rules.dates];
+    const supportedFields = [...rules.strings, ...rules.booleans, ...rules.dates, ...(rules.arrays || []), ...(sectionName === 'religiousInformation' ? ['spiritualActivities'] : [])];
     const unsupportedField = fields.find((field) => !supportedFields.includes(field));
     if (unsupportedField) {
       return { error: `${sectionName}.${unsupportedField} is not editable` };
@@ -94,9 +117,45 @@ const validateAndNormalizeStudentProfile = (body) => {
       }
       normalized[sectionName][field] = parsedDate;
     }
+
+    for (const field of rules.arrays || []) {
+      if (value[field] === undefined) continue;
+      if (!Array.isArray(value[field]) || value[field].some((item) => typeof item !== 'string')) return { error: `${sectionName}.${field} must be an array of strings` };
+      const items = [...new Set(value[field].map((item) => item.trim()))];
+      if (items.some((item) => !HEALTH_CONDITIONS.includes(item))) return { error: `${sectionName}.${field} contains an unsupported condition` };
+      if (items.includes('None') && items.length > 1) return { error: `${sectionName}.${field} cannot include None with another condition` };
+      normalized[sectionName][field] = items;
+    }
+    if (sectionName === 'religiousInformation' && value.spiritualActivities !== undefined) {
+      const activities = validateActivities(value.spiritualActivities);
+      if (activities.error) return activities;
+      normalized[sectionName].spiritualActivities = activities.value;
+    }
+    if (sectionName === 'healthInformation' && value.hasRelevantHealthConcern === false && (value.conditions || []).length > 0) return { error: 'healthInformation.conditions must be empty when no relevant health concern is reported' };
+  }
+
+  if (body.addresses !== undefined) {
+    const addresses = body.addresses;
+    if (!addresses || typeof addresses !== 'object' || Array.isArray(addresses)) return { error: 'addresses must be an object' };
+    const allowedAddresses = ['presentAddress', 'homeAddress'];
+    const unsupportedAddress = Object.keys(addresses).find((field) => !allowedAddresses.includes(field));
+    if (unsupportedAddress) return { error: `addresses.${unsupportedAddress} is not editable` };
+    normalized.addresses = {};
+    for (const addressName of Object.keys(addresses)) {
+      const address = addresses[addressName];
+      if (!address || typeof address !== 'object' || Array.isArray(address)) return { error: `addresses.${addressName} must be an object` };
+      const allowedFields = ['street', 'barangay', 'municipality', 'province', 'country', 'zipCode'];
+      const unsupportedField = Object.keys(address).find((field) => !allowedFields.includes(field));
+      if (unsupportedField) return { error: `addresses.${addressName}.${unsupportedField} is not editable` };
+      normalized.addresses[addressName] = {};
+      for (const field of Object.keys(address)) {
+        if (typeof address[field] !== 'string' || address[field].length > 200) return { error: `addresses.${addressName}.${field} must be a string of at most 200 characters` };
+        normalized.addresses[addressName][field] = address[field].trim();
+      }
+    }
   }
 
   return { value: normalized };
 };
 
-module.exports = { validateAndNormalizeStudentProfile };
+module.exports = { HEALTH_CONDITIONS, validateAndNormalizeStudentProfile };

@@ -7,10 +7,14 @@ const User = require('../models/User');
 const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
+const { sendPasswordResetCode } = require('../utils/email');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set(['buksu.edu.ph', 'student.buksu.edu.ph']);
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
+const resetCodeHash = (code) => crypto.createHash('sha256').update(code).digest('hex');
+const RESET_WINDOW_MS = 10 * 60 * 1000;
+const RESET_REQUEST_INTERVAL_MS = 60 * 1000;
 
 const createApplicationToken = async (user) => {
   const jti = crypto.randomUUID();
@@ -166,6 +170,70 @@ router.post('/logout', authenticateToken, async (req, res) => {
     console.error('Logout error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
+router.post('/password-reset/request', async (req, res) => {
+  const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
+  try {
+    const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+    if (!username) return res.status(400).json({ success: false, message: 'Username or institution ID is required' });
+    const user = await User.findOne({ username }).select('+passwordResetRequestedAt');
+    if (!user || user.accountStatus !== 'active' || !user.email) return res.json(genericResponse);
+    if (user.passwordResetRequestedAt && Date.now() - user.passwordResetRequestedAt.getTime() < RESET_REQUEST_INTERVAL_MS) return res.json(genericResponse);
+    const code = crypto.randomInt(100000, 1000000).toString();
+    user.passwordResetCodeHash = resetCodeHash(code);
+    user.passwordResetExpiresAt = new Date(Date.now() + RESET_WINDOW_MS);
+    user.passwordResetAttempts = 0;
+    user.passwordResetRequestedAt = new Date();
+    await user.save();
+    await sendPasswordResetCode(user.email, code);
+    return res.json(genericResponse);
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    return res.status(503).json({ success: false, message: 'Password reset email is currently unavailable' });
+  }
+});
+
+router.get('/settings', authenticateToken, async (req, res) => {
+  const user = await User.findById(req.user.userId).select('notificationPreferences').lean();
+  return res.json({ success: true, data: { notificationPreferences: user?.notificationPreferences || { profileAndAcademicUpdates: true } } });
+});
+
+router.put('/settings', authenticateToken, async (req, res) => {
+  const value = req.body?.notificationPreferences?.profileAndAcademicUpdates;
+  if (typeof value !== 'boolean') return res.status(400).json({ success: false, message: 'notification preference must be a boolean' });
+  await User.findByIdAndUpdate(req.user.userId, { 'notificationPreferences.profileAndAcademicUpdates': value });
+  return res.json({ success: true, data: { notificationPreferences: { profileAndAcademicUpdates: value } } });
+});
+
+router.post('/password-reset/confirm', async (req, res) => {
+  try {
+    const { resetAuthorization, newPassword } = req.body || {};
+    if (typeof resetAuthorization !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8) return res.status(400).json({ success: false, message: 'Verified reset authorization and a password of at least 8 characters are required' });
+    let authorization;
+    try { authorization = jwt.verify(resetAuthorization, process.env.JWT_SECRET); } catch { return res.status(400).json({ success: false, message: 'Password-reset verification has expired. Request a new code.' }); }
+    if (authorization.purpose !== 'password_reset' || !authorization.userId) return res.status(400).json({ success: false, message: 'Invalid password-reset verification' });
+    const user = await User.findById(authorization.userId);
+    if (!user || user.accountStatus !== 'active') return res.status(400).json({ success: false, message: 'Password-reset verification is no longer valid' });
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordResetCodeHash = undefined; user.passwordResetExpiresAt = undefined; user.passwordResetAttempts = 0;
+    await user.save();
+    await SessionToken.updateMany({ userId: user._id, revokedAt: null }, { revokedAt: new Date() });
+    return res.json({ success: true, message: 'Password updated. Please log in with your new password.' });
+  } catch (error) {
+    console.error('Password reset confirmation error:', error);
+    return res.status(500).json({ success: false, message: 'Unable to update password' });
+  }
+});
+
+router.post('/password-reset/verify', async (req, res) => {
+  const { username, code } = req.body || {};
+  if (typeof username !== 'string' || typeof code !== 'string') return res.status(400).json({ success: false, message: 'Username and verification code are required' });
+  const user = await User.findOne({ username: username.trim() }).select('+passwordResetCodeHash +passwordResetExpiresAt +passwordResetAttempts');
+  const matches = user?.passwordResetCodeHash && crypto.timingSafeEqual(Buffer.from(user.passwordResetCodeHash), Buffer.from(resetCodeHash(code)));
+  if (!user || !matches || !user.passwordResetExpiresAt || user.passwordResetExpiresAt <= new Date() || user.passwordResetAttempts >= 5) { if (user) { user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1; await user.save(); } return res.status(400).json({ success: false, message: 'The verification code is invalid or expired' }); }
+  user.passwordResetCodeHash = undefined; user.passwordResetExpiresAt = undefined; user.passwordResetAttempts = 0; await user.save();
+  return res.json({ success: true, resetAuthorization: jwt.sign({ purpose: 'password_reset', userId: user._id }, process.env.JWT_SECRET, { expiresIn: '10m' }) });
 });
 
 // GET /api/auth/session

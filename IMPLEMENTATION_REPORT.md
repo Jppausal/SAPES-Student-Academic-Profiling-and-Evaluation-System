@@ -12,6 +12,55 @@ Updated: 2026-09-27
 - The student dashboard displays all structured classification flags.
 - A shared validator rejects protected sections, unsupported nested fields, invalid types, oversized strings, and invalid dates.
 - The rendered student portal uses only authenticated profile and report responses for profile, academic records, status, and GWA.
+- A student can open and edit their profile whenever the authenticated profile endpoint succeeds, even if the separate academic-report request fails. The academic view displays its own error state.
+- Philippine location responses are validated and unwrapped from the PSGC Cloud `data` envelope before selectors render.
+- Religious information uses a curated selection, plus Other — specify and Prefer not to say. It remains optional and stored through the existing protected profile API.
+- Students may opt in to share recurring unavailable time slots for spiritual activities. Faculty reports expose only day/time restrictions, never a religion or activity description; a protected schedule-conflict endpoint supports enrollment checks.
+- Classification is staff-managed: faculty or administrators set continuing, shifter, transferee, and related classification information. Academic status is maintained through the audited staff status workflow and supports Regular, Irregular, Probationary, and FDA labels.
+- The account menu provides Settings for every role. It starts an email-verified password change and presents role-appropriate notification categories; protected role, permission, classification, academic-status, and academic-record fields are excluded.
+- Notification preferences now load from and save to the authenticated user record through `/api/auth/settings`.
+
+### Student academic history
+
+- Students select an academic year and semester from periods returned by `GET /api/me/student/report`.
+- Only the subjects, units, grades, major classification, status, and major-subject GWA for the selected period are rendered.
+- The newest stored period is selected by default, and empty or malformed record states are handled without exposing edit controls.
+- The report endpoint resolves the student through the authenticated user and returns a server-calculated major-subject GWA for every academic term.
+- `npm run seed:student-test-records` idempotently inserts three MongoDB-backed demonstration periods for `student.test` without replacing existing periods.
+
+### SAPES v1 profile baseline
+
+- Student profiles now support enrollment context, contact information, present/home addresses, educational background, and relevant health accommodation details in the existing `students` collection.
+- Present and home addresses support country, province, municipality, barangay, street, and ZIP code. Philippine selections are guided by the PSGC Cloud hierarchy; selecting Other keeps the address fields manually editable.
+- Personal information supports optional suffix, dual citizenship, height, weight, and blood type. Sex and civil-status entries are standardized select controls.
+- Student self-service updates use explicit server-side field whitelists; institution ID, account linkage, role, academic status, grades, and evaluations remain protected.
+- Faculty reports include enrollment context and only health accommodation signals/notes needed for evaluation; detailed condition descriptions remain excluded from faculty responses.
+- Health profiles support a validated medical-history checklist, allergies, an Other condition, accommodation requirements, private notes, and emergency-contact information. “None” is mutually exclusive with every condition.
+
+The configured database now contains these added `student.test` demonstration records:
+
+- `2024-2025 / 2nd Semester`: IT 121 Computer Programming 2 (3, 1.75, major), IT 122 Discrete Structures (3, 2.00, major), GE 104 Mathematics in the Modern World (3, 1.50, non-major). Period major GWA: 1.88.
+- `2025-2026 / 1st Semester`: IT 201 Data Structures and Algorithms (3, 2.00, major), IT 202 Object-Oriented Programming (3, 1.50, major), GE 201 Science, Technology and Society (3, 2.00, non-major). Period major GWA: 1.75.
+- `2025-2026 / 2nd Semester`: IT 211 Database Systems (3, 1.50, major), IT 212 Web Systems and Technologies (3, 1.75, major), GE 205 Ethics (3, 1.50, non-major). Period major GWA: 1.63.
+
+The existing `2026-2027 / 1st` test record was preserved. A second seed run made no changes and reported all three added periods as already existing.
+
+### BSIT curriculum demonstration cohort
+
+- `npm run seed:bsit-students` creates five fictional student accounts and linked profiles using the existing User, Student, and AcademicRecord collections.
+- All five students share the referenced 2024-2025 BSIT curriculum subject sequence across four terms, with varied fictional grades.
+- The seed validates every academic record and uses the existing unique student/year/semester key with insert-only upserts, so reruns do not duplicate or overwrite terms.
+- SAPES does not currently have a separate curriculum model; shared enrollment is represented by the same period and subject structure in each authoritative student record.
+
+Created test accounts (shared development password: `Test1234!`):
+
+- `bsit.test01` / `TEST-BSIT-0001` / Alex Rivera
+- `bsit.test02` / `TEST-BSIT-0002` / Bianca Santos
+- `bsit.test03` / `TEST-BSIT-0003` / Carlo Mendoza
+- `bsit.test04` / `TEST-BSIT-0004` / Dana Flores
+- `bsit.test05` / `TEST-BSIT-0005` / Ethan Garcia
+
+Each account has 32 subjects across `2024-2025 / 1st Semester`, `2024-2025 / 2nd Semester`, `2025-2026 / 1st Semester`, and `2025-2026 / 2nd Semester`. Runtime verification confirmed login and authenticated report responses returned `200` for all five accounts, all curriculum subject-code sequences matched, and all five grade sets were distinct. A second seed run reported all 20 term records as already existing.
 
 ### Administrative student profile management
 
@@ -76,6 +125,8 @@ repository: git diff --check
 ```
 
 The backend suite contains focused tests for session/account-status enforcement and student-profile validation.
+
+The academic-history runtime check confirmed `student.test` login (`200`), own report access (`200`), exact period separation and GWA values, unauthenticated rejection (`401`), denial on the arbitrary institution-ID report route for a student (`403`), and continued faculty/admin report access (`200` each).
 
 Production dependency audits report zero known vulnerabilities for both the server and client. The backend `qs` transitive dependency was updated to `6.16.0` to resolve two moderate denial-of-service advisories.
 
