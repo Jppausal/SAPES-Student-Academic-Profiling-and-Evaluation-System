@@ -1,0 +1,31 @@
+{
+  "name": "sapes-student-academic-profiling-and-evaluation-system",
+  "version": "1.0.0",
+  "description": "A secure web-based student enrollment system for the College of Technologies developed by EnTech-T",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "concurrently -n client,server -c blue,green \"npm --prefix client run dev -- --host 0.0.0.0\" \"npm --prefix server run start\"",
+    "dev:client": "npm --prefix client run dev -- --host 0.0.0.0",
+    "dev:server": "npm --prefix server run start",
+    "build": "npm --prefix client run build",
+    "test": "npm --prefix server run test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jppausal/SAPES-Student-Academic-Profiling-and-Evaluation-System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Jppausal/SAPES-Student-Academic-Profiling-and-Evaluation-System/issues"
+  },
+  "homepage": "https://github.com/Jppausal/SAPES-Student-Academic-Profiling-and-Evaluation-System#readme"
+}
