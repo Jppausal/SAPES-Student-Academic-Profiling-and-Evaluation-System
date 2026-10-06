@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, UserCheck } from 'lucide-react';
 import {
   fetchMyStudentIdentity,
   fetchMyStudentReport,
@@ -8,6 +7,7 @@ import {
 } from '../../lib/api';
 import { BackendStudentWorkspace } from './BackendStudentWorkspace';
 import { StudentProfileSetup } from './StudentProfileSetup';
+import './student-workspace.css';
 
 export const StudentPortal: React.FC = () => {
   const [identity, setIdentity] = useState<StudentIdentity | null>(null);
@@ -16,6 +16,7 @@ export const StudentPortal: React.FC = () => {
   const [profileError, setProfileError] = useState('');
   const [reportError, setReportError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'profile'>('overview');
+  const [savedMessage, setSavedMessage] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -46,11 +47,11 @@ export const StudentPortal: React.FC = () => {
   }, []);
 
   if (loading) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading your authenticated student profile…</div>;
+    return <div className="student-workspace"><div role="status" className="student-notice">Loading your student profile...</div></div>;
   }
 
   if (profileError || !identity) {
-    return <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">{profileError || 'Student profile not found.'}</div>;
+    return <div className="student-workspace"><div role="alert" className="student-notice student-notice-error">{profileError || 'Student profile not found.'}</div></div>;
   }
 
   const profileComplete = Boolean(
@@ -59,21 +60,34 @@ export const StudentPortal: React.FC = () => {
     !(identity.personalInformation.firstName === 'New' && identity.personalInformation.lastName === 'Student')
   );
 
+  const name = [identity.personalInformation?.firstName, identity.personalInformation?.middleName, identity.personalInformation?.lastName].filter(Boolean).join(' ');
+
   return (
-    <div className="space-y-6">
-      <div className="flex max-w-full items-center gap-1.5 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-xs">
-        <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'overview' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>
-          <LayoutDashboard className="h-4 w-4" /> Profile & Academic Records
+    <div className="student-workspace">
+      <header className="student-identity">
+        <div>
+          <p className="student-context">Student workspace</p>
+          <h1>{name || 'Student profile'}</h1>
+          <p>{identity.enrollmentInformation?.course || identity.classification?.program || 'Program not recorded'}</p>
+        </div>
+        <dl className="student-identity-details">
+          <div><dt>Institution ID</dt><dd>{identity.institutionId}</dd></div>
+        </dl>
+      </header>
+      <nav className="student-navigation" aria-label="Student workspace">
+        <button type="button" onClick={() => setActiveTab('overview')} aria-current={activeTab === 'overview' ? 'page' : undefined}>
+          Academic records
         </button>
-        <button onClick={() => setActiveTab('profile')} className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${activeTab === 'profile' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>
-          <UserCheck className="h-4 w-4" /> Edit Student Profile
-          {!profileComplete && <span className="h-2 w-2 rounded-full bg-amber-400" />}
+        <button type="button" onClick={() => { setActiveTab('profile'); setSavedMessage(''); }} aria-current={activeTab === 'profile' ? 'page' : undefined}>
+          Personal profile
+          {!profileComplete && <span className="student-incomplete">Incomplete</span>}
         </button>
-      </div>
+      </nav>
+      {savedMessage && <p role="status" className="student-notice student-notice-success">{savedMessage}</p>}
 
       {activeTab === 'overview' && (report
         ? <BackendStudentWorkspace identity={identity} report={report} />
-        : <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800">{reportError || 'Academic records are still loading.'} You can still edit your student profile.</div>
+        : <div role={reportError ? 'alert' : 'status'} className="student-notice">{reportError || 'Academic records are still loading.'} You can still edit your personal profile.</div>
       )}
       {activeTab === 'profile' && (
         <StudentProfileSetup
@@ -81,6 +95,7 @@ export const StudentPortal: React.FC = () => {
           isOnboarding={!profileComplete}
           onSaved={(updatedIdentity) => {
             setIdentity(updatedIdentity);
+            setSavedMessage('Your student profile was saved successfully.');
             setActiveTab('overview');
           }}
         />
