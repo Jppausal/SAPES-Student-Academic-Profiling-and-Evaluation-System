@@ -5,8 +5,8 @@ const studentSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      unique: true
+      unique: true,
+      sparse: true
     },
 
     institutionId: {
@@ -14,6 +14,62 @@ const studentSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true
+    },
+
+    username: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true
+    },
+
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: ''
+    },
+
+    passwordHash: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    role: {
+      type: String,
+      enum: ['student', 'faculty', 'admin'],
+      default: 'student'
+    },
+
+    accountStatus: {
+      type: String,
+      enum: ['active', 'inactive', 'suspended'],
+      default: 'active'
+    },
+
+    yearLevel: {
+      type: Number,
+      min: 1,
+      max: 6
+    },
+
+    section: {
+      type: String,
+      trim: true,
+      maxlength: 30
+    },
+
+    enrollmentStatus: {
+      type: String,
+      enum: ['enrolled', 'not_enrolled', 'processing'],
+      default: 'not_enrolled'
+    },
+
+    lastLoginAt: {
+      type: Date,
+      default: null
     },
 
     personalInformation: {
@@ -60,6 +116,11 @@ const studentSchema = new mongoose.Schema(
     },
 
     classification: {
+      program: {
+        type: String,
+        trim: true
+      },
+
       studentType: String,
 
       isIP: {

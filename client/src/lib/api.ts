@@ -236,6 +236,151 @@ export async function fetchStudentReport(institutionId: string) {
   return response.data;
 }
 
+export interface StudentSuggestion {
+  institutionId: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+}
+
+export async function fetchStudentSuggestions(query: string) {
+  const params = new URLSearchParams({ q: query });
+  const response = await request<{ success: true; data: { students: StudentSuggestion[] } }>(
+    `/api/students/search?${params.toString()}`
+  );
+  return response.data.students;
+}
+
+export interface CourseEnrollmentSummary {
+  programs: Array<{ program: string; count: number }>;
+  totalActiveStudents: number;
+  pendingEnrollmentCount: number;
+  pendingEnrollmentStudents: Array<{
+    institutionId: string;
+    name: string;
+    program: string;
+    yearLevel: number | null;
+    enrollmentStatus: 'not_enrolled' | 'processing';
+  }>;
+  unassignedCount: number;
+}
+
+export type AssessmentCategory = 'quiz' | 'lab' | 'exam' | 'other';
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
+
+export interface CourseEvaluationProgress {
+  _id?: string;
+  academicYear: string;
+  semester: string;
+  assessments: Array<{
+    _id?: string;
+    title: string;
+    category: AssessmentCategory;
+    score: number;
+    possiblePoints: number;
+    submitted: boolean;
+    dueDate?: string;
+  }>;
+  attendanceLogs: Array<{
+    _id?: string;
+    date: string;
+    status: AttendanceStatus;
+    notes?: string;
+    excuseLetter?: string;
+  }>;
+  rubricScores: Array<{
+    _id?: string;
+    competency: string;
+    rating: number;
+    maxRating: number;
+    notes?: string;
+  }>;
+  facultyRemarks: Array<{ _id?: string; text: string; createdAt?: string }>;
+  internalNotes: string;
+}
+
+export interface CourseMetrics {
+  attendanceRate: number | null;
+  classPercentile: number | null;
+  runningGrade: number | null;
+  submissionRate: number | null;
+}
+
+export interface FacultyRosterStudent {
+  institutionId: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  program: string;
+  yearLevel: number | null;
+  section: string;
+  enrollmentStatus: string;
+  currentStatus: string;
+  isOnProbation: boolean;
+  metrics: CourseMetrics;
+}
+
+export interface FacultyStudentWorkspace {
+  student: {
+    institutionId: string;
+    username: string;
+    personalInformation: {
+      firstName?: string;
+      middleName?: string;
+      lastName?: string;
+      email?: string;
+      sex?: string;
+    };
+    classification: {
+      program?: string;
+      studentType?: string;
+      isIP?: boolean;
+      isPWD?: boolean;
+      isShifter?: boolean;
+      isTransferee?: boolean;
+    };
+    academicStatus: { currentStatus: string; isOnProbation: boolean };
+    yearLevel: number | null;
+    section: string;
+    enrollmentStatus: string;
+  };
+  academicRecords: AcademicTermRecord[];
+  majorSubjectGwa: number;
+  courseEvaluation: CourseEvaluationProgress;
+  metrics: CourseMetrics;
+  peerCount: number;
+}
+
+export async function fetchFacultyEvaluationRoster(program: string) {
+  const params = new URLSearchParams({ program });
+  const response = await request<{ success: true; data: { students: FacultyRosterStudent[] } }>(
+    `/api/faculty-evaluations/roster?${params.toString()}`
+  );
+  return response.data.students;
+}
+
+export async function fetchFacultyStudentWorkspace(institutionId: string) {
+  const response = await request<{ success: true; data: FacultyStudentWorkspace }>(
+    `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}`
+  );
+  return response.data;
+}
+
+export async function saveFacultyCourseEvaluation(institutionId: string, progress: CourseEvaluationProgress) {
+  const response = await request<{ success: true; data: { courseEvaluation: CourseEvaluationProgress } }>(
+    `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}/progress`,
+    { method: 'PUT', body: JSON.stringify(progress) }
+  );
+  return response.data.courseEvaluation;
+}
+
+export async function fetchCourseEnrollmentSummary() {
+  const response = await request<{ success: true; data: CourseEnrollmentSummary }>(
+    '/api/students/courses/enrollment-summary'
+  );
+  return response.data;
+}
+
 export interface InstitutionalStudentSummary {
   institutionId: string;
   personalInformation: {
@@ -312,6 +457,7 @@ export interface StudentIdentity {
   educationalBackground?: Record<string, string>;
   healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
+    program?: string;
     studentType?: string;
     isIP?: boolean;
     isPWD?: boolean;
@@ -359,6 +505,7 @@ export type StudentProfileUpdate = {
   educationalBackground?: Record<string, string>;
   healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
+    program?: string;
     studentType?: string;
     isIP?: boolean;
     isPWD?: boolean;

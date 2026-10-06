@@ -6,6 +6,7 @@ import {
   StudentProfileUpdate,
   updateMyStudentProfile,
 } from '../../lib/api';
+import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 
 interface StudentProfileSetupProps {
   identity: StudentIdentity;
@@ -148,14 +149,15 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
         <h2 className="font-bold text-slate-900">Academic and Contact Context</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-xs font-semibold text-slate-700">Course<input value={enrollment.course || ''} onChange={(event) => setContext('enrollmentInformation', 'course', event.target.value)} placeholder="e.g. Bachelor of Science in Information Technology" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-          <label className="text-xs font-semibold text-slate-700">Curriculum<input value={enrollment.curriculum || ''} onChange={(event) => setContext('enrollmentInformation', 'curriculum', event.target.value)} placeholder="e.g. 2024-2025 BSIT" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-          <label className="text-xs font-semibold text-slate-700">Year level<input value={enrollment.yearLevel || ''} onChange={(event) => setContext('enrollmentInformation', 'yearLevel', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-          <label className="text-xs font-semibold text-slate-700">Department<input value={enrollment.department || ''} onChange={(event) => setContext('enrollmentInformation', 'department', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-          <label className="text-xs font-semibold text-slate-700">Institutional email<input type="email" value={contact.institutionalEmail || ''} onChange={(event) => setContext('contactInformation', 'institutionalEmail', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-          <label className="text-xs font-semibold text-slate-700">Mobile number<input value={contact.mobileNumber || ''} onChange={(event) => setContext('contactInformation', 'mobileNumber', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-          <label className="text-xs font-semibold text-slate-700">Senior high school<input value={education.seniorHigh || ''} onChange={(event) => setContext('educationalBackground', 'seniorHigh', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-          <label className="text-xs font-semibold text-slate-700">Previous school<input value={education.previousSchool || ''} onChange={(event) => setContext('educationalBackground', 'previousSchool', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+          <label className="text-xs font-semibold text-slate-700">Degree program<select value={enrollment.course || ''} onChange={(event) => setContext('enrollmentInformation', 'course', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900"><option value="">Select a program</option>{TECHNOLOGY_PROGRAMS.map((program) => <option key={program.value} value={program.value}>{program.label}</option>)}</select></label>
+          <label className="text-xs font-semibold text-slate-700">Student type<input value={enrollment.studentType || ''} onChange={(event) => setContext('enrollmentInformation', 'studentType', event.target.value)} placeholder="e.g. regular, irregular" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Curriculum<input value={enrollment.curriculum || ''} onChange={(event) => setContext('enrollmentInformation', 'curriculum', event.target.value)} placeholder="e.g. 2024-2025 BSIT" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Year level<input value={enrollment.yearLevel || ''} onChange={(event) => setContext('enrollmentInformation', 'yearLevel', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Department<input value={enrollment.department || ''} onChange={(event) => setContext('enrollmentInformation', 'department', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Institutional email<input type="email" value={contact.institutionalEmail || ''} onChange={(event) => setContext('contactInformation', 'institutionalEmail', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Mobile number<input value={contact.mobileNumber || ''} onChange={(event) => setContext('contactInformation', 'mobileNumber', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Senior high school<input value={education.seniorHigh || ''} onChange={(event) => setContext('educationalBackground', 'seniorHigh', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
+          <label className="text-xs font-semibold text-slate-700">Previous school<input value={education.previousSchool || ''} onChange={(event) => setContext('educationalBackground', 'previousSchool', event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900" /></label>
         </div>
       </section>
 

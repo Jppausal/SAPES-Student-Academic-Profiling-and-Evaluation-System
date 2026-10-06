@@ -75,8 +75,9 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
     setError('');
     setIsSubmitting(true);
     const form = new FormData(event.currentTarget);
+    const loginIdentifier = String(form.get('username') || '').trim();
     const result = await onLogin(
-      String(form.get('username') || ''),
+      loginIdentifier,
       String(form.get('password') || '')
     );
     setIsSubmitting(false);
@@ -94,17 +95,21 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-700">
-            ID Number / Username
+            Email
           </label>
-          <input
-            id="username"
-            name="username"
-            type="text"
-            autoComplete="username"
-            placeholder="e.g. 2021301234 or admin.test"
-            maxLength={50}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-          />
+          <div className="mt-2 flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-100">
+            <input
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="your.name@example.com"
+              maxLength={64}
+              className="w-full bg-transparent px-3 py-2.5 text-sm text-slate-900 outline-none"
+            />
+          </div>
         </div>
 
         <div>

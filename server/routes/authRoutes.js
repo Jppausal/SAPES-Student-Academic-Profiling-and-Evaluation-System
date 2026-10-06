@@ -59,10 +59,50 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find user
-    const user = await User.findOne({ username });
+    // Prefer an email match, with username fallback for existing accounts.
+    const loginIdentifier = username.trim();
+    const normalizedEmail = loginIdentifier.toLowerCase();
+    const emailLocalPart = loginIdentifier.includes('@')
+      ? loginIdentifier.slice(0, loginIdentifier.indexOf('@'))
+      : loginIdentifier;
 
-    if (!user) {
+    const user = await User.findOne({ email: normalizedEmail })
+      || await User.findOne({ username: loginIdentifier })
+      || (emailLocalPart !== loginIdentifier
+        ? await User.findOne({ username: emailLocalPart })
+        : null);
+
+    const student = !user ? await Student.findOne({
+      $or: [
+        { email: normalizedEmail },
+        { username: loginIdentifier },
+        { username: loginIdentifier.toLowerCase() },
+        { institutionId: loginIdentifier },
+        ...(emailLocalPart !== loginIdentifier ? [
+          { username: emailLocalPart },
+          { username: emailLocalPart.toLowerCase() }
+        ] : [])
+      ]
+    }) : null;
+
+    const account = user || (student ? {
+      _id: student._id,
+      username: student.username || student.institutionId,
+      role: student.role || 'student',
+      firstName: student.personalInformation?.firstName || student.firstName || '',
+      lastName: student.personalInformation?.lastName || student.lastName || '',
+      email: student.email || '',
+      studentNumber: student.institutionId || '',
+      employeeId: '',
+      department: '',
+      accountStatus: student.accountStatus || 'active',
+      passwordHash: student.passwordHash || '',
+      save: async () => {
+        await student.save();
+      }
+    } : null);
+
+    if (!account) {
       return res.status(401).json({
         success: false,
         message: 'Invalid username or password'
@@ -70,38 +110,41 @@ router.post('/login', async (req, res) => {
     }
 
     // Check account status
-    if (user.accountStatus !== 'active') {
+    if (account.accountStatus !== 'active') {
       return res.status(403).json({
         success: false,
         message: 'Account is not active'
       });
     }
 
-    // Compare password
-    const passwordMatch = await bcrypt.compare(
-      password,
-      user.passwordHash
-    );
+    // Compare password. Support older local accounts whose passwordHash was stored as plain text.
+    const passwordMatch = await bcrypt.compare(password, account.passwordHash).catch(() => false);
+    const legacyPasswordMatch = !passwordMatch && account.passwordHash === password;
 
-    if (!passwordMatch) {
+    if (!passwordMatch && !legacyPasswordMatch) {
       return res.status(401).json({
         success: false,
         message: 'Invalid username or password'
       });
     }
 
+    if (legacyPasswordMatch && account.passwordHash === password) {
+      account.passwordHash = await bcrypt.hash(password, 12);
+      await account.save();
+    }
+
     // Create JWT
-    const token = await createApplicationToken(user);
+    const token = await createApplicationToken(account);
 
     // Update last login
-    user.lastLoginAt = new Date();
-    await user.save();
+    account.lastLoginAt = new Date();
+    await account.save();
 
     res.json({
       success: true,
       message: 'Login successful',
       token,
-      user: safeUser(user, user.studentNumber)
+      user: safeUser(account, account.studentNumber)
     });
 
   } catch (error) {
@@ -196,9 +239,24 @@ router.post('/password-reset/verify', async (req, res) => {
 // GET /api/auth/session
 router.get('/session', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId)
+    let user = await User.findById(req.user.userId)
       .select('username role firstName lastName email studentNumber employeeId department')
       .lean();
+    if (!user && req.user.role === 'student') {
+      const student = await Student.findById(req.user.userId)
+        .select('username role email institutionId personalInformation')
+        .lean();
+      if (student) {
+        user = {
+          ...student,
+          firstName: student.personalInformation?.firstName || '',
+          lastName: student.personalInformation?.lastName || '',
+          studentNumber: student.institutionId,
+          employeeId: '',
+          department: ''
+        };
+      }
+    }
     if (!user) {
       return res.status(401).json({ success: false, message: 'Account no longer exists' });
     }

@@ -1,4 +1,5 @@
 export type UserRole = 'student' | 'faculty' | 'admin';
+export type FacultyPage = 'dashboard' | 'student-search' | 'student-records' | 'evaluations';
 
 export interface UserAccount {
   id: string;

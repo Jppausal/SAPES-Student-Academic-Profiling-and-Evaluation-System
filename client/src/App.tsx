@@ -8,10 +8,14 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
 import { StudentPortal } from './components/student/StudentPortal';
 import { FacultyPortal } from './components/faculty/FacultyPortal';
+import { StudentSearchPage } from './components/faculty/StudentSearchPage';
+import { FacultyAcademicRecordsPage } from './components/faculty/FacultyAcademicRecordsPage';
+import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPage';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { FacultyPage } from './types';
 
 type AuthView = 'landing' | 'login' | 'forgot-password' | 'dashboard';
 
@@ -20,6 +24,7 @@ const AppContent: React.FC = () => {
   const [authView, setAuthView] = useState<AuthView>(() => (
     currentUser ? 'dashboard' : 'landing'
   ));
+  const [activePage, setActivePage] = useState<FacultyPage>('dashboard');
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -67,11 +72,16 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Navbar />
+      <Navbar activePage={activePage} onNavigate={setActivePage} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {currentUser?.role === 'student' && <StudentPortal />}
-        {currentUser?.role === 'faculty' && <FacultyPortal />}
+        {currentUser?.role === 'faculty' && (
+          activePage === 'student-search' ? <StudentSearchPage />
+            : activePage === 'student-records' ? <FacultyAcademicRecordsPage />
+              : activePage === 'evaluations' ? <FacultyEvaluationPage />
+                : <FacultyPortal />
+        )}
         {currentUser?.role === 'admin' && <AdminPortal />}
       </main>
 
