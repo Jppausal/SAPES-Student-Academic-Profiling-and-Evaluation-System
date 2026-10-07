@@ -285,7 +285,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                           <td className="px-3 py-2">{subject.subjectName}</td>
                           <td className="px-3 py-2">{subject.units}</td>
                           <td className="px-3 py-2 font-semibold">{subject.grade || '—'}</td>
-                          <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'General'}</td>
+                          <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
                           <td className="px-3 py-2">{subject.status}</td>
                         </tr>
                       ))}

@@ -273,7 +273,7 @@ export const StudentDossierSummary: React.FC = () => {
                         Major
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-500">GE</span>
+                      <span className="text-[10px] text-slate-500">Non-major</span>
                     )}
                   </td>
                   <td className="p-2 text-center font-mono">{s.units}</td>

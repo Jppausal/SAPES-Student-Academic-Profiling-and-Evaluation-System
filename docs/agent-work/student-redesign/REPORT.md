@@ -24,7 +24,7 @@ The design is static (variance 3, motion 0, density 6), with keyboard focus outl
 ## Validation
 
 - `client: npm run build`: exit 0. Vite production build passed after the final code changes.
-- `client: npm run lint`: exit 1. No student-file errors were reported. Two errors remain in untouched files: `src/components/layout/UserSettingsModal.tsx(9,282)` and `src/pages/auth/ForgotPasswordPage.tsx(14,72)`, both TS2554 (expected 2 arguments, received 3). These out-of-scope auth/settings files were not modified.
+- `client: npm run lint`: exit 1. Existing diagnostics remain in `src/components/layout/UserSettingsModal.tsx(9,282)` and `src/pages/auth/ForgotPasswordPage.tsx(14,72)` (TS2554), plus `src/components/student/StudentPortal.tsx(74,46)` (TS2339 for `classification.yearLevel`). The subject-type terminology change did not introduce these diagnostics.
 - Targeted TypeScript program for `StudentPortal.tsx`, `BackendStudentWorkspace.tsx`, `StudentProfileSetup.tsx`, `vite-env.d.ts` and their transitive dependencies, using the existing client compiler options: exit 0, zero diagnostics after the acceptance corrections.
 - `git diff --check`: exit 0. Only Git's LF-to-CRLF notices appeared.
 - Headless Chromium via the existing local Playwright installation: nine scenario groups passed with deterministic intercepted identity/session/report/profile/location responses. No live database or real account was contacted. Existing external font requests were intercepted with an empty stylesheet. All unexpected external/API requests were blocked and asserted absent. No browser runtime exceptions occurred.
@@ -53,3 +53,9 @@ After correction, the production build, targeted student TypeScript check and `g
 The follow-up refinement changed only `student-workspace.css`; the component DOM, layout grid, sections, table structure, application behavior, and responsive breakpoints were retained. Georgia and Times New Roman were removed. Inputs now use subtle slate borders and an 8px radius, the transcript and profile surfaces use a restrained 12px radius with very light depth, and statuses use bordered semantic pills. No animations or transitions were introduced.
 
 After this CSS-only pass, `npm run build` passed and the same nine deterministic Chromium scenario groups passed on desktop, mobile, and narrow-mobile viewports. Updated records and profile screenshots were visually inspected.
+
+## Subject type terminology
+
+Academic-record interfaces now expose exactly two subject types: `Major` when `isMajor` is true and `Non-major` when it is false. The student workspace no longer infers General Education or PE categories from subject codes or names. Admin, faculty, student-history, and dossier displays use the same two labels. The MongoDB schema, `isMajor` field, academic records, and GWA calculations were not changed.
+
+After this terminology update, `npm run build`, `git diff --check`, and all nine deterministic Chromium scenario groups passed. The desktop academic-record capture was inspected and showed IT subjects as Major and GE/PE subjects as Non-major.

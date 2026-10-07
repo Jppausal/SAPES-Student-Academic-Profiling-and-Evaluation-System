@@ -251,7 +251,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
                 <thead className="border-y border-slate-200 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Status</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">{term.subjects.map((subject) => <tr key={subject.subjectCode}>
                   <td className="px-3 py-2"><span className="font-mono font-semibold">{subject.subjectCode}</span><span className="ml-2 text-slate-700">{subject.subjectName}</span></td>
-                  <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Minor'}</td>
+                  <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
                   <td className="px-3 py-2">{subject.units}</td>
                   <td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td>
                   <td className="px-3 py-2">{subject.status}</td>
