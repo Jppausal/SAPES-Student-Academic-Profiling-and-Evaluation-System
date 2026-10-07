@@ -6,7 +6,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
-const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, withMajorSubjectGwa, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 
 const router = express.Router();
 const studentAccountFilter = (userId) => ({
@@ -174,7 +174,8 @@ router.get(
         data: {
           student: safeStudent,
           academicRecords: academicRecordsWithGwa,
-          majorSubjectGwa
+          majorSubjectGwa,
+          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)
         }
       });
     } catch (error) {

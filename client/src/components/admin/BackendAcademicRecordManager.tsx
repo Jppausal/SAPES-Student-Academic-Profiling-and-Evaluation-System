@@ -161,9 +161,9 @@ export const BackendAcademicRecordManager: React.FC = () => {
                 <p className="mt-1 text-[10px] text-indigo-100">{selectedPeriodLabel}</p>
               </div>
               <div className="rounded-xl bg-slate-900 px-5 py-3 text-white">
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Cumulative major GWA</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Historical cumulative GWA</p>
                 <p className="text-2xl font-black">{report.majorSubjectGwa.toFixed(2)}</p>
-                <p className="mt-1 text-[10px] text-slate-300">All recorded periods</p>
+                <p className="mt-1 text-[10px] text-slate-300">All recorded periods combined</p>
               </div>
             </div>
           </section>

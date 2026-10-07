@@ -176,6 +176,26 @@ repository: git diff --check - passed
 
 The full client TypeScript check continues to report only the three previously documented diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`.
 
+## 2026-10-07 Latest-period GWA consistency correction
+
+Live verification of Alex Rivera (`TEST-BSIT-0001`) confirmed that the apparent `1.30` versus `1.32` discrepancy came from two valid calculations with different scopes. The student dashboard displayed the latest selected term, while faculty headers promoted the cumulative value across all four recorded terms.
+
+For AY 2025-2026, 2nd Semester, Alex's five equally weighted major grades are `1.00`, `1.50`, `1.25`, `1.50`, and `1.25`, producing a period GWA of `1.30`. Combining major subjects from every recorded semester produces the historical cumulative value `1.32`.
+
+The backend now derives and returns `latestAcademicPeriod` through one shared helper for authenticated student reports, faculty workspaces, staff reports, academic-record management, and institutional summaries. The helper compares academic year and semester rather than relying on database result order. Faculty search, faculty academic records, and faculty evaluation history now show latest-period GWA as the primary value with the exact academic year and semester. The historical cumulative value remains visible only as explicitly labeled secondary context. Admin screens use the same terminology.
+
+Verification completed:
+
+```text
+live MongoDB/API data: Alex latest-period GWA 1.30 and historical cumulative 1.32 - confirmed
+server: npm test - 33 passed
+server: syntax checks for changed routes and utilities - passed
+client: npm run build - passed
+repository: git diff --check - passed
+```
+
+The full client TypeScript check continues to report the same three pre-existing diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`; this correction introduced no additional diagnostics.
+
 ## Known remaining work
 
 - Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.

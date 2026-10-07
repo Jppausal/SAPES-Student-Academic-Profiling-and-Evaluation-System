@@ -214,6 +214,12 @@ export interface StudentReport {
     schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   };
   academicRecords: AcademicTermRecord[];
+  latestAcademicPeriod?: {
+    academicYear: string;
+    semester: string;
+    majorSubjectGwa: number;
+  } | null;
+  /** Historical cumulative GWA across every recorded period. */
   majorSubjectGwa: number;
   facultyEvaluation?: {
     evaluationStatus: string;
@@ -345,6 +351,12 @@ export interface FacultyStudentWorkspace {
     enrollmentStatus: string;
   };
   academicRecords: AcademicTermRecord[];
+  latestAcademicPeriod?: {
+    academicYear: string;
+    semester: string;
+    majorSubjectGwa: number;
+  } | null;
+  /** Historical cumulative GWA across every recorded period. */
   majorSubjectGwa: number;
   courseEvaluation: CourseEvaluationProgress;
   metrics: CourseMetrics;

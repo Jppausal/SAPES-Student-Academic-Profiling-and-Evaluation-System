@@ -166,6 +166,11 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const studentName = report?.student.personalInformation
     ? `${report.student.personalInformation.firstName || ''} ${report.student.personalInformation.lastName || ''}`.trim()
     : report?.student.institutionId;
+  const latestAcademicPeriod = report?.latestAcademicPeriod || (report?.academicRecords[0] ? {
+    academicYear: report.academicRecords[0].academicYear,
+    semester: report.academicRecords[0].semester,
+    majorSubjectGwa: report.academicRecords[0].majorSubjectGwa ?? 0,
+  } : null);
 
   return (
     <section className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm sm:p-6">
@@ -252,8 +257,10 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
               <p className="font-mono text-xs text-slate-500">{report.student.institutionId}</p>
             </div>
             <div className="rounded-xl bg-slate-900 px-4 py-3 text-white">
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">Cumulative major-subject GWA</p>
-              <p className="text-2xl font-black">{report.majorSubjectGwa.toFixed(2)}</p>
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Latest-period major-subject GWA</p>
+              <p className="text-2xl font-black">{latestAcademicPeriod ? latestAcademicPeriod.majorSubjectGwa.toFixed(2) : '—'}</p>
+              {latestAcademicPeriod && <p className="mt-1 text-[10px] text-slate-300">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}
+              <p className="mt-1 text-[10px] text-slate-400">Historical cumulative: {report.majorSubjectGwa.toFixed(2)}</p>
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, withMajorSubjectGwa, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 
 test('calculates a unit-weighted major-subject GWA', () => {
   const result = calculateMajorSubjectGwa([{
@@ -41,4 +41,18 @@ test('keeps selected-period and cumulative GWA scopes explicit', () => {
 
   assert.equal(withMajorSubjectGwa([latest])[0].majorSubjectGwa, 1.25);
   assert.equal(calculateMajorSubjectGwa([latest, earlier]), 1.32);
+});
+
+test('identifies the latest period independently of record order', () => {
+  const records = [
+    { academicYear: '2024-2025', semester: '2nd Semester', subjects: [{ isMajor: true, status: 'Completed', grade: 1.5, units: 3 }] },
+    { academicYear: '2025-2026', semester: '1st Semester', subjects: [{ isMajor: true, status: 'Completed', grade: 1.25, units: 3 }] },
+    { academicYear: '2025-2026', semester: '2nd Semester', subjects: [{ isMajor: true, status: 'Completed', grade: 1.3, units: 3 }] }
+  ];
+
+  assert.deepEqual(getLatestAcademicPeriod(records), {
+    academicYear: '2025-2026',
+    semester: '2nd Semester',
+    majorSubjectGwa: 1.3
+  });
 });

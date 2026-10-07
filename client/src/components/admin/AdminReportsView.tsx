@@ -112,7 +112,7 @@ export const AdminReportsView: React.FC = () => {
                         <>
                           <strong className="block text-indigo-800">{student.latestAcademicPeriod.majorSubjectGwa.toFixed(2)}</strong>
                           <span className="block text-[10px] text-slate-500">{student.latestAcademicPeriod.academicYear} · {student.latestAcademicPeriod.semester}</span>
-                          <span className="block text-[10px] text-slate-500">Cumulative: {student.majorSubjectGwa.toFixed(2)}</span>
+                          <span className="block text-[10px] text-slate-500">Historical cumulative: {student.majorSubjectGwa.toFixed(2)}</span>
                         </>
                       ) : <span className="text-slate-500">Not recorded</span>}
                     </td>

@@ -9,7 +9,7 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
-const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, withMajorSubjectGwa, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
 
@@ -466,7 +466,7 @@ router.get(
           students: students.map((student) => {
             const studentRecords = recordsByStudent.get(String(student._id)) || [];
             const evaluation = evaluationByStudent.get(String(student._id));
-            const latestRecord = studentRecords[0];
+            const latestAcademicPeriod = getLatestAcademicPeriod(studentRecords);
             return {
               institutionId: student.institutionId,
               personalInformation: student.personalInformation || {},
@@ -476,11 +476,7 @@ router.get(
               academicRecordCount: studentRecords.length,
               subjectCount: studentRecords.reduce((count, record) => count + record.subjects.length, 0),
               majorSubjectGwa: calculateMajorSubjectGwa(studentRecords),
-              latestAcademicPeriod: latestRecord ? {
-                academicYear: latestRecord.academicYear,
-                semester: latestRecord.semester,
-                majorSubjectGwa: calculateMajorSubjectGwa([latestRecord])
-              } : null,
+              latestAcademicPeriod,
               facultyEvaluation: evaluation ? {
                 evaluationStatus: evaluation.evaluationStatus,
                 evaluatedAt: evaluation.evaluatedAt
@@ -543,7 +539,8 @@ router.get(
             institutionId: student.institutionId
           },
           academicRecords: withMajorSubjectGwa(academicRecords),
-          majorSubjectGwa: calculateMajorSubjectGwa(academicRecords)
+          majorSubjectGwa: calculateMajorSubjectGwa(academicRecords),
+          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)
         }
       });
     } catch (error) {
@@ -697,6 +694,7 @@ router.get(
           student,
           academicRecords: withMajorSubjectGwa(academicRecords),
           majorSubjectGwa,
+          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords),
           facultyEvaluation,
           statusHistory
         }

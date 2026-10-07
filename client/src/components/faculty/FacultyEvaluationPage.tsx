@@ -130,6 +130,11 @@ export const FacultyEvaluationPage: React.FC = () => {
 
   const sections = [...new Set(roster.map((student) => student.section).filter((section) => section !== 'Unassigned'))].sort();
   const years = [...new Set(roster.map((student) => student.yearLevel).filter((year): year is number => year !== null))].sort();
+  const latestAcademicPeriod = workspace?.latestAcademicPeriod || (workspace?.academicRecords[0] ? {
+    academicYear: workspace.academicRecords[0].academicYear,
+    semester: workspace.academicRecords[0].semester,
+    majorSubjectGwa: workspace.academicRecords[0].majorSubjectGwa ?? 0,
+  } : null);
 
   const updateAssessment = (index: number, field: string, value: string | number | boolean) => {
     setDraft((current) => current ? {
@@ -364,7 +369,7 @@ export const FacultyEvaluationPage: React.FC = () => {
                 {activeTab === 'history' && (
                   <div className="space-y-5 p-4 sm:p-5">
                     <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><FileClock className="h-4 w-4 shrink-0" /><p>Prerequisite checks below are inferred from recorded subject results; no curriculum-specific prerequisite map is configured.</p></div>
-                    <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5"><span className="text-xs font-semibold text-slate-600">Overall major-subject GWA · all recorded terms</span><strong className="text-lg font-extrabold text-slate-900">{workspace.majorSubjectGwa.toFixed(2)}</strong></div>
+                    <div className="flex flex-col gap-2 rounded-md border border-slate-200 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs font-semibold text-slate-600">Latest-period major-subject GWA{latestAcademicPeriod ? ` · ${latestAcademicPeriod.academicYear} · ${latestAcademicPeriod.semester}` : ''}<small className="mt-1 block font-normal text-slate-500">Historical cumulative: {workspace.majorSubjectGwa.toFixed(2)}</small></span><strong className="text-lg font-extrabold text-slate-900">{latestAcademicPeriod ? latestAcademicPeriod.majorSubjectGwa.toFixed(2) : '—'}</strong></div>
                     {workspace.academicRecords.length === 0 && <p className="rounded-md bg-slate-50 p-5 text-center text-xs text-slate-500">No past semester records are available.</p>}
                     {workspace.academicRecords.map((term) => (
                       <section key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-md border border-slate-200">

@@ -126,6 +126,11 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
   const studentName = studentWorkspace
     ? `${studentWorkspace.student.personalInformation.firstName || ''} ${studentWorkspace.student.personalInformation.lastName || ''}`.trim()
     : '';
+  const latestAcademicPeriod = studentWorkspace?.latestAcademicPeriod || (studentWorkspace?.academicRecords[0] ? {
+    academicYear: studentWorkspace.academicRecords[0].academicYear,
+    semester: studentWorkspace.academicRecords[0].semester,
+    majorSubjectGwa: studentWorkspace.academicRecords[0].majorSubjectGwa ?? 0,
+  } : null);
 
   return (
     <div className="space-y-6">
@@ -239,7 +244,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
               <p className="mt-2 text-xs text-slate-600">{selectedCourseLabel} · {yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-slate-300">Cumulative major-subject GWA</p><p className="mt-0.5 text-2xl font-black">{studentWorkspace.majorSubjectGwa.toFixed(2)}</p></div>
+              <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-slate-300">Latest-period major-subject GWA</p><p className="mt-0.5 text-2xl font-black">{latestAcademicPeriod ? latestAcademicPeriod.majorSubjectGwa.toFixed(2) : '—'}</p>{latestAcademicPeriod && <p className="mt-1 text-[10px] text-slate-300">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}<p className="mt-1 text-[10px] text-slate-400">Historical cumulative: {studentWorkspace.majorSubjectGwa.toFixed(2)}</p></div>
               <button type="button" onClick={() => setStep('roster')} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
             </div>
           </div>
