@@ -33,7 +33,11 @@ const programDetails: Record<string, { description: string; icon: LucideIcon; ac
   },
 };
 
-export const StudentSearchPage: React.FC = () => {
+interface StudentSearchPageProps {
+  initialQuery?: string;
+}
+
+export const StudentSearchPage: React.FC<StudentSearchPageProps> = ({ initialQuery = '' }) => {
   const [summary, setSummary] = useState<CourseEnrollmentSummary | null>(null);
   const [error, setError] = useState('');
 
@@ -69,7 +73,7 @@ export const StudentSearchPage: React.FC = () => {
         </div>
       </header>
 
-      <BackendStudentSearch />
+      <BackendStudentSearch initialQuery={initialQuery} />
 
       <section aria-labelledby="technology-programs-heading">
         <div className="mb-4">

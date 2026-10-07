@@ -11,10 +11,11 @@ import {
 
 interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
+  initialQuery?: string;
 }
 
-export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated' }) => {
-  const [institutionId, setInstitutionId] = useState('');
+export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated', initialQuery = '' }) => {
+  const [institutionId, setInstitutionId] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -32,7 +33,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
   useEffect(() => {
     const query = institutionId.trim();
-    if (!query || report) {
+    if (!query || report || initialQuery.trim()) {
       setSuggestions([]);
       setSuggestionsOpen(false);
       setSuggestionsLoading(false);
@@ -100,6 +101,10 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (initialQuery.trim()) void findStudent(initialQuery);
+  }, [initialQuery]);
 
   const searchStudent = async (event: React.FormEvent) => {
     event.preventDefault();
