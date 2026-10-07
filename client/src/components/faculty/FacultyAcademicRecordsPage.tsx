@@ -258,7 +258,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
 
           {studentWorkspace.academicRecords.length ? studentWorkspace.academicRecords.map((term) => (
             <section key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-md border border-slate-200">
-              <div className="bg-slate-50 px-3 py-2.5"><h3 className="text-xs font-bold text-slate-800">{term.academicYear} · {term.semester}</h3></div>
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2.5"><h3 className="text-xs font-bold text-slate-800">{term.academicYear} · {term.semester}</h3><span className="text-[10px] font-semibold text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} · Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>
               <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-xs">
                 <thead className="border-y border-slate-200 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Status</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">{term.subjects.map((subject) => <tr key={subject.subjectCode}>

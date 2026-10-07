@@ -310,7 +310,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             )}
             {report.academicRecords.map((term) => (
               <div key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-xl border border-slate-200">
-                <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700">{term.academicYear} · {term.semester}</div>
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700"><span>{term.academicYear} · {term.semester}</span><span className="font-medium text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} · Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="border-y border-slate-200 text-slate-500"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Status</th></tr></thead>
