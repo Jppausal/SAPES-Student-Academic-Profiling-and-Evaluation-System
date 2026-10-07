@@ -197,6 +197,7 @@ export interface AcademicTermRecord {
   academicYear: string;
   semester: string;
   subjects: AcademicSubject[];
+  overallGwa?: number;
   majorSubjectGwa?: number;
 }
 
@@ -217,8 +218,11 @@ export interface StudentReport {
   latestAcademicPeriod?: {
     academicYear: string;
     semester: string;
+    overallGwa?: number;
     majorSubjectGwa: number;
   } | null;
+  /** Historical cumulative overall GWA across every recorded period. */
+  overallGwa?: number;
   /** Historical cumulative GWA across every recorded period. */
   majorSubjectGwa: number;
   facultyEvaluation?: {
@@ -354,8 +358,11 @@ export interface FacultyStudentWorkspace {
   latestAcademicPeriod?: {
     academicYear: string;
     semester: string;
+    overallGwa?: number;
     majorSubjectGwa: number;
   } | null;
+  /** Historical cumulative overall GWA across every recorded period. */
+  overallGwa?: number;
   /** Historical cumulative GWA across every recorded period. */
   majorSubjectGwa: number;
   courseEvaluation: CourseEvaluationProgress;
@@ -412,10 +419,12 @@ export interface InstitutionalStudentSummary {
   academicStatus: { currentStatus?: string; isOnProbation?: boolean };
   academicRecordCount: number;
   subjectCount: number;
+  overallGwa?: number;
   majorSubjectGwa: number;
   latestAcademicPeriod: {
     academicYear: string;
     semester: string;
+    overallGwa?: number;
     majorSubjectGwa: number;
   } | null;
   facultyEvaluation: {

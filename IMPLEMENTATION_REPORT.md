@@ -196,10 +196,40 @@ repository: git diff --check - passed
 
 The full client TypeScript check continues to report the same three pre-existing diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`; this correction introduced no additional diagnostics.
 
+## 2026-10-07 Overall and Major GWA separation
+
+The MongoDB-backed academic report now calculates and returns two unit-weighted values for every academic period:
+
+- `overallGwa` includes every valid graded subject, whether Major or Non-major.
+- `majorSubjectGwa` includes only subjects whose existing `isMajor` flag is true.
+
+Both calculations exclude dropped subjects, non-positive or invalid grades, and zero-unit subjects. No database migration was required because the existing subject schema already stores grade, units, status, and the Major/Non-major flag. The API also returns cumulative Overall and Major values across recorded periods, while `latestAcademicPeriod` contains both semester-specific values.
+
+Student, faculty, and administrator academic-record screens now display Overall GWA and Major GWA together for the selected or latest semester. Overall GWA is described as supporting honors review; Major GWA is described as supporting academic-standing review. Historical cumulative figures remain secondary and explicitly labeled. The system does not automatically assign Dean's List or probation status because an official policy threshold, minimum load, disqualifying-grade rules, and other eligibility requirements have not yet been configured.
+
+Live Alex Rivera data produced:
+
+```text
+AY 2025-2026 / 2nd Semester: Overall GWA 1.25, Major GWA 1.30
+Historical cumulative: Overall GWA 1.28, Major GWA 1.32
+```
+
+Verification completed:
+
+```text
+server: npm test - 34 passed
+server: syntax checks for changed routes and utilities - passed
+client: npm run build - passed
+repository: git diff --check - passed
+```
+
+The full client TypeScript check continues to report the same three pre-existing diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`; this feature introduced no additional diagnostics.
+
 ## Known remaining work
 
 - Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.
 - Perform live end-to-end tests with MongoDB and valid institutional Google credentials.
 - Design offline local MongoDB operation and Atlas synchronization; synchronization is not implemented.
+- Configure the institution-approved Dean's List and probation rules before enabling automatic eligibility labels.
 
 This correction does not modify environment files or credential values.

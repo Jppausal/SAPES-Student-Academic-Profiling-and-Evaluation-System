@@ -8,6 +8,7 @@ import {
   StudentReport,
   updateStudentStatus,
 } from '../../lib/api';
+import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 
 const emptySubject = (): AcademicSubject => ({
   subjectCode: '',
@@ -124,6 +125,9 @@ export const BackendAcademicRecordManager: React.FC = () => {
   const selectedPeriodLabel = record.academicYear && record.semester
     ? `${record.academicYear} · ${record.semester}`
     : 'No saved period selected';
+  const selectedPeriodGwas = resolvePeriodGwas(record);
+  const historicalFallbackGwas = resolveAcademicGwas(report?.academicRecords || []);
+  const historicalOverallGwa = report?.overallGwa ?? historicalFallbackGwas.overallGwa;
 
   return (
     <div className="space-y-5">
@@ -156,13 +160,13 @@ export const BackendAcademicRecordManager: React.FC = () => {
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-xl bg-indigo-700 px-5 py-3 text-white">
-                <p className="text-[10px] uppercase tracking-wider text-indigo-200">Selected-period major GWA</p>
-                <p className="text-2xl font-black">{record.majorSubjectGwa === undefined ? '—' : record.majorSubjectGwa.toFixed(2)}</p>
+                <p className="text-[10px] uppercase tracking-wider text-indigo-200">Selected-period GWA</p>
+                <div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-indigo-200">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(selectedPeriodGwas.overallGwa)}</p></div><div><span className="text-[10px] text-indigo-200">Major</span><p className="text-2xl font-black">{formatAcademicGwa(selectedPeriodGwas.majorSubjectGwa)}</p></div></div>
                 <p className="mt-1 text-[10px] text-indigo-100">{selectedPeriodLabel}</p>
               </div>
               <div className="rounded-xl bg-slate-900 px-5 py-3 text-white">
                 <p className="text-[10px] uppercase tracking-wider text-slate-400">Historical cumulative GWA</p>
-                <p className="text-2xl font-black">{report.majorSubjectGwa.toFixed(2)}</p>
+                <div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-slate-400">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(historicalOverallGwa)}</p></div><div><span className="text-[10px] text-slate-400">Major</span><p className="text-2xl font-black">{formatAcademicGwa(report.majorSubjectGwa)}</p></div></div>
                 <p className="mt-1 text-[10px] text-slate-300">All recorded periods combined</p>
               </div>
             </div>

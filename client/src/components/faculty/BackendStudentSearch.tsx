@@ -8,6 +8,7 @@ import {
   StudentSuggestion,
   updateStudentStatus,
 } from '../../lib/api';
+import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 
 interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
@@ -166,11 +167,17 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const studentName = report?.student.personalInformation
     ? `${report.student.personalInformation.firstName || ''} ${report.student.personalInformation.lastName || ''}`.trim()
     : report?.student.institutionId;
-  const latestAcademicPeriod = report?.latestAcademicPeriod || (report?.academicRecords[0] ? {
-    academicYear: report.academicRecords[0].academicYear,
-    semester: report.academicRecords[0].semester,
-    majorSubjectGwa: report.academicRecords[0].majorSubjectGwa ?? 0,
-  } : null);
+  const latestRecord = report?.academicRecords[0];
+  const latestFallbackGwas = resolvePeriodGwas(latestRecord);
+  const reportedLatestPeriod = report?.latestAcademicPeriod;
+  const latestAcademicPeriod = reportedLatestPeriod || latestRecord ? {
+    academicYear: reportedLatestPeriod?.academicYear || latestRecord?.academicYear || '',
+    semester: reportedLatestPeriod?.semester || latestRecord?.semester || '',
+    overallGwa: reportedLatestPeriod?.overallGwa ?? latestFallbackGwas.overallGwa ?? undefined,
+    majorSubjectGwa: reportedLatestPeriod?.majorSubjectGwa ?? latestFallbackGwas.majorSubjectGwa ?? 0,
+  } : null;
+  const historicalFallbackGwas = resolveAcademicGwas(report?.academicRecords || []);
+  const historicalOverallGwa = report?.overallGwa ?? historicalFallbackGwas.overallGwa;
 
   return (
     <section className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm sm:p-6">
@@ -256,11 +263,14 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
               <p className="text-lg font-extrabold text-slate-900">{studentName || 'Student record'}</p>
               <p className="font-mono text-xs text-slate-500">{report.student.institutionId}</p>
             </div>
-            <div className="rounded-xl bg-slate-900 px-4 py-3 text-white">
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">Latest-period major-subject GWA</p>
-              <p className="text-2xl font-black">{latestAcademicPeriod ? latestAcademicPeriod.majorSubjectGwa.toFixed(2) : '—'}</p>
+            <div className="min-w-64 rounded-xl bg-slate-900 px-4 py-3 text-white">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Latest-period GWA</p>
+              <div className="mt-1 grid grid-cols-2 gap-4">
+                <div><span className="text-[10px] text-slate-400">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div>
+                <div><span className="text-[10px] text-slate-400">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div>
+              </div>
               {latestAcademicPeriod && <p className="mt-1 text-[10px] text-slate-300">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}
-              <p className="mt-1 text-[10px] text-slate-400">Historical cumulative: {report.majorSubjectGwa.toFixed(2)}</p>
+              <p className="mt-1 text-[10px] text-slate-400">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(report.majorSubjectGwa)}</p>
             </div>
           </div>
 

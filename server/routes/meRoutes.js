@@ -6,7 +6,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
-const { calculateMajorSubjectGwa, withMajorSubjectGwa, getLatestAcademicPeriod } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 
 const router = express.Router();
 const studentAccountFilter = (userId) => ({
@@ -165,7 +165,8 @@ router.get(
         { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
       ).sort({ academicYear: -1, semester: -1 }).lean();
 
-      const academicRecordsWithGwa = withMajorSubjectGwa(academicRecords);
+      const academicRecordsWithGwa = withAcademicGwas(academicRecords);
+      const overallGwa = calculateOverallGwa(academicRecords);
       const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
 
       const { _id, ...safeStudent } = student;
@@ -174,6 +175,7 @@ router.get(
         data: {
           student: safeStudent,
           academicRecords: academicRecordsWithGwa,
+          overallGwa,
           majorSubjectGwa,
           latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)
         }

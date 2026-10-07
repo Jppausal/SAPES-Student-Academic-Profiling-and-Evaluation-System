@@ -9,7 +9,7 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
-const { calculateMajorSubjectGwa, withMajorSubjectGwa, getLatestAcademicPeriod } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
 
@@ -475,6 +475,7 @@ router.get(
               academicStatus: student.academicStatus || {},
               academicRecordCount: studentRecords.length,
               subjectCount: studentRecords.reduce((count, record) => count + record.subjects.length, 0),
+              overallGwa: calculateOverallGwa(studentRecords),
               majorSubjectGwa: calculateMajorSubjectGwa(studentRecords),
               latestAcademicPeriod,
               facultyEvaluation: evaluation ? {
@@ -538,7 +539,8 @@ router.get(
           student: {
             institutionId: student.institutionId
           },
-          academicRecords: withMajorSubjectGwa(academicRecords),
+          academicRecords: withAcademicGwas(academicRecords),
+          overallGwa: calculateOverallGwa(academicRecords),
           majorSubjectGwa: calculateMajorSubjectGwa(academicRecords),
           latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)
         }
@@ -687,12 +689,14 @@ router.get(
       ]);
 
       const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
+      const overallGwa = calculateOverallGwa(academicRecords);
 
       res.json({
         success: true,
         data: {
           student,
-          academicRecords: withMajorSubjectGwa(academicRecords),
+          academicRecords: withAcademicGwas(academicRecords),
+          overallGwa,
           majorSubjectGwa,
           latestAcademicPeriod: getLatestAcademicPeriod(academicRecords),
           facultyEvaluation,

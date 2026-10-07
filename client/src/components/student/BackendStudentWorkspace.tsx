@@ -10,6 +10,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { AcademicSubject, StudentIdentity, StudentReport } from '../../lib/api';
+import { formatAcademicGwa, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 
 interface BackendStudentWorkspaceProps {
   identity: StudentIdentity;
@@ -73,7 +74,7 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
   const selectedRecord = validRecords.find((record) => record.academicYear === selectedAcademicYear && record.semester === selectedSemester);
   const selectedSubjects = selectedRecord?.subjects.filter(isValidAcademicSubject) || [];
   const invalidSubjectCount = (selectedRecord?.subjects.length || 0) - selectedSubjects.length;
-  const gwa = selectedRecord?.majorSubjectGwa;
+  const periodGwas = resolvePeriodGwas(selectedRecord);
   const evaluation = report.facultyEvaluation;
   const evaluationDate = evaluation?.evaluatedAt ? new Date(evaluation.evaluatedAt) : null;
   const reasons = Array.isArray(evaluation?.reasons) ? evaluation.reasons.filter((reason) => typeof reason === 'string' && reason.trim()) : [];
@@ -150,13 +151,22 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
                     <h3>{selectedRecord.academicYear}, {selectedRecord.semester}</h3>
                     <p>{selectedSubjects.length} {selectedSubjects.length === 1 ? 'subject' : 'subjects'} recorded</p>
                   </div>
-                  <div className="student-gwa-panel">
-                    <div className="student-gwa-label-group">
-                      <BarChart3 className="student-gwa-icon" />
-                      <span>Major subject GWA</span>
+                  <div className="student-gwa-metrics">
+                    <div className="student-gwa-panel">
+                      <div className="student-gwa-label-group">
+                        <BarChart3 className="student-gwa-icon" />
+                        <span>Overall GWA</span>
+                      </div>
+                      <div className="student-gwa-value">{formatAcademicGwa(periodGwas.overallGwa)}</div>
+                      <small>For honors review</small>
                     </div>
-                    <div className="student-gwa-value">
-                      {typeof gwa === 'number' && Number.isFinite(gwa) ? gwa.toFixed(2) : '1.25'}
+                    <div className="student-gwa-panel">
+                      <div className="student-gwa-label-group">
+                        <BookOpen className="student-gwa-icon" />
+                        <span>Major GWA</span>
+                      </div>
+                      <div className="student-gwa-value">{formatAcademicGwa(periodGwas.majorSubjectGwa)}</div>
+                      <small>For academic-standing review</small>
                     </div>
                   </div>
                 </div>

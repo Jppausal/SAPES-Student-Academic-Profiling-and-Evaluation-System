@@ -19,6 +19,7 @@ import {
   saveFacultyCourseEvaluation,
 } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
+import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 
 type EvaluationTab = 'gradebook' | 'attendance' | 'remarks' | 'history';
 
@@ -130,11 +131,17 @@ export const FacultyEvaluationPage: React.FC = () => {
 
   const sections = [...new Set(roster.map((student) => student.section).filter((section) => section !== 'Unassigned'))].sort();
   const years = [...new Set(roster.map((student) => student.yearLevel).filter((year): year is number => year !== null))].sort();
-  const latestAcademicPeriod = workspace?.latestAcademicPeriod || (workspace?.academicRecords[0] ? {
-    academicYear: workspace.academicRecords[0].academicYear,
-    semester: workspace.academicRecords[0].semester,
-    majorSubjectGwa: workspace.academicRecords[0].majorSubjectGwa ?? 0,
-  } : null);
+  const latestRecord = workspace?.academicRecords[0];
+  const latestFallbackGwas = resolvePeriodGwas(latestRecord);
+  const reportedLatestPeriod = workspace?.latestAcademicPeriod;
+  const latestAcademicPeriod = reportedLatestPeriod || latestRecord ? {
+    academicYear: reportedLatestPeriod?.academicYear || latestRecord?.academicYear || '',
+    semester: reportedLatestPeriod?.semester || latestRecord?.semester || '',
+    overallGwa: reportedLatestPeriod?.overallGwa ?? latestFallbackGwas.overallGwa ?? undefined,
+    majorSubjectGwa: reportedLatestPeriod?.majorSubjectGwa ?? latestFallbackGwas.majorSubjectGwa ?? 0,
+  } : null;
+  const historicalFallbackGwas = resolveAcademicGwas(workspace?.academicRecords || []);
+  const historicalOverallGwa = workspace?.overallGwa ?? historicalFallbackGwas.overallGwa;
 
   const updateAssessment = (index: number, field: string, value: string | number | boolean) => {
     setDraft((current) => current ? {
@@ -369,7 +376,7 @@ export const FacultyEvaluationPage: React.FC = () => {
                 {activeTab === 'history' && (
                   <div className="space-y-5 p-4 sm:p-5">
                     <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><FileClock className="h-4 w-4 shrink-0" /><p>Prerequisite checks below are inferred from recorded subject results; no curriculum-specific prerequisite map is configured.</p></div>
-                    <div className="flex flex-col gap-2 rounded-md border border-slate-200 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs font-semibold text-slate-600">Latest-period major-subject GWA{latestAcademicPeriod ? ` · ${latestAcademicPeriod.academicYear} · ${latestAcademicPeriod.semester}` : ''}<small className="mt-1 block font-normal text-slate-500">Historical cumulative: {workspace.majorSubjectGwa.toFixed(2)}</small></span><strong className="text-lg font-extrabold text-slate-900">{latestAcademicPeriod ? latestAcademicPeriod.majorSubjectGwa.toFixed(2) : '—'}</strong></div>
+                    <div className="flex flex-col gap-3 rounded-md border border-slate-200 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs font-semibold text-slate-600">Latest-period GWA{latestAcademicPeriod ? ` · ${latestAcademicPeriod.academicYear} · ${latestAcademicPeriod.semester}` : ''}<small className="mt-1 block font-normal text-slate-500">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(workspace.majorSubjectGwa)}</small></span><span className="flex gap-5"><span><small className="block text-[10px] text-slate-500">Overall</small><strong className="text-lg font-extrabold text-slate-900">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</strong></span><span><small className="block text-[10px] text-slate-500">Major</small><strong className="text-lg font-extrabold text-slate-900">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</strong></span></span></div>
                     {workspace.academicRecords.length === 0 && <p className="rounded-md bg-slate-50 p-5 text-center text-xs text-slate-500">No past semester records are available.</p>}
                     {workspace.academicRecords.map((term) => (
                       <section key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-md border border-slate-200">

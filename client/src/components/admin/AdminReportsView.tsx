@@ -4,6 +4,7 @@ import {
   fetchInstitutionalStudentSummary,
   InstitutionalStudentSummary,
 } from '../../lib/api';
+import { formatAcademicGwa } from '../../utils/mongoAcademicGwa';
 
 export const AdminReportsView: React.FC = () => {
   const [students, setStudents] = useState<InstitutionalStudentSummary[]>([]);
@@ -110,9 +111,9 @@ export const AdminReportsView: React.FC = () => {
                     <td className="px-4 py-3">
                       {student.latestAcademicPeriod ? (
                         <>
-                          <strong className="block text-indigo-800">{student.latestAcademicPeriod.majorSubjectGwa.toFixed(2)}</strong>
+                          <strong className="block text-indigo-800">Overall {formatAcademicGwa(student.latestAcademicPeriod.overallGwa)} · Major {formatAcademicGwa(student.latestAcademicPeriod.majorSubjectGwa)}</strong>
                           <span className="block text-[10px] text-slate-500">{student.latestAcademicPeriod.academicYear} · {student.latestAcademicPeriod.semester}</span>
-                          <span className="block text-[10px] text-slate-500">Historical cumulative: {student.majorSubjectGwa.toFixed(2)}</span>
+                          <span className="block text-[10px] text-slate-500">Historical cumulative: Overall {formatAcademicGwa(student.overallGwa)} · Major {formatAcademicGwa(student.majorSubjectGwa)}</span>
                         </>
                       ) : <span className="text-slate-500">Not recorded</span>}
                     </td>
