@@ -485,7 +485,13 @@ export interface StudentIdentity {
     isForeigner?: boolean;
   };
   enrollmentInformation?: Record<string, string>;
-  contactInformation?: Record<string, string>;
+  contactInformation?: {
+    mobileNumber?: string;
+    alternateMobileNumber?: string;
+    telephoneNumber?: string;
+    institutionalEmail?: string;
+    alternateEmail?: string;
+  };
   addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
   educationalBackground?: Record<string, string>;
   healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
@@ -532,20 +538,15 @@ export type StudentProfileUpdate = {
     minority?: string;
     isForeigner?: boolean;
   };
-  enrollmentInformation?: Record<string, string>;
-  contactInformation?: Record<string, string>;
+  contactInformation?: {
+    mobileNumber?: string;
+    alternateMobileNumber?: string;
+    telephoneNumber?: string;
+    alternateEmail?: string;
+  };
   addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
   educationalBackground?: Record<string, string>;
   healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
-  classification?: {
-    program?: string;
-    studentType?: string;
-    isIP?: boolean;
-    isPWD?: boolean;
-    isShifter?: boolean;
-    isTransferee?: boolean;
-    indigenousGroup?: string;
-  };
   religiousInformation?: { religion?: string; shareSpiritualSchedule?: boolean; spiritualActivities?: Array<{ dayOfWeek: string; startTime: string; endTime: string }> };
 };
 

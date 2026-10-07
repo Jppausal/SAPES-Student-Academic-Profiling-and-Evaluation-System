@@ -36,8 +36,12 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
     setProfile({
       personalInformation: { ...identity.personalInformation },
       religiousInformation: { ...identity.religiousInformation },
-      enrollmentInformation: { ...identity.enrollmentInformation },
-      contactInformation: { ...identity.contactInformation },
+      contactInformation: {
+        mobileNumber: identity.contactInformation?.mobileNumber || '',
+        alternateMobileNumber: identity.contactInformation?.alternateMobileNumber || '',
+        telephoneNumber: identity.contactInformation?.telephoneNumber || '',
+        alternateEmail: identity.contactInformation?.alternateEmail || '',
+      },
       educationalBackground: { ...identity.educationalBackground },
       addresses: { presentAddress: { ...identity.addresses?.presentAddress }, homeAddress: { ...identity.addresses?.homeAddress } },
       healthInformation: { ...identity.healthInformation },
@@ -53,7 +57,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   };
 
 
-  const setContext = (section: 'enrollmentInformation' | 'contactInformation' | 'educationalBackground', field: string, value: string) => {
+  const setContext = (section: 'contactInformation' | 'educationalBackground', field: string, value: string) => {
     setProfile((current) => ({ ...current, [section]: { ...current[section], [field]: value } }));
   };
 
@@ -96,20 +100,25 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   };
 
   const personal = profile.personalInformation || {};
-  const enrollment = profile.enrollmentInformation || {};
+  const enrollment = identity.enrollmentInformation || {};
   const contact = profile.contactInformation || {};
   const education = profile.educationalBackground || {};
   const health = profile.healthInformation || {};
   const addresses = profile.addresses || {};
   const religion = profile.religiousInformation?.religion || '';
   const hasCustomReligion = Boolean(religion && !RELIGION_OPTIONS.includes(religion));
+  const assignedProgram = enrollment.course || identity.classification?.program || '';
+  const assignedProgramLabel = TECHNOLOGY_PROGRAMS.find((program) => program.value === assignedProgram)?.label || assignedProgram;
+  const institutionalEmail = identity.contactInformation?.institutionalEmail || '';
 
   return (
     <div className="student-profile-layout">
       <nav className="student-profile-index" aria-label="Profile sections">
         <p>In your profile</p>
         <a href="#student-personal">Personal information</a>
-        <a href="#student-contact">Academic &amp; contact</a>
+        <a href="#student-enrollment">Enrollment information</a>
+        <a href="#student-contact">Contact information</a>
+        <a href="#student-education">Education background</a>
         <a href="#student-health">Health accommodations</a>
         <a href="#student-address">Addresses</a>
         <a href="#student-religion">Religious information</a>
@@ -145,18 +154,40 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
         </div>
       </section>
 
+      <section id="student-enrollment" className="student-form-section" aria-labelledby="student-enrollment-heading">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div><h3 id="student-enrollment-heading">Enrollment Information</h3><p className="mt-1 text-xs">Assigned by the registrar or authorized academic staff.</p></div>
+          <span className="self-start rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">View only</span>
+        </div>
+        <dl className="mt-4 grid overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 sm:grid-cols-2">
+          {[
+            ['Degree program', assignedProgramLabel],
+            ['Curriculum', enrollment.curriculum],
+            ['Year level', enrollment.yearLevel || enrollment.level],
+            ['Department', enrollment.department],
+          ].map(([label, value]) => <div key={label} className="border-b border-slate-200 px-4 py-3 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 sm:[&:nth-child(odd)]:border-r"><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 text-sm font-semibold text-slate-800">{value || 'Not assigned yet'}</dd></div>)}
+        </dl>
+        <p className="mt-3 text-xs text-slate-500">Contact the registrar if any assigned enrollment information is incorrect.</p>
+      </section>
+
       <section id="student-contact" className="student-form-section" aria-labelledby="student-contact-heading">
-        <h3 id="student-contact-heading">Academic and Contact Context</h3>
+        <h3 id="student-contact-heading">Contact Information</h3>
+        <p className="mt-1 text-xs">Update the contact details the university may use to reach you.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="text-xs font-semibold">Degree program<select value={enrollment.course || ''} onChange={(event) => setContext('enrollmentInformation', 'course', event.target.value)} className="mt-1 w-full px-3 py-2"><option value="">Select a program</option>{TECHNOLOGY_PROGRAMS.map((program) => <option key={program.value} value={program.value}>{program.label}</option>)}</select></label>
-          <label className="text-xs font-semibold">Student type<input value={enrollment.studentType || ''} onChange={(event) => setContext('enrollmentInformation', 'studentType', event.target.value)} placeholder="e.g. regular, irregular" className="mt-1 w-full px-3 py-2" /></label>
-          <label className="text-xs font-semibold">Curriculum<input value={enrollment.curriculum || ''} onChange={(event) => setContext('enrollmentInformation', 'curriculum', event.target.value)} placeholder="e.g. 2024-2025 BSIT" className="mt-1 w-full px-3 py-2" /></label>
-          <label className="text-xs font-semibold">Year level<input value={enrollment.yearLevel || ''} onChange={(event) => setContext('enrollmentInformation', 'yearLevel', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
-          <label className="text-xs font-semibold">Department<input value={enrollment.department || ''} onChange={(event) => setContext('enrollmentInformation', 'department', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
-          <label className="text-xs font-semibold">Institutional email<input type="email" value={contact.institutionalEmail || ''} onChange={(event) => setContext('contactInformation', 'institutionalEmail', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
-          <label className="text-xs font-semibold">Mobile number<input value={contact.mobileNumber || ''} onChange={(event) => setContext('contactInformation', 'mobileNumber', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
-          <label className="text-xs font-semibold">Senior high school<input value={education.seniorHigh || ''} onChange={(event) => setContext('educationalBackground', 'seniorHigh', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
-          <label className="text-xs font-semibold">Previous school<input value={education.previousSchool || ''} onChange={(event) => setContext('educationalBackground', 'previousSchool', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
+          <div className="sm:col-span-2"><p className="text-xs font-semibold text-slate-700">Institutional email</p><div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">{institutionalEmail || 'Not linked to this account'}</div><p className="mt-1 text-[11px] text-slate-500">Managed through your institutional account.</p></div>
+          <label className="text-xs font-semibold">Primary mobile number<input type="tel" inputMode="tel" autoComplete="tel" value={contact.mobileNumber || ''} onChange={(event) => setContext('contactInformation', 'mobileNumber', event.target.value)} placeholder="e.g. 0917 123 4567" className="mt-1 w-full px-3 py-2" /></label>
+          <label className="text-xs font-semibold">Alternate mobile number <span className="font-normal text-slate-500">(optional)</span><input type="tel" inputMode="tel" value={contact.alternateMobileNumber || ''} onChange={(event) => setContext('contactInformation', 'alternateMobileNumber', event.target.value)} placeholder="Another reachable number" className="mt-1 w-full px-3 py-2" /></label>
+          <label className="text-xs font-semibold">Telephone number <span className="font-normal text-slate-500">(optional)</span><input type="tel" inputMode="tel" value={contact.telephoneNumber || ''} onChange={(event) => setContext('contactInformation', 'telephoneNumber', event.target.value)} placeholder="Area code and number" className="mt-1 w-full px-3 py-2" /></label>
+          <label className="text-xs font-semibold">Alternate email <span className="font-normal text-slate-500">(optional)</span><input type="email" autoComplete="email" value={contact.alternateEmail || ''} onChange={(event) => setContext('contactInformation', 'alternateEmail', event.target.value)} placeholder="Personal email address" className="mt-1 w-full px-3 py-2" /></label>
+        </div>
+      </section>
+
+      <section id="student-education" className="student-form-section" aria-labelledby="student-education-heading">
+        <h3 id="student-education-heading">Educational Background</h3>
+        <p className="mt-1 text-xs">Provide your previous schools for student profiling and record verification.</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-semibold">Senior high school<input value={education.seniorHigh || ''} onChange={(event) => setContext('educationalBackground', 'seniorHigh', event.target.value)} placeholder="Full name of school" className="mt-1 w-full px-3 py-2" /></label>
+          <label className="text-xs font-semibold">Previous college or university <span className="font-normal text-slate-500">(if applicable)</span><input value={education.previousSchool || ''} onChange={(event) => setContext('educationalBackground', 'previousSchool', event.target.value)} placeholder="For transferees or students with prior enrollment" className="mt-1 w-full px-3 py-2" /></label>
         </div>
       </section>
 

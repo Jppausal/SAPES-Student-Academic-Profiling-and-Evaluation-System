@@ -30,10 +30,10 @@ test('normalizes allowed self-service fields', () => {
 test('accepts a College of Technologies program and rejects unknown programs', () => {
   const validResult = validateAndNormalizeStudentProfile({
     classification: { program: 'Food Technology' }
-  });
+  }, { allowClassification: true });
   const invalidResult = validateAndNormalizeStudentProfile({
     classification: { program: 'Unlisted Program' }
-  });
+  }, { allowClassification: true });
 
   assert.equal(validResult.error, undefined);
   assert.equal(validResult.value.classification.program, 'Food Technology');
@@ -53,6 +53,22 @@ test('rejects protected and unsupported fields', () => {
 test('rejects classification through student self-service validation', () => {
   const result = validateAndNormalizeStudentProfile({ classification: { isShifter: true } });
   assert.equal(result.error, 'classification is system-controlled or not editable');
+});
+
+test('protects enrollment assignment and institutional email from student self-service', () => {
+  const enrollmentResult = validateAndNormalizeStudentProfile({
+    enrollmentInformation: { course: 'Bachelor of Information Technology' }
+  });
+  const emailResult = validateAndNormalizeStudentProfile({
+    contactInformation: { institutionalEmail: 'changed@student.buksu.edu.ph' }
+  });
+  const mobileResult = validateAndNormalizeStudentProfile({
+    contactInformation: { mobileNumber: '09171234567' }
+  });
+
+  assert.equal(enrollmentResult.error, 'enrollmentInformation is system-controlled or not editable');
+  assert.equal(emailResult.error, 'contactInformation.institutionalEmail is system-controlled or not editable');
+  assert.equal(mobileResult.value.contactInformation.mobileNumber, '09171234567');
 });
 
 test('rejects incorrect field types and invalid dates', () => {
@@ -82,7 +98,7 @@ test('normalizes expanded student context while keeping identifiers protected', 
     addresses: { presentAddress: { barangay: ' Malaybalay ', province: ' Bukidnon ', country: ' Philippines ', zipCode: '8700' } },
     educationalBackground: { seniorHigh: ' BukSU Integrated School ' },
     healthInformation: { hasRelevantHealthConcern: true, accommodationRequired: true, accommodationNotes: 'Accessible seating' }
-  });
+  }, { allowEnrollmentInformation: true, allowInstitutionalContact: true });
 
   assert.equal(result.error, undefined);
   assert.equal(result.value.enrollmentInformation.course, 'BSIT');

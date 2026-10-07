@@ -40,25 +40,37 @@ const TECHNOLOGY_PROGRAMS = [
   'Automotive Technology'
 ];
 
-const validateAndNormalizeStudentProfile = (body, { allowClassification = false } = {}) => {
+const validateAndNormalizeStudentProfile = (body, {
+  allowClassification = false,
+  allowEnrollmentInformation = false,
+  allowInstitutionalContact = false
+} = {}) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { error: 'Request body must be an object' };
   }
 
-  const classificationProgramOnly = body.classification && typeof body.classification === 'object' && !Array.isArray(body.classification)
-    && Object.keys(body.classification).length === 1 && Object.prototype.hasOwnProperty.call(body.classification, 'program');
-  const allowedSections = [...Object.keys(PROFILE_SECTION_RULES).filter((section) => allowClassification || section !== 'classification'), 'addresses'];
+  const allowedSections = [
+    ...Object.keys(PROFILE_SECTION_RULES).filter((section) =>
+      (allowClassification || section !== 'classification') &&
+      (allowEnrollmentInformation || section !== 'enrollmentInformation')
+    ),
+    'addresses'
+  ];
   const bodySections = Object.keys(body);
 
   if (bodySections.length === 0) {
     return { error: 'At least one profile section is required' };
   }
 
-  if (body.classification && !allowClassification && !classificationProgramOnly) {
+  if (body.classification && !allowClassification) {
     return { error: 'classification is system-controlled or not editable' };
   }
 
-  const unsupportedSection = bodySections.find((section) => !allowedSections.includes(section) && !(section === 'classification' && classificationProgramOnly));
+  if (body.enrollmentInformation && !allowEnrollmentInformation) {
+    return { error: 'enrollmentInformation is system-controlled or not editable' };
+  }
+
+  const unsupportedSection = bodySections.find((section) => !allowedSections.includes(section));
   if (unsupportedSection) {
     return { error: `${unsupportedSection} is system-controlled or not editable` };
   }
@@ -77,6 +89,10 @@ const validateAndNormalizeStudentProfile = (body, { allowClassification = false 
     const fields = Object.keys(value);
     if (fields.length === 0) {
       return { error: `${sectionName} must include at least one field` };
+    }
+
+    if (sectionName === 'contactInformation' && value.institutionalEmail !== undefined && !allowInstitutionalContact) {
+      return { error: 'contactInformation.institutionalEmail is system-controlled or not editable' };
     }
 
     const supportedFields = [...rules.strings, ...rules.booleans, ...rules.dates, ...(rules.arrays || []), ...(sectionName === 'religiousInformation' ? ['spiritualActivities'] : [])];

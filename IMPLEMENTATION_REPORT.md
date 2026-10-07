@@ -225,6 +225,29 @@ repository: git diff --check - passed
 
 The full client TypeScript check continues to report the same three pre-existing diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`; this feature introduced no additional diagnostics.
 
+## 2026-10-07 Student profile context clarification
+
+The combined "Academic and Contact Context" form mixed registrar-controlled assignments, student-editable contact details, and educational history. It also exposed `studentType` and allowed students to submit degree program, curriculum, year level, department, and institutional email changes.
+
+The student profile editor now separates this information into three sections:
+
+- **Enrollment Information** presents degree program, curriculum, year level, and department as a view-only summary assigned by the registrar or authorized academic staff. The student-type input was removed.
+- **Contact Information** presents institutional email as account-managed and read-only, while allowing primary mobile, alternate mobile, telephone, and alternate email updates.
+- **Educational Background** clearly distinguishes senior high school from an optional previous college or university.
+
+Backend validation now rejects student self-service changes to `classification`, `enrollmentInformation`, and `contactInformation.institutionalEmail`. The existing administrator profile route explicitly retains permission to update enrollment and institutional-contact fields. Authorized faculty/admin classification updates continue through the protected classification route.
+
+Verification completed:
+
+```text
+server: npm test - 35 passed
+server: syntax checks for changed routes and validation - passed
+client: npm run build - passed
+repository: git diff --check - passed
+```
+
+The full client TypeScript check continues to report the same three pre-existing diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`; this change introduced no additional diagnostics.
+
 ## Known remaining work
 
 - Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.

@@ -760,7 +760,11 @@ router.put(
     try {
       const { institutionId } = req.params;
       const body = req.body || {};
-      const profileUpdate = validateAndNormalizeStudentProfile(body, { allowClassification: true });
+      const profileUpdate = validateAndNormalizeStudentProfile(body, {
+        allowClassification: true,
+        allowEnrollmentInformation: true,
+        allowInstitutionalContact: true
+      });
       if (profileUpdate.error) {
         return res.status(400).json({ success: false, message: profileUpdate.error });
       }
