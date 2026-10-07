@@ -8,6 +8,10 @@ const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const { sendPasswordResetCode } = require('../utils/email');
+const {
+  extractStudentInstitutionId,
+  normalizeInstitutionalEmail
+} = require('../utils/institutionalIdentity');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set(['buksu.edu.ph', 'student.buksu.edu.ph']);
@@ -320,7 +324,7 @@ router.post('/google', async (req, res) => {
       notExpired: typeof payload.exp === 'number' && payload.exp > Math.floor(Date.now() / 1000),
       correctDomain: GOOGLE_ALLOWED_DOMAINS.has(payload.hd),
     };
-    console.info('[Google] Payload checks:', checks, '| email:', payload.email, '| hd:', payload.hd);
+    console.info('[Google] Payload checks:', checks, '| hd:', payload.hd);
     if (Object.values(checks).some((v) => !v)) {
       return res.status(401).json({
         success: false,
@@ -328,8 +332,8 @@ router.post('/google', async (req, res) => {
       });
     }
 
-    const email = payload.email.toLowerCase();
-    const studentEmailMatch = email.match(/^([0-9]+)@student\.buksu\.edu\.ph$/);
+    const email = normalizeInstitutionalEmail(payload.email);
+    const studentInstitutionId = extractStudentInstitutionId(email);
     let user = await User.findOne({ googleId: payload.sub });
 
     if (user) {
@@ -341,14 +345,14 @@ router.post('/google', async (req, res) => {
       }
 
       if (user.role === 'student') {
-        if (!studentEmailMatch) {
+        if (!studentInstitutionId) {
           return res.status(403).json({
             success: false,
             message: 'Student Google account must use the institutional student email format'
           });
         }
         const linkedStudent = await Student.findOne({
-          institutionId: studentEmailMatch[1],
+          institutionId: studentInstitutionId,
           userId: user._id
         }).select('institutionId');
         if (!linkedStudent) {
@@ -360,14 +364,14 @@ router.post('/google', async (req, res) => {
         user.username = linkedStudent.institutionId;
         user.studentNumber = linkedStudent.institutionId;
         user.email = email;
-      } else if (studentEmailMatch) {
+      } else if (studentInstitutionId) {
         return res.status(403).json({
           success: false,
           message: 'Student Google accounts cannot use a non-student SAPES role'
         });
       }
-    } else if (studentEmailMatch) {
-      const institutionId = studentEmailMatch[1];
+    } else if (studentInstitutionId) {
+      const institutionId = studentInstitutionId;
       const student = await Student.findOne({ institutionId });
 
       user = student?.userId ? await User.findById(student.userId) : null;
@@ -449,7 +453,7 @@ router.post('/google', async (req, res) => {
       success: true,
       message: 'Google login successful',
       token: await createApplicationToken(user),
-      user: safeUser(user, studentEmailMatch?.[1])
+      user: safeUser(user, studentInstitutionId)
     });
   } catch (error) {
     console.error('Google login error:', error);

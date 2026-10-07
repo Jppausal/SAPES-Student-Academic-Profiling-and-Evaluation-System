@@ -1,6 +1,6 @@
 # SAPES Implementation Report
 
-Updated: 2026-09-27
+Updated: 2026-10-07
 
 ## Implemented in the current work
 
@@ -67,6 +67,17 @@ Each account has 32 subjects across `2024-2025 / 1st Semester`, `2024-2025 / 2nd
 - Administrators with `manage_academic_records` can update allowed profile sections through `PUT /api/students/:institutionId`.
 - Institution ID, user linkage, account role, and academic data are excluded from ordinary profile updates.
 - Faculty and administrators update academic status through `PUT /api/students/:institutionId/status`, which preserves status history and writes an audit entry.
+
+### A103 authorized account creation
+
+- Administrators with the `manage_users` permission can create student, faculty, and administrator accounts through `POST /api/users` and the admin user-management interface.
+- Every new account requires a name, temporary password, valid role, and BukSU institutional email. Password hashes are never returned by the API.
+- For a student account, SAPES derives the institution ID and login username from the numeric local part of `[student-id]@student.buksu.edu.ph`; the admin form displays that derived value as read-only.
+- A separately submitted student number is rejected if it does not match the institutional email. Duplicate institutional emails and duplicate student IDs are also rejected.
+- Creating a student account creates the linked authoritative `Student` profile and stores the same institutional email there. If profile creation fails, the partially created user is removed.
+- The selected initial active/inactive state in the admin form is persisted. Account creation remains protected by JWT session validation, the administrator role, and `manage_users`, and every successful creation writes a `USER_CREATED` audit entry.
+- Google sign-in uses the same student-email parser, so admin creation and verified Google authentication derive the same student ID.
+- Focused A103 tests cover all three roles, student-ID extraction, identity mismatch rejection, unauthenticated rejection, faculty-role rejection, linked student-profile creation, initial account status, and audit entries. The complete backend suite passes 40 tests, all server JavaScript syntax checks pass, and the client production build passes.
 
 ### Administrative academic records
 

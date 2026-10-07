@@ -8,6 +8,11 @@ const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
+const {
+  isInstitutionalEmail,
+  normalizeInstitutionalEmail,
+  resolveStudentInstitutionIdentity
+} = require('../utils/institutionalIdentity');
 
 const router = express.Router();
 const MAX_LIMIT = 100;
@@ -38,6 +43,8 @@ const syncStudentIdentity = async (user) => {
 
   student.personalInformation.firstName = user.firstName || student.personalInformation.firstName;
   student.personalInformation.lastName = user.lastName || student.personalInformation.lastName;
+  student.contactInformation = student.contactInformation || {};
+  student.contactInformation.institutionalEmail = user.email || student.contactInformation.institutionalEmail;
   await student.save();
 };
 
@@ -176,9 +183,10 @@ router.post(
   authorizeRoles('admin'),
   authorizePermission('manage_users'),
   async (req, res) => {
+    let createdUser = null;
     try {
       const body = req.body || {};
-      const allowedFields = ['username', 'password', 'role', 'firstName', 'lastName', 'email', 'studentNumber', 'employeeId', 'department'];
+      const allowedFields = ['username', 'password', 'role', 'accountStatus', 'firstName', 'lastName', 'email', 'studentNumber', 'employeeId', 'department'];
       const unsupportedFields = Object.keys(body).filter(
         (field) => !allowedFields.includes(field)
       );
@@ -190,13 +198,12 @@ router.post(
         });
       }
 
-      const { username, password, role, firstName = '', lastName = '', email = '', studentNumber = '', employeeId = '', department = '' } = body;
+      const { username = '', password, role, accountStatus = 'active', firstName = '', lastName = '', email = '', studentNumber = '', employeeId = '', department = '' } = body;
 
-      if (typeof username !== 'string' || !username.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'A valid username is required'
-        });
+      for (const [field, value] of Object.entries({ username, firstName, lastName, email, studentNumber, employeeId, department })) {
+        if (typeof value !== 'string') {
+          return res.status(400).json({ success: false, message: `${field} must be a string` });
+        }
       }
 
       if (typeof password !== 'string' || password.length < 8) {
@@ -213,44 +220,70 @@ router.post(
         });
       }
 
-      if (role === 'student' && (typeof studentNumber !== 'string' || !studentNumber.trim())) {
-        return res.status(400).json({ success: false, message: 'Student number is required for student accounts' });
+      if (!validAccountStatuses.includes(accountStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: 'accountStatus must be one of active, inactive, or suspended'
+        });
       }
-      if (role === 'student' && (!String(firstName).trim() || !String(lastName).trim())) {
-        return res.status(400).json({ success: false, message: 'First name and last name are required for student accounts' });
+
+      if (!String(firstName).trim() || !String(lastName).trim()) {
+        return res.status(400).json({ success: false, message: 'First name and last name are required' });
       }
-      if (role === 'student' && await Student.exists({ institutionId: studentNumber.trim() })) {
+
+      const normalizedEmail = normalizeInstitutionalEmail(email);
+      if (!isInstitutionalEmail(normalizedEmail)) {
+        return res.status(400).json({ success: false, message: 'A valid BukSU institutional email is required' });
+      }
+
+      let normalizedUsername = username.trim();
+      let normalizedStudentNumber = '';
+
+      if (role === 'student') {
+        const identity = resolveStudentInstitutionIdentity({ email: normalizedEmail, studentNumber });
+        if (identity.error) {
+          return res.status(400).json({ success: false, message: identity.error });
+        }
+        normalizedUsername = identity.username;
+        normalizedStudentNumber = identity.institutionId;
+      } else if (!normalizedUsername) {
+        return res.status(400).json({ success: false, message: 'A valid username is required' });
+      }
+
+      if (await User.exists({ email: normalizedEmail })) {
+        return res.status(409).json({ success: false, message: 'Institutional email already exists' });
+      }
+      if (role === 'student' && await Student.exists({ institutionId: normalizedStudentNumber })) {
         return res.status(409).json({ success: false, message: 'Student number already exists' });
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await User.create({
-        username: role === 'student' ? studentNumber.trim() : username.trim(),
+        username: normalizedUsername,
         passwordHash,
         role,
+        accountStatus,
         firstName: String(firstName).trim(),
         lastName: String(lastName).trim(),
-        email: String(email).trim(),
-        studentNumber: String(studentNumber).trim(),
-        employeeId: String(employeeId).trim(),
-        department: String(department).trim()
+        email: normalizedEmail,
+        studentNumber: normalizedStudentNumber,
+        employeeId: role === 'student' ? '' : employeeId.trim(),
+        department: department.trim()
       });
+      createdUser = user;
 
       if (role === 'student') {
-        try {
-          await Student.create({
-            userId: user._id,
-            institutionId: studentNumber.trim(),
-            personalInformation: {
-              firstName: String(firstName).trim(),
-              lastName: String(lastName).trim()
-            },
-            classification: { studentType: 'regular' }
-          });
-        } catch (profileError) {
-          await User.deleteOne({ _id: user._id });
-          throw profileError;
-        }
+        await Student.create({
+          userId: user._id,
+          institutionId: normalizedStudentNumber,
+          personalInformation: {
+            firstName: String(firstName).trim(),
+            lastName: String(lastName).trim()
+          },
+          contactInformation: {
+            institutionalEmail: normalizedEmail
+          }
+        });
       }
 
       await AuditLog.create({
@@ -273,6 +306,16 @@ router.post(
         }
       });
     } catch (error) {
+      if (createdUser) {
+        const cleanupResults = await Promise.allSettled([
+          Student.deleteOne({ userId: createdUser._id }),
+          User.deleteOne({ _id: createdUser._id })
+        ]);
+        if (cleanupResults.some((result) => result.status === 'rejected')) {
+          console.error('Unable to fully roll back failed user creation');
+        }
+      }
+
       if (error?.code === 11000 && error.keyPattern?.username) {
         return res.status(409).json({
           success: false,
@@ -351,6 +394,30 @@ router.put(
         ? await Student.findOne({ userId: existingUser._id }).select('institutionId').lean()
         : null;
       const currentStudentNumber = linkedStudent?.institutionId || existingUser.studentNumber;
+
+      if (email !== undefined) {
+        const normalizedEmail = normalizeInstitutionalEmail(email);
+        if (!isInstitutionalEmail(normalizedEmail)) {
+          return res.status(400).json({ success: false, message: 'A valid BukSU institutional email is required' });
+        }
+        if (existingUser.role === 'student') {
+          const identity = resolveStudentInstitutionIdentity({
+            email: normalizedEmail,
+            studentNumber: currentStudentNumber
+          });
+          if (identity.error) {
+            return res.status(400).json({ success: false, message: identity.error });
+          }
+        }
+        const duplicateEmail = await User.exists({
+          email: normalizedEmail,
+          _id: { $ne: existingUser._id }
+        });
+        if (duplicateEmail) {
+          return res.status(409).json({ success: false, message: 'Institutional email already exists' });
+        }
+        updates.email = normalizedEmail;
+      }
 
       if (
         role !== undefined &&

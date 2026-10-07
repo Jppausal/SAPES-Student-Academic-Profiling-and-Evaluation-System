@@ -4,6 +4,9 @@ import { UserAccount, UserRole } from '../../types';
 import { Modal } from '../common/Modal';
 import { ShieldCheck, User, Mail, Building2, Save } from 'lucide-react';
 
+const extractStudentId = (email: string) =>
+  email.trim().toLowerCase().match(/^([0-9]+)@student\.buksu\.edu\.ph$/)?.[1] || '';
+
 interface UserManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -48,7 +51,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       setLastName('');
       setEmail('');
       setRole('student');
-      setStudentNumber(`2026-${Math.floor(10000 + Math.random() * 90000)}`);
+      setStudentNumber('');
       setFacultyId('');
       setDepartment('College of Computer Studies');
       setIsActive(true);
@@ -59,7 +62,12 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || (role === 'student' && !studentNumber.trim()) || (role !== 'student' && !username.trim()) || (!userToEdit && password.length < 8)) {
+    const derivedStudentId = role === 'student' ? extractStudentId(email) : '';
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || (role === 'student' && !derivedStudentId) || (role !== 'student' && !username.trim()) || (!userToEdit && password.length < 8)) {
+      if (role === 'student' && !derivedStudentId) {
+        setError('Use the student institutional email format: studentID@student.buksu.edu.ph.');
+        return;
+      }
       setError('First name, last name, and the required account identifier must be provided.');
       return;
     }
@@ -68,15 +76,15 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     setError('');
     try {
       if (!userToEdit) {
-        await createUserAccount({ username: role === 'student' ? studentNumber : username, password, role, firstName, lastName, email, studentNumber, employeeId: facultyId, department });
+        await createUserAccount({ username: role === 'student' ? derivedStudentId : username, password, role, accountStatus: isActive ? 'active' : 'inactive', firstName, lastName, email, studentNumber: role === 'student' ? derivedStudentId : '', employeeId: facultyId, department });
       } else {
         await saveUserAccount(userToEdit.id, {
-          username: role === 'student' ? studentNumber : username,
+          username: role === 'student' ? derivedStudentId : username,
           role,
           firstName,
           lastName,
           email,
-          studentNumber,
+          studentNumber: role === 'student' ? derivedStudentId : '',
           employeeId: facultyId,
           department,
           accountStatus: isActive ? 'active' : 'inactive',
@@ -137,7 +145,11 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                 )}
                 onClick={() => {
                   setRole(r);
-                  if (r === 'student') setUsername(studentNumber);
+                  if (r === 'student') {
+                    const derivedId = extractStudentId(email);
+                    setStudentNumber(derivedId);
+                    setUsername(derivedId);
+                  }
                 }}
                 className={`py-2 px-3 rounded-xl border font-bold capitalize transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                   role === r
@@ -212,10 +224,23 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const nextEmail = e.target.value;
+                setEmail(nextEmail);
+                if (role === 'student') {
+                  const derivedId = extractStudentId(nextEmail);
+                  setStudentNumber(derivedId);
+                  setUsername(derivedId);
+                }
+              }}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
-              placeholder="user@university.edu.ph"
+              placeholder={role === 'student' ? '2401105814@student.buksu.edu.ph' : 'user@buksu.edu.ph'}
             />
+            {role === 'student' && (
+              <p className="mt-1 text-[11px] text-slate-500">
+                The student ID is automatically extracted from this email.
+              </p>
+            )}
           </div>
 
           <div>
@@ -225,7 +250,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
             <input
               type="text"
               value={role === 'student' ? studentNumber : facultyId}
-              disabled={Boolean(userToEdit && role === 'student')}
+              disabled={role === 'student'}
               onChange={(e) => {
                 if (role === 'student') {
                   setStudentNumber(e.target.value);
@@ -235,7 +260,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                 }
               }}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900 font-mono disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-              placeholder={role === 'student' ? '2023-XXXXX' : 'FAC-XXXX'}
+              placeholder={role === 'student' ? 'Derived from institutional email' : 'FAC-XXXX'}
             />
           </div>
         </div>

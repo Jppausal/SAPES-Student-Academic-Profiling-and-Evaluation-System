@@ -62,7 +62,7 @@ interface AppContextType {
     updates: Partial<SubjectGrade>
   ) => void;
   deleteSubjectGrade: (studentNumber: string, subjectCode: string) => void;
-  createUserAccount: (accountData: { username: string; password: string; role: UserRole; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
+  createUserAccount: (accountData: { username: string; password: string; role: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
   updateUserAccount: (userId: string, updates: Partial<UserAccount>) => void;
   toggleUserActiveStatus: (userId: string) => void;
   deactivateUserAccount: (userId: string) => Promise<void>;
@@ -634,6 +634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     username: string;
     password: string;
     role: UserRole;
+    accountStatus?: 'active' | 'inactive' | 'suspended';
     firstName?: string;
     lastName?: string;
     email?: string;

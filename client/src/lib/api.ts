@@ -107,6 +107,7 @@ export async function createUser(payload: {
   username: string;
   password: string;
   role: ApiUser['role'];
+  accountStatus?: ApiUser['accountStatus'];
   firstName?: string;
   lastName?: string;
   email?: string;
