@@ -23,8 +23,6 @@ export const SystemAuditLogsView: React.FC = () => {
 
   const getCategoryBadgeClass = (cat: SystemAuditLog['category']) => {
     switch (cat) {
-      case 'AUTH':
-        return 'bg-slate-100 text-slate-700 border-slate-200';
       case 'PROFILE_UPDATE':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'FACULTY_EVALUATION':
@@ -33,8 +31,9 @@ export const SystemAuditLogsView: React.FC = () => {
         return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'USER_MANAGEMENT':
         return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'SYSTEM':
       default:
-        return 'bg-slate-50 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -57,7 +56,7 @@ export const SystemAuditLogsView: React.FC = () => {
           <span className="text-slate-400 font-bold uppercase text-[10px] shrink-0">
             Category:
           </span>
-          {['ALL', 'AUTH', 'PROFILE_UPDATE', 'FACULTY_EVALUATION', 'ACADEMIC_RECORD', 'USER_MANAGEMENT'].map(
+          {['ALL', 'SYSTEM', 'PROFILE_UPDATE', 'FACULTY_EVALUATION', 'ACADEMIC_RECORD', 'USER_MANAGEMENT'].map(
             (cat) => (
               <button
                 key={cat}
@@ -120,6 +119,11 @@ export const SystemAuditLogsView: React.FC = () => {
                       {log.action}
                     </td>
                     <td className="py-3 px-4 text-slate-600 leading-relaxed max-w-md">
+                      {log.targetType && log.targetId && (
+                        <div className="text-[10px] font-mono text-slate-400 mb-0.5">
+                          TARGET: {log.targetType} ({log.targetId})
+                        </div>
+                      )}
                       {log.details}
                     </td>
                   </tr>

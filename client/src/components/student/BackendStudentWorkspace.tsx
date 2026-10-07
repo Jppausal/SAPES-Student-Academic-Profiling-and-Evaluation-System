@@ -158,7 +158,6 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
                         <span>Overall GWA</span>
                       </div>
                       <div className="student-gwa-value">{formatAcademicGwa(periodGwas.overallGwa)}</div>
-                      <small>For honors review</small>
                     </div>
                     <div className="student-gwa-panel">
                       <div className="student-gwa-label-group">
@@ -166,7 +165,6 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
                         <span>Major GWA</span>
                       </div>
                       <div className="student-gwa-value">{formatAcademicGwa(periodGwas.majorSubjectGwa)}</div>
-                      <small>For academic-standing review</small>
                     </div>
                   </div>
                 </div>

@@ -116,10 +116,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_EVALUATIONS;
   });
 
-  const [auditLogs, setAuditLogs] = useState<SystemAuditLog[]>(() => {
+  const [mockAuditLogs, setMockAuditLogs] = useState<SystemAuditLog[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.LOGS);
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
+
+  const [auditLogs, setAuditLogs] = useState<SystemAuditLog[]>([]);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (!localStorage.getItem('sapes_jwt')) return null;
@@ -145,8 +147,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [evaluations]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(auditLogs));
-  }, [auditLogs]);
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(mockAuditLogs));
+  }, [mockAuditLogs]);
 
   useEffect(() => {
     if (currentUserId) {
@@ -199,6 +201,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       });
     });
+    const mapActionToCategory = (action: string): SystemAuditLog['category'] => {
+      switch (action) {
+        case 'COURSE_EVALUATION_UPDATED':
+        case 'UPDATE_FACULTY_EVALUATION':
+          return 'FACULTY_EVALUATION';
+        case 'ROLE_PERMISSIONS_UPDATED':
+        case 'USER_CREATED':
+        case 'USER_UPDATED':
+        case 'USER_STATUS_UPDATED':
+          return 'USER_MANAGEMENT';
+        case 'UPDATE_STUDENT_STATUS':
+        case 'ACADEMIC_RECORD_SAVED':
+          return 'ACADEMIC_RECORD';
+        case 'UPDATE_STUDENT_CLASSIFICATION':
+        case 'UPDATE_STUDENT_PROFILE':
+          return 'PROFILE_UPDATE';
+        default:
+          return 'SYSTEM';
+      }
+    };
+
     setAuditLogs(apiLogs.map((log, index) => ({
       id: `${log.timestamp}-${index}`,
       timestamp: log.timestamp,
@@ -206,7 +229,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userName: log.userId?.username || 'System',
       userRole: log.userId?.role || 'admin',
       action: log.action,
-      category: 'SYSTEM_CONFIG',
+      targetType: log.targetType,
+      targetId: log.targetId,
+      category: mapActionToCategory(log.action),
       details: JSON.stringify(log.details),
     })));
   };
@@ -264,7 +289,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       details,
       ipAddress: '192.168.1.105',
     };
-    setAuditLogs((prev) => [newLog, ...prev]);
+    setMockAuditLogs((prev) => [newLog, ...prev]);
   };
 
   const login = async (username: string, password: string) => {
@@ -318,7 +343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser) {
       addAuditLog(
         'USER_LOGOUT',
-        'AUTH',
+        'SYSTEM',
         `${currentUser.fullName} (${currentUser.role.toUpperCase()}) logged out.`
       );
     }
@@ -338,7 +363,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUserId(userId);
       addAuditLog(
         'USER_ROLE_SWITCH',
-        'AUTH',
+        'SYSTEM',
         `Switched session to ${targetUser.fullName} (${targetUser.role.toUpperCase()}).`
       );
     }
@@ -702,11 +727,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStudents(INITIAL_STUDENT_PROFILES);
     setAcademicRecords(INITIAL_ACADEMIC_RECORDS);
     setEvaluations(INITIAL_EVALUATIONS);
-    setAuditLogs(INITIAL_AUDIT_LOGS);
+    setMockAuditLogs(INITIAL_AUDIT_LOGS);
+    setAuditLogs([]);
     setCurrentUserId(null);
     localStorage.removeItem('sapes_jwt');
     localStorage.clear();
-    addAuditLog('SYSTEM_DATA_RESET', 'SYSTEM_CONFIG', 'Reset all system data to initial baseline.');
+    addAuditLog('SYSTEM_DATA_RESET', 'SYSTEM', 'Reset all system data to initial baseline.');
   };
 
   // Derived current student info

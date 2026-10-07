@@ -510,7 +510,7 @@ export const INITIAL_AUDIT_LOGS: SystemAuditLog[] = [
     userName: 'Engr. Maricel Santos (Registrar)',
     userRole: 'admin',
     action: 'USER_LOGIN',
-    category: 'AUTH',
+    category: 'SYSTEM',
     details: 'Administrator logged in from Registrar Office Terminal.',
   },
   {

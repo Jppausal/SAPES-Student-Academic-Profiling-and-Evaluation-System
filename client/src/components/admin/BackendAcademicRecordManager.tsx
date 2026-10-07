@@ -25,7 +25,10 @@ const emptyRecord = (): AcademicTermRecord => ({
   subjects: [],
 });
 
+import { AdminStudentProfileSetup } from './AdminStudentProfileSetup';
+
 export const BackendAcademicRecordManager: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'academic' | 'profile'>('academic');
   const [institutionId, setInstitutionId] = useState('');
   const [report, setReport] = useState<StudentReport | null>(null);
   const [record, setRecord] = useState<AcademicTermRecord>(emptyRecord);
@@ -172,6 +175,13 @@ export const BackendAcademicRecordManager: React.FC = () => {
             </div>
           </section>
 
+          <nav className="flex gap-4 border-b border-slate-200 mt-6">
+            <button type="button" onClick={() => setActiveTab('academic')} className={`pb-2 text-sm font-bold ${activeTab === 'academic' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500'}`}>Academic Records</button>
+            <button type="button" onClick={() => setActiveTab('profile')} className={`pb-2 text-sm font-bold ${activeTab === 'profile' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500'}`}>Student Profile</button>
+          </nav>
+
+          {activeTab === 'academic' && (
+            <>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <h3 className="font-bold text-slate-900">Academic status</h3>
             <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
@@ -226,6 +236,14 @@ export const BackendAcademicRecordManager: React.FC = () => {
               <button type="button" disabled={saving || !record.academicYear.trim() || !record.semester.trim()} onClick={handleSaveRecord} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white disabled:opacity-60"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save Shared Record'}</button>
             </div>
           </section>
+            </>
+          )}
+
+          {activeTab === 'profile' && (
+            <div className="mt-6">
+              <AdminStudentProfileSetup identity={report.student} onSaved={async () => { await loadReport(); }} />
+            </div>
+          )}
         </>
       )}
     </div>
