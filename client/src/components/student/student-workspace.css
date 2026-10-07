@@ -501,6 +501,7 @@
   border: 1px solid #dbeafe;
 }
 
+<<<<<<< HEAD
 .student-badge-gened {
   background: #f5f3ff;
   color: #7c3aed;
@@ -514,6 +515,9 @@
 }
 
 .student-badge-other {
+=======
+.student-badge-nonmajor {
+>>>>>>> Integration
   background: #f1f5f9;
   color: #475569;
   border: 1px solid #e2e8f0;

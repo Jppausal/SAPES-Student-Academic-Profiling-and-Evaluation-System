@@ -239,7 +239,11 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
               <p className="mt-2 text-xs text-slate-600">{selectedCourseLabel} · {yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
             <div className="flex items-center gap-3">
+<<<<<<< HEAD
               <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-slate-300">Major-subject GWA</p><p className="mt-0.5 text-2xl font-black">{studentWorkspace.majorSubjectGwa.toFixed(2)}</p></div>
+=======
+              <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-slate-300">Cumulative major-subject GWA</p><p className="mt-0.5 text-2xl font-black">{studentWorkspace.majorSubjectGwa.toFixed(2)}</p></div>
+>>>>>>> Integration
               <button type="button" onClick={() => setStep('roster')} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
             </div>
           </div>
@@ -251,7 +255,11 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
                 <thead className="border-y border-slate-200 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Status</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">{term.subjects.map((subject) => <tr key={subject.subjectCode}>
                   <td className="px-3 py-2"><span className="font-mono font-semibold">{subject.subjectCode}</span><span className="ml-2 text-slate-700">{subject.subjectName}</span></td>
+<<<<<<< HEAD
                   <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Minor'}</td>
+=======
+                  <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
+>>>>>>> Integration
                   <td className="px-3 py-2">{subject.units}</td>
                   <td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td>
                   <td className="px-3 py-2">{subject.status}</td>
@@ -266,4 +274,8 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
       {error && step !== 'courses' && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
     </div>
   );
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> Integration

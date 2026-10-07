@@ -136,10 +136,32 @@ The Express server was started against the configured environment on 2026-09-27.
 
 An authenticated API smoke test also passed using an isolated temporary administrator: password login, protected user listing, protected institutional reporting, and logout all succeeded. Cleanup removed the temporary account and its sessions, and a follow-up query confirmed no temporary smoke-test users remained. The existing database account was not modified.
 
+## 2026-10-07 Faculty search and GWA consistency correction
+
+Faculty exact-ID search was reproduced against the connected local API: `GET /api/students/search?q=2401105814` returned no suggestions while the protected exact report endpoint found the same student. The suggestion query had required the duplicated `Student.accountStatus` field to be `active`, even though authentication status is authoritatively enforced for the signed-in user. Authorized faculty/admin record search now includes existing student profiles regardless of that duplicated field, and the faculty client falls back to the protected exact report endpoint when an institution ID produces no suggestion.
+
+Major-subject GWA now has explicit scopes. Each academic record returned by student, faculty, and admin report APIs includes its server-calculated period GWA. Admin academic-record management shows the selected-period GWA separately from the cumulative GWA across all recorded periods. Institutional analytics shows the latest-period GWA with its academic year/semester and retains the cumulative value as secondary context. The existing unit-weighted calculator remains the single calculation source; grades and academic records were not modified.
+
+Verification completed:
+
+```text
+server: npm test - 32 passed
+server: JavaScript syntax checks - passed
+client: npm run build - passed
+browser fixture: faculty exact-ID fallback - passed
+browser fixture: selected-period 1.25 / cumulative 1.32 admin display - passed
+live connected API/browser: faculty search for 2401105814 - passed
+repository: git diff --check - passed
+```
+
+The full client TypeScript check still reports three pre-existing diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`; this change introduced no additional diagnostics.
+
+The already-running backend reports MongoDB as connected. A fresh standalone connection using the current `server/.env` returned `Invalid connection string`, so that environment value must be corrected before restarting the backend. No credential value was printed or changed during this work.
+
 ## Known remaining work
 
 - Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.
 - Perform live end-to-end tests with MongoDB and valid institutional Google credentials.
 - Design offline local MongoDB operation and Atlas synchronization; synchronization is not implemented.
 
-No `.env` files or credentials are included in source control.
+This correction does not modify environment files or credential values.

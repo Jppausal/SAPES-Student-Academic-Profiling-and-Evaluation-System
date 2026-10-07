@@ -303,7 +303,7 @@ export const EvaluationDossierModal: React.FC<EvaluationDossierModalProps> = ({
                         Major
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400">GE</span>
+                      <span className="text-[10px] text-slate-400">Non-major</span>
                     )}
                   </td>
                   <td className="p-2 text-center font-mono">{s.units}</td>
