@@ -116,7 +116,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       <nav className="student-profile-index" aria-label="Profile sections">
         <p>In your profile</p>
         <a href="#student-personal">Personal information</a>
-        <a href="#student-enrollment">Enrollment information</a>
+        <a href="#student-classifications">Classifications</a>`n        <a href="#student-enrollment">Enrollment information</a>
         <a href="#student-contact">Contact information</a>
         <a href="#student-education">Education background</a>
         <a href="#student-health">Health accommodations</a>

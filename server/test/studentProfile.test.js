@@ -51,8 +51,8 @@ test('rejects protected and unsupported fields', () => {
 });
 
 test('rejects classification through student self-service validation', () => {
-  const result = validateAndNormalizeStudentProfile({ classification: { isShifter: true } });
-  assert.equal(result.error, 'classification is system-controlled or not editable');
+  const result = validateAndNormalizeStudentProfile({ classification: { program: 'Bachelor of Information Technology' } });
+  assert.equal(result.error, 'classification.program is system-controlled or not editable');
 });
 
 test('protects enrollment assignment and institutional email from student self-service', () => {

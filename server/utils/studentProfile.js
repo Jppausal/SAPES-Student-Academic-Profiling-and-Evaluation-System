@@ -51,7 +51,6 @@ const validateAndNormalizeStudentProfile = (body, {
 
   const allowedSections = [
     ...Object.keys(PROFILE_SECTION_RULES).filter((section) =>
-      (allowClassification || section !== 'classification') &&
       (allowEnrollmentInformation || section !== 'enrollmentInformation')
     ),
     'addresses'
@@ -63,7 +62,12 @@ const validateAndNormalizeStudentProfile = (body, {
   }
 
   if (body.classification && !allowClassification) {
-    return { error: 'classification is system-controlled or not editable' };
+    const restrictedClassFields = ['program', 'studentType'];
+    for (const field of restrictedClassFields) {
+      if (body.classification[field] !== undefined) {
+        return { error: `classification.${field} is system-controlled or not editable` };
+      }
+    }
   }
 
   if (body.enrollmentInformation && !allowEnrollmentInformation) {
