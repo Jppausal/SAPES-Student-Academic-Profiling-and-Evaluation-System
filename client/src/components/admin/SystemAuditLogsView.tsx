@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
+import { Filter, Search, ShieldCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { SystemAuditLog } from '../../types';
-import { ShieldCheck, Search, Filter, Clock, User, Sparkles, RefreshCw } from 'lucide-react';
 import { formatDate } from '../../utils/academicCalculators';
+
+const categories = ['ALL', 'SYSTEM', 'PROFILE_UPDATE', 'FACULTY_EVALUATION', 'ACADEMIC_RECORD', 'USER_MANAGEMENT'];
+
+const getCategoryBadgeClass = (category: SystemAuditLog['category']) => {
+  switch (category) {
+    case 'PROFILE_UPDATE': return 'admin-badge-green';
+    case 'FACULTY_EVALUATION': return 'admin-badge-blue';
+    case 'ACADEMIC_RECORD': return 'admin-badge-violet';
+    case 'USER_MANAGEMENT': return 'admin-badge-amber';
+    case 'SYSTEM':
+    default: return 'admin-badge-navy';
+  }
+};
 
 export const SystemAuditLogsView: React.FC = () => {
   const { auditLogs } = useApp();
@@ -10,129 +23,64 @@ export const SystemAuditLogsView: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
   const filteredLogs = auditLogs.filter((log) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      !q ||
-      log.action.toLowerCase().includes(q) ||
-      log.userName.toLowerCase().includes(q) ||
-      log.details.toLowerCase().includes(q);
-
-    const matchesCat = categoryFilter === 'ALL' || log.category === categoryFilter;
-    return matchesSearch && matchesCat;
+    const query = search.toLowerCase();
+    const matchesSearch = !query
+      || log.action.toLowerCase().includes(query)
+      || log.userName.toLowerCase().includes(query)
+      || log.details.toLowerCase().includes(query);
+    return matchesSearch && (categoryFilter === 'ALL' || log.category === categoryFilter);
   });
 
-  const getCategoryBadgeClass = (cat: SystemAuditLog['category']) => {
-    switch (cat) {
-      case 'PROFILE_UPDATE':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'FACULTY_EVALUATION':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'ACADEMIC_RECORD':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'USER_MANAGEMENT':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'SYSTEM':
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      {/* Search & Filter Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search audit trail by user, action, or details..."
-            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-900"
-          />
+    <div className="admin-page-stack" role="tabpanel">
+      <section className="admin-panel admin-panel-body">
+        <div className="admin-section-heading">
+          <div className="flex items-start gap-3">
+            <span className="admin-heading-icon"><ShieldCheck className="h-4 w-4" /></span>
+            <div><h2>Security audit trail</h2><p>Review recorded system activity by actor, category, action, and target.</p></div>
+          </div>
+          <span className="admin-count"><strong>{filteredLogs.length}</strong> of {auditLogs.length} entries</span>
         </div>
+      </section>
 
-        <div className="flex items-center gap-2 overflow-x-auto text-xs">
-          <span className="text-slate-400 font-bold uppercase text-[10px] shrink-0">
-            Category:
-          </span>
-          {['ALL', 'SYSTEM', 'PROFILE_UPDATE', 'FACULTY_EVALUATION', 'ACADEMIC_RECORD', 'USER_MANAGEMENT'].map(
-            (cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                  categoryFilter === cat
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {cat.replace('_', ' ')}
-              </button>
-            )
-          )}
+      <section className="admin-panel admin-toolbar" aria-label="Audit trail filters">
+        <div className="admin-search-control">
+          <Search />
+          <label htmlFor="admin-audit-search" className="sr-only">Search the security audit trail</label>
+          <input id="admin-audit-search" type="text" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by user, action, or details" />
         </div>
-      </div>
+        <div className="admin-filter-row" aria-label="Audit category">
+          <Filter className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+          {categories.map((category) => <button
+            type="button"
+            key={category}
+            onClick={() => setCategoryFilter(category)}
+            aria-pressed={categoryFilter === category}
+            className={`admin-filter-button ${categoryFilter === category ? 'is-active' : ''}`}
+          >{category.replaceAll('_', ' ')}</button>)}
+        </div>
+      </section>
 
-      {/* Logs Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
-              <tr>
-                <th className="py-3 px-4">Timestamp</th>
-                <th className="py-3 px-4">Actor / User</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Action Taken</th>
-                <th className="py-3 px-4">Audit Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-sans">
-              {filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-400">
-                    No audit records match the current filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/60">
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                      {formatDate(log.timestamp)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{log.userName}</div>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                        {log.userRole}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase ${getCategoryBadgeClass(
-                          log.category
-                        )}`}
-                      >
-                        {log.category.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-mono font-bold text-slate-800 text-[11px]">
-                      {log.action}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 leading-relaxed max-w-md">
-                      {log.targetType && log.targetId && (
-                        <div className="text-[10px] font-mono text-slate-400 mb-0.5">
-                          TARGET: {log.targetType} ({log.targetId})
-                        </div>
-                      )}
-                      {log.details}
-                    </td>
-                  </tr>
-                ))
-              )}
+      <section className="admin-panel overflow-hidden">
+        <div className="admin-table-wrap">
+          <table className="admin-table" aria-label="Security audit records">
+            <thead><tr><th>Timestamp</th><th>Actor / User</th><th>Category</th><th>Action</th><th>Target and details</th></tr></thead>
+            <tbody>
+              {filteredLogs.map((log) => <tr key={log.id}>
+                <td className="admin-mono whitespace-nowrap text-[11px] text-slate-600">{formatDate(log.timestamp)}</td>
+                <td><span className="admin-table-primary">{log.userName}</span><span className="admin-table-secondary capitalize">{log.userRole}</span></td>
+                <td><span className={`admin-badge ${getCategoryBadgeClass(log.category)}`}>{log.category.replaceAll('_', ' ')}</span></td>
+                <td><span className="admin-badge admin-badge-navy admin-mono">{log.action}</span></td>
+                <td className="admin-audit-detail">
+                  {log.targetType && log.targetId && <div className="admin-audit-target admin-mono">Target: {log.targetType} ({log.targetId})</div>}
+                  {log.details}
+                </td>
+              </tr>)}
+              {filteredLogs.length === 0 && <tr><td colSpan={5} className="admin-empty-state"><ShieldCheck /><strong>No matching audit records</strong><span>Change the search or category filter to view recorded activity.</span></td></tr>}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

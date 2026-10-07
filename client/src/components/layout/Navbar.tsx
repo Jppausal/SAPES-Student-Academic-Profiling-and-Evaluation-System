@@ -52,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate }) => {
               <button type="button" onClick={() => onNavigate('evaluations')} aria-current={activePage === 'evaluations' ? 'page' : undefined} className={navItemClass(activePage === 'evaluations')}>Evaluations</button>
               <button type="button" onClick={() => onNavigate('student-records')} aria-current={activePage === 'student-records' ? 'page' : undefined} className={navItemClass(activePage === 'student-records')}>Academic Records</button>
             </>}
-            {currentUser.role === 'admin' && <><span>User Management</span><span>Audit Logs</span></>}
+            {currentUser.role === 'admin' && <span className="text-slate-400">Administrator workspace</span>}
             {currentUser.role === 'student' && <span>Academic Records</span>}
           </nav>
         )}

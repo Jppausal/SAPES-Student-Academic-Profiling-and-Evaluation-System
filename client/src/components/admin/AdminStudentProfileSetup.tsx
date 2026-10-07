@@ -103,7 +103,7 @@ export const AdminStudentProfileSetup: React.FC<AdminStudentProfileSetupProps> =
       onSaved(updatedIdentity);
       setMessage('Student profile saved successfully.');
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to save your profile.');
+      setError(requestError instanceof Error ? requestError.message : 'Unable to save the student profile.');
     } finally {
       setSaving(false);
     }
@@ -123,9 +123,10 @@ export const AdminStudentProfileSetup: React.FC<AdminStudentProfileSetupProps> =
   return (
     <div className="student-profile-layout">
       <nav className="student-profile-index" aria-label="Profile sections">
-        <p>In your profile</p>
+        <p>Profile sections</p>
         <a href="#student-personal">Personal information</a>
         <a href="#student-enrollment">Enrollment information</a>
+        <a href="#student-classifications">Classifications</a>
         <a href="#student-contact">Contact information</a>
         <a href="#student-education">Education background</a>
         <a href="#student-health">Health accommodations</a>
@@ -134,12 +135,12 @@ export const AdminStudentProfileSetup: React.FC<AdminStudentProfileSetupProps> =
       </nav>
       <form onSubmit={handleSubmit} className="student-profile-form">
       <header className="student-profile-heading">
-        <h2>{isOnboarding ? 'Complete your student profile' : 'Personal profile'}</h2>
-        <p>Keep your information up to date for academic evaluation. Fields marked * are required.</p>
+        <h2>{isOnboarding ? 'Complete the student profile' : 'Student profile'}</h2>
+        <p>Maintain the student information used for authorized academic evaluation. Fields marked * are required.</p>
       </header>
 
-      {message && <div role="status" className="flex items-center gap-2 px-4 py-3 text-xs">{message}</div>}
-      {error && <div role="alert" className="px-4 py-3 text-xs">{error}</div>}
+      {message && <div role="status" className="admin-alert admin-alert-success">{message}</div>}
+      {error && <div role="alert" className="admin-alert admin-alert-error">{error}</div>}
 
       <section id="student-personal" className="student-form-section" aria-labelledby="student-personal-heading">
         <h3 id="student-personal-heading">Personal Information</h3>
@@ -192,7 +193,7 @@ export const AdminStudentProfileSetup: React.FC<AdminStudentProfileSetupProps> =
 
       <section id="student-contact" className="student-form-section" aria-labelledby="student-contact-heading">
         <h3 id="student-contact-heading">Contact Information</h3>
-        <p className="mt-1 text-xs">Update the contact details the university may use to reach you.</p>
+        <p className="mt-1 text-xs">Update the contact details the university may use to reach the student.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2"><p className="text-xs font-semibold text-slate-700">Institutional email</p><div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">{institutionalEmail || 'Not linked to this account'}</div><p className="mt-1 text-[11px] text-slate-500">Managed through your institutional account.</p></div>
           <label className="text-xs font-semibold">Primary mobile number<input type="tel" inputMode="tel" autoComplete="tel" value={contact.mobileNumber || ''} onChange={(event) => setContext('contactInformation', 'mobileNumber', event.target.value)} placeholder="e.g. 0917 123 4567" className="mt-1 w-full px-3 py-2" /></label>
@@ -204,7 +205,7 @@ export const AdminStudentProfileSetup: React.FC<AdminStudentProfileSetupProps> =
 
       <section id="student-education" className="student-form-section" aria-labelledby="student-education-heading">
         <h3 id="student-education-heading">Educational Background</h3>
-        <p className="mt-1 text-xs">Provide your previous schools for student profiling and record verification.</p>
+        <p className="mt-1 text-xs">Record previous schools for student profiling and record verification.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-xs font-semibold">Senior high school<input value={education.seniorHigh || ''} onChange={(event) => setContext('educationalBackground', 'seniorHigh', event.target.value)} placeholder="Full name of school" className="mt-1 w-full px-3 py-2" /></label>
           <label className="text-xs font-semibold">Previous college or university <span className="font-normal text-slate-500">(if applicable)</span><input value={education.previousSchool || ''} onChange={(event) => setContext('educationalBackground', 'previousSchool', event.target.value)} placeholder="For transferees or students with prior enrollment" className="mt-1 w-full px-3 py-2" /></label>

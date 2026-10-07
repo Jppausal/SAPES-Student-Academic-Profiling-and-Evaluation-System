@@ -1,9 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, FileCheck2, RefreshCw, Search, Users } from 'lucide-react';
-import {
-  fetchInstitutionalStudentSummary,
-  InstitutionalStudentSummary,
-} from '../../lib/api';
+import { fetchInstitutionalStudentSummary, InstitutionalStudentSummary } from '../../lib/api';
 import { formatAcademicGwa } from '../../utils/mongoAcademicGwa';
 
 export const AdminReportsView: React.FC = () => {
@@ -17,24 +14,17 @@ export const AdminReportsView: React.FC = () => {
   const [error, setError] = useState('');
 
   const loadReport = async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const result = await fetchInstitutionalStudentSummary(page);
-      setStudents(result.students);
-      setTotal(result.pagination.total);
-      setTotalPages(Math.max(result.pagination.totalPages, 1));
-      setStatistics(result.statistics);
+      setStudents(result.students); setTotal(result.pagination.total);
+      setTotalPages(Math.max(result.pagination.totalPages, 1)); setStatistics(result.statistics);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to load institutional reports.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    void loadReport();
-  }, [page]);
+  useEffect(() => { void loadReport(); }, [page]);
 
   const filteredStudents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -50,49 +40,44 @@ export const AdminReportsView: React.FC = () => {
   }, [search, students]);
 
   if (loading && students.length === 0) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading institutional reports…</div>;
+    return <div className="admin-panel admin-loading-state" role="status"><FileCheck2 />Loading institutional reports...</div>;
   }
 
+  const metrics = [
+    ['Total students', total], ['IP students', statistics.ip], ['PWD students', statistics.pwd],
+    ['On probation', statistics.probation], ['Evaluated', statistics.evaluated],
+  ] as const;
+
   return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-700"><FileCheck2 className="h-4 w-4" /> Institutional analytics</div>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-900">Shared student-record summary</h2>
-            <p className="mt-1 text-xs text-slate-500">Data is loaded from MongoDB through the protected administrator report API.</p>
+    <div className="admin-page-stack" role="tabpanel">
+      <section className="admin-panel admin-panel-body">
+        <div className="admin-section-heading">
+          <div className="flex items-start gap-3">
+            <span className="admin-heading-icon"><FileCheck2 className="h-4 w-4" /></span>
+            <div><h2>Institutional analytics</h2><p>Shared student-record summary from the protected administrator report API.</p></div>
           </div>
-          <button type="button" onClick={() => void loadReport()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 disabled:opacity-60"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
+          <button type="button" onClick={() => void loadReport()} disabled={loading} className="admin-secondary-button"><RefreshCw className="h-4 w-4" /> {loading ? 'Refreshing...' : 'Refresh data'}</button>
         </div>
-        {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <p role="alert" className="admin-alert admin-alert-error mt-4">{error}</p>}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {[
-          ['Total students', total],
-          ['IP students', statistics.ip],
-          ['PWD students', statistics.pwd],
-          ['On probation', statistics.probation],
-          ['Evaluated', statistics.evaluated],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
-          </div>
-        ))}
+      <section className="admin-metric-grid" aria-label="Institutional metrics">
+        {metrics.map(([label, value]) => <div key={label} className="admin-metric"><p className="admin-metric-label">{label}</p><p className="admin-metric-value">{value}</p></div>)}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-        <div className="border-b border-slate-200 p-4">
-          <div className="relative max-w-lg">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter this page by ID, name, status, or evaluation" className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm" />
+      <section className="admin-panel overflow-hidden">
+        <div className="admin-toolbar border-b border-slate-200">
+          <div className="admin-search-control">
+            <Search />
+            <label htmlFor="admin-report-search" className="sr-only">Filter students on this page</label>
+            <input id="admin-report-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter this page by ID, name, status, or evaluation" />
           </div>
+          <span className="admin-count"><strong>{filteredStudents.length}</strong> records shown on this page</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500"><tr><th className="px-4 py-3">Student</th><th className="px-4 py-3">Classification</th><th className="px-4 py-3">Religion</th><th className="px-4 py-3">Records</th><th className="px-4 py-3">Latest period GWA</th><th className="px-4 py-3">Academic status</th><th className="px-4 py-3">Evaluation</th></tr></thead>
-            <tbody className="divide-y divide-slate-100">
+        <div className="admin-table-wrap">
+          <table className="admin-table" aria-label="Institutional student analytics">
+            <thead><tr><th>Student</th><th>Classification</th><th>Religion</th><th>Records</th><th>Latest period GWA</th><th>Academic status</th><th>Evaluation</th></tr></thead>
+            <tbody>
               {filteredStudents.map((student) => {
                 const name = [student.personalInformation.lastName, student.personalInformation.firstName, student.personalInformation.middleName].filter(Boolean).join(', ');
                 const classifications = [
@@ -101,36 +86,32 @@ export const AdminReportsView: React.FC = () => {
                   student.classification.isPWD ? 'PWD' : '',
                   student.classification.isShifter ? 'Shifter' : '',
                   student.classification.isTransferee ? 'Transferee' : '',
-                ].filter(Boolean).join(' · ');
-                return (
-                  <tr key={student.institutionId}>
-                    <td className="px-4 py-3"><strong className="block text-slate-900">{name || 'Name not recorded'}</strong><span className="font-mono text-slate-500">{student.institutionId}</span></td>
-                    <td className="px-4 py-3 text-slate-700">{classifications || 'Not recorded'}</td>
-                    <td className="px-4 py-3 text-slate-700">{student.religiousInformation.religion || 'Not recorded'}</td>
-                    <td className="px-4 py-3 text-slate-700">{student.academicRecordCount} terms · {student.subjectCount} subjects</td>
-                    <td className="px-4 py-3">
-                      {student.latestAcademicPeriod ? (
-                        <>
-                          <strong className="block text-indigo-800">Overall {formatAcademicGwa(student.latestAcademicPeriod.overallGwa)} · Major {formatAcademicGwa(student.latestAcademicPeriod.majorSubjectGwa)}</strong>
-                          <span className="block text-[10px] text-slate-500">{student.latestAcademicPeriod.academicYear} · {student.latestAcademicPeriod.semester}</span>
-                          <span className="block text-[10px] text-slate-500">Historical cumulative: Overall {formatAcademicGwa(student.overallGwa)} · Major {formatAcademicGwa(student.majorSubjectGwa)}</span>
-                        </>
-                      ) : <span className="text-slate-500">Not recorded</span>}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{student.academicStatus.currentStatus || 'Not recorded'}</td>
-                    <td className="px-4 py-3 text-slate-700">{student.facultyEvaluation?.evaluationStatus || 'Pending'}</td>
-                  </tr>
-                );
+                ].filter(Boolean) as string[];
+                const academicStatus = student.academicStatus.currentStatus || 'Not recorded';
+                const evaluationStatus = student.facultyEvaluation?.evaluationStatus || 'Pending';
+                return <tr key={student.institutionId}>
+                  <td><span className="admin-table-primary">{name || 'Name not recorded'}</span><span className="admin-table-secondary admin-mono">{student.institutionId}</span></td>
+                  <td><div className="flex max-w-52 flex-wrap gap-1">{classifications.length ? classifications.map((item) => <span key={item} className="admin-badge admin-badge-navy">{item}</span>) : <span className="text-slate-500">Not recorded</span>}</div></td>
+                  <td>{student.religiousInformation.religion || 'Not recorded'}</td>
+                  <td><span className="admin-number font-semibold text-slate-800">{student.academicRecordCount}</span> terms<br /><span className="text-[11px] text-slate-500">{student.subjectCount} subjects</span></td>
+                  <td>{student.latestAcademicPeriod ? <>
+                    <span className="admin-table-primary admin-number">Overall {formatAcademicGwa(student.latestAcademicPeriod.overallGwa)} / Major {formatAcademicGwa(student.latestAcademicPeriod.majorSubjectGwa)}</span>
+                    <span className="admin-table-secondary">{student.latestAcademicPeriod.academicYear} / {student.latestAcademicPeriod.semester}</span>
+                    <span className="block mt-1 text-[10px] text-slate-500">Cumulative: Overall {formatAcademicGwa(student.overallGwa)} / Major {formatAcademicGwa(student.majorSubjectGwa)}</span>
+                  </> : <span className="text-slate-500">Not recorded</span>}</td>
+                  <td><span className={`admin-badge ${student.academicStatus.isOnProbation ? 'admin-badge-red' : 'admin-badge-navy'}`}>{academicStatus}</span></td>
+                  <td><span className={`admin-badge ${evaluationStatus.toLowerCase() === 'pending' ? 'admin-badge-amber' : 'admin-badge-green'}`}>{evaluationStatus}</span></td>
+                </tr>;
               })}
-              {filteredStudents.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500"><Users className="mx-auto mb-2 h-5 w-5" />No matching students.</td></tr>}
+              {filteredStudents.length === 0 && <tr><td colSpan={7} className="admin-empty-state"><Users /><strong>No matching students</strong><span>Clear or change the page filter to view records.</span></td></tr>}
             </tbody>
           </table>
         </div>
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <span>Page {page} of {totalPages} · {total} students total</span>
+        <div className="admin-pagination">
+          <span>Page {page} of {totalPages} / {total} students total</span>
           <div className="flex gap-2">
-            <button type="button" onClick={() => { setSearch(''); setPage((current) => Math.max(1, current - 1)); }} disabled={loading || page <= 1} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"><ChevronLeft className="h-4 w-4" /> Previous</button>
-            <button type="button" onClick={() => { setSearch(''); setPage((current) => Math.min(totalPages, current + 1)); }} disabled={loading || page >= totalPages} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Next <ChevronRight className="h-4 w-4" /></button>
+            <button type="button" onClick={() => { setSearch(''); setPage((current) => Math.max(1, current - 1)); }} disabled={loading || page <= 1} className="admin-secondary-button min-h-0 px-3 py-2"><ChevronLeft className="h-4 w-4" /> Previous</button>
+            <button type="button" onClick={() => { setSearch(''); setPage((current) => Math.min(totalPages, current + 1)); }} disabled={loading || page >= totalPages} className="admin-secondary-button min-h-0 px-3 py-2">Next <ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
       </section>
