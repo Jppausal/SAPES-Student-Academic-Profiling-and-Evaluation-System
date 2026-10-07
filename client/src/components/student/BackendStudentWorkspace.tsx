@@ -188,37 +188,10 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
                       </thead>
                       <tbody>
                         {selectedSubjects.map((subject, index) => {
-<<<<<<< HEAD
-                          const isGenEd = !subject.isMajor && (
-                            subject.subjectCode?.toUpperCase().startsWith('GE') ||
-                            subject.subjectName?.toLowerCase().includes('general education') ||
-                            subject.subjectName?.toLowerCase().includes('art appreciation') ||
-                            subject.subjectName?.toLowerCase().includes('ethics')
-                          );
-                          const isPE = subject.subjectCode?.toUpperCase().startsWith('PE') ||
-                            subject.subjectCode?.toUpperCase().startsWith('PATH FIT');
-
-                          const badgeClass = subject.isMajor
-                            ? 'student-badge-major'
-                            : isGenEd
-                            ? 'student-badge-gened'
-                            : isPE
-                            ? 'student-badge-pe'
-                            : 'student-badge-other';
-
-                          const typeLabel = subject.isMajor
-                            ? 'Major'
-                            : isGenEd
-                            ? 'General Education'
-                            : isPE
-                            ? 'PE'
-                            : 'Non-major';
-=======
                           const badgeClass = subject.isMajor
                             ? 'student-badge-major'
                             : 'student-badge-nonmajor';
                           const typeLabel = subject.isMajor ? 'Major' : 'Non-major';
->>>>>>> Integration
 
                           return (
                             <tr key={`${subject.subjectCode}-${index}`}>

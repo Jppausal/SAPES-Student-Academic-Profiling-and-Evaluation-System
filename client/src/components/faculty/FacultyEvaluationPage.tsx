@@ -371,11 +371,7 @@ export const FacultyEvaluationPage: React.FC = () => {
                         <div className="bg-slate-50 px-3 py-2"><h3 className="text-xs font-bold text-slate-800">{term.academicYear} · {term.semester}</h3></div>
                         <div className="overflow-x-auto"><table className="w-full min-w-[550px] text-left text-xs"><thead className="border-y border-slate-200 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Prerequisite check</th></tr></thead><tbody className="divide-y divide-slate-100">{term.subjects.map((subject) => {
                           const passed = subject.grade > 0 && subject.grade <= 3 && subject.status.toLowerCase() !== 'dropped';
-<<<<<<< HEAD
-                          return <tr key={subject.subjectCode}><td className="px-3 py-2"><span className="font-mono font-semibold">{subject.subjectCode}</span><span className="ml-2 text-slate-700">{subject.subjectName}</span></td><td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Minor / General'}</td><td className="px-3 py-2">{subject.units}</td><td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td><td className="px-3 py-2"><span className={`rounded px-2 py-1 text-[10px] font-bold ${passed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{passed ? 'Met' : 'Outstanding'}</span></td></tr>;
-=======
                           return <tr key={subject.subjectCode}><td className="px-3 py-2"><span className="font-mono font-semibold">{subject.subjectCode}</span><span className="ml-2 text-slate-700">{subject.subjectName}</span></td><td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td><td className="px-3 py-2">{subject.units}</td><td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td><td className="px-3 py-2"><span className={`rounded px-2 py-1 text-[10px] font-bold ${passed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{passed ? 'Met' : 'Outstanding'}</span></td></tr>;
->>>>>>> Integration
                         })}</tbody></table></div>
                       </section>
                     ))}
@@ -392,8 +388,4 @@ export const FacultyEvaluationPage: React.FC = () => {
       </div>
     </div>
   );
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> Integration

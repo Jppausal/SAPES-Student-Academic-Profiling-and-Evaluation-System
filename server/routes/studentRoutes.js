@@ -21,11 +21,6 @@ const TECHNOLOGY_PROGRAMS = [
   'Food Technology',
   'Automotive Technology'
 ];
-<<<<<<< HEAD
-
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-=======
->>>>>>> Integration
 
 router.put('/:institutionId/classification', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
   try {
@@ -295,40 +290,10 @@ router.get(
         return res.status(400).json({ success: false, message: 'Search query is too long' });
       }
 
-<<<<<<< HEAD
-      const escapedQuery = escapeRegex(query);
-      const matchingText = new RegExp(escapedQuery, 'i');
-      const matchingIdPrefix = new RegExp(`^${escapedQuery}`, 'i');
-      const students = await Student.find({
-        accountStatus: 'active',
-        $or: [
-          { institutionId: matchingIdPrefix },
-          { username: matchingText },
-          { 'personalInformation.firstName': matchingText },
-          { 'personalInformation.lastName': matchingText },
-          {
-            $expr: {
-              $regexMatch: {
-                input: {
-                  $concat: [
-                    { $ifNull: ['$personalInformation.firstName', ''] },
-                    ' ',
-                    { $ifNull: ['$personalInformation.lastName', ''] }
-                  ]
-                },
-                regex: escapedQuery,
-                options: 'i'
-              }
-            }
-          }
-        ]
-      }, {
-=======
       // Faculty/admin record access is independent of whether the student can
       // currently authenticate. Account status is enforced by authentication,
       // while historical student records remain searchable to authorized staff.
       const students = await Student.find(buildStudentSearchFilter(query), {
->>>>>>> Integration
         institutionId: 1,
         username: 1,
         'personalInformation.firstName': 1,

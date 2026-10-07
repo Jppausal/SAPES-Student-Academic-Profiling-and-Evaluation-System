@@ -158,6 +158,24 @@ The full client TypeScript check still reports three pre-existing diagnostics in
 
 The already-running backend reports MongoDB as connected. A fresh standalone connection using the current `server/.env` returned `Invalid connection string`, so that environment value must be corrected before restarting the backend. No credential value was printed or changed during this work.
 
+## 2026-10-07 Merge-conflict repair
+
+The merge commit following the faculty-search and GWA correction accidentally retained Git conflict markers in the student workspace stylesheet, related student/faculty React components, two backend routes, and the student-redesign report. This caused Tailwind/Vite to stop at `.student-badge-other` with a missing-closing-brace error and would also have prevented the affected backend routes from loading after a server restart.
+
+The conflict set was resolved in favor of the integrated behavior: Major/Non-major subject labels, exact institution-ID report fallback, explicit cumulative GWA labels, shared search filtering, and period-specific GWA values. A repository-wide scan confirmed that no conflict markers remain.
+
+Verification completed:
+
+```text
+client: npm run build - passed
+server: npm test - 32 passed
+server: syntax checks for repaired routes - passed
+repository: conflict-marker scan - passed
+repository: git diff --check - passed
+```
+
+The full client TypeScript check continues to report only the three previously documented diagnostics in `UserSettingsModal.tsx`, `StudentPortal.tsx`, and `ForgotPasswordPage.tsx`.
+
 ## Known remaining work
 
 - Remove obsolete mock-data components and local context mutations after confirming no remaining runtime consumers outside user-management compatibility state.

@@ -79,10 +79,6 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
         const fullNameMatches = matches.filter((student) => `${student.firstName} ${student.lastName}`.trim().toLowerCase() === normalizedQuery);
         match = idMatch || usernameMatch || (fullNameMatches.length === 1 ? fullNameMatches[0] : undefined);
         if (!match && matches.length === 1) match = matches[0];
-<<<<<<< HEAD
-        if (!match) {
-          throw new Error(matches.length ? 'Choose a student from the suggestions.' : 'No matching student was found.');
-=======
         if (!match && matches.length) {
           throw new Error('Choose a student from the suggestions.');
         }
@@ -104,7 +100,6 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
               ? reportMessage
               : 'No matching student was found.');
           }
->>>>>>> Integration
         }
       }
 
