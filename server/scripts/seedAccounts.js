@@ -44,24 +44,15 @@ const STUDENTS = [
 ];
 
 const FACULTY = [
-  {
-    institutionId: '1234567890',
-    password: 'faculty123',
-    username: 'faculty.cruz@buksu.edu.ph',
-    email: 'faculty.cruz@buksu.edu.ph'
-  },
+
   {
     institutionId: '2345678901',
     password: 'faculty123',
-    username: 'faculty.santos@buksu.edu.ph',
-    email: 'faculty.santos@buksu.edu.ph'
+    firstName: 'Kurt',
+    lastName: 'Santos',
+    email: 'santos@faculty.buksu.edu.ph'
   },
-  {
-    institutionId: '3456789012',
-    password: 'faculty123',
-    username: 'faculty.reyes@buksu.edu.ph',
-    email: 'faculty.reyes@buksu.edu.ph'
-  }
+  
 ];
 
 async function seedAccounts() {
@@ -91,10 +82,15 @@ async function seedAccounts() {
         accountStatus: 'active'
       });
 
-      // Create student profile
+      // Create student profile with app-level student credentials kept in the Student collection.
       await Student.create({
         userId: user._id,
         institutionId: student.institutionId,
+        username: `${student.firstName.toLowerCase()}${student.lastName.toLowerCase()}`,
+        email: student.email,
+        passwordHash: await bcrypt.hash('student123', 12),
+        role: 'student',
+        accountStatus: 'active',
         personalInformation: {
           firstName: student.firstName,
           lastName: student.lastName,
@@ -116,10 +112,14 @@ async function seedAccounts() {
     // Create faculty accounts
     console.log('\n=== Creating Faculty Accounts ===');
     for (const faculty of FACULTY) {
-      // Check if user already exists
       const existingUser = await User.findOne({ username: faculty.institutionId });
       if (existingUser) {
-        console.log(`✓ Faculty ${faculty.institutionId} already exists`);
+        if (!existingUser.email) existingUser.email = faculty.email;
+        if (!existingUser.employeeId) existingUser.employeeId = faculty.institutionId;
+        if (!existingUser.firstName) existingUser.firstName = faculty.firstName;
+        if (!existingUser.lastName) existingUser.lastName = faculty.lastName;
+        await existingUser.save();
+        console.log(`✓ Faculty ${faculty.institutionId} already exists; missing profile fields were added`);
         continue;
       }
 
@@ -129,6 +129,10 @@ async function seedAccounts() {
       // Create user account
       await User.create({
         username: faculty.institutionId,
+        firstName: faculty.firstName,
+        lastName: faculty.lastName,
+        email: faculty.email,
+        employeeId: faculty.institutionId,
         passwordHash,
         role: 'faculty',
         accountStatus: 'active'

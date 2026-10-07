@@ -4,10 +4,12 @@ const jwt = require('jsonwebtoken');
 
 const SessionToken = require('../models/SessionToken');
 const User = require('../models/User');
+const Student = require('../models/Student');
 const authenticateToken = require('../middleware/authMiddleware');
 
 const originalFindSession = SessionToken.findOne;
 const originalFindUser = User.findById;
+const originalFindStudent = Student.findById;
 const originalJwtSecret = process.env.JWT_SECRET;
 
 const queryReturning = (value) => ({
@@ -50,11 +52,13 @@ const makeResponse = () => ({
 test.beforeEach(() => {
   process.env.JWT_SECRET = 'test-only-jwt-secret';
   SessionToken.findOne = () => queryReturning({ _id: 'session-id' });
+  Student.findById = () => queryReturning(null);
 });
 
 test.afterEach(() => {
   SessionToken.findOne = originalFindSession;
   User.findById = originalFindUser;
+  Student.findById = originalFindStudent;
 });
 
 test.after(() => {
@@ -112,4 +116,24 @@ test('rejects a session when its account no longer exists', async () => {
 
   assert.equal(res.statusCode, 401);
   assert.deepEqual(res.body, { success: false, message: 'Account no longer exists' });
+});
+
+test('authenticates a student account stored only in the Student collection', async () => {
+  User.findById = () => queryReturning(null);
+  Student.findById = () => queryReturning({
+    username: 'student-account',
+    role: 'student',
+    accountStatus: 'active'
+  });
+  const req = makeRequest();
+  const res = makeResponse();
+  let nextCalled = false;
+
+  await authenticateToken(req, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, true);
+  assert.equal(req.user.role, 'student');
+  assert.equal(req.user.username, 'student-account');
 });

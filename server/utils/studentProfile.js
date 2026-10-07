@@ -8,7 +8,7 @@ const PROFILE_SECTION_RULES = {
     dates: ['birthDate']
   },
   classification: {
-    strings: ['studentType', 'indigenousGroup'],
+    strings: ['program', 'studentType', 'indigenousGroup'],
     booleans: ['isIP', 'isPWD', 'isShifter', 'isTransferee'],
     dates: []
   },
@@ -32,11 +32,21 @@ const PROFILE_SECTION_RULES = {
   }
 };
 
+const TECHNOLOGY_PROGRAMS = [
+  'Bachelor of Information Technology',
+  'Entertainment and Multimedia Computing',
+  'Electronics',
+  'Food Technology',
+  'Automotive Technology'
+];
+
 const validateAndNormalizeStudentProfile = (body, { allowClassification = false } = {}) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return { error: 'Request body must be an object' };
   }
 
+  const classificationProgramOnly = body.classification && typeof body.classification === 'object' && !Array.isArray(body.classification)
+    && Object.keys(body.classification).length === 1 && Object.prototype.hasOwnProperty.call(body.classification, 'program');
   const allowedSections = [...Object.keys(PROFILE_SECTION_RULES).filter((section) => allowClassification || section !== 'classification'), 'addresses'];
   const bodySections = Object.keys(body);
 
@@ -44,7 +54,11 @@ const validateAndNormalizeStudentProfile = (body, { allowClassification = false 
     return { error: 'At least one profile section is required' };
   }
 
-  const unsupportedSection = bodySections.find((section) => !allowedSections.includes(section));
+  if (body.classification && !allowClassification && !classificationProgramOnly) {
+    return { error: 'classification is system-controlled or not editable' };
+  }
+
+  const unsupportedSection = bodySections.find((section) => !allowedSections.includes(section) && !(section === 'classification' && classificationProgramOnly));
   if (unsupportedSection) {
     return { error: `${unsupportedSection} is system-controlled or not editable` };
   }
@@ -77,6 +91,9 @@ const validateAndNormalizeStudentProfile = (body, { allowClassification = false 
       if (value[field] === undefined) continue;
       if (typeof value[field] !== 'string') {
         return { error: `${sectionName}.${field} must be a string` };
+      }
+      if (field === 'program' && value[field] && !TECHNOLOGY_PROGRAMS.includes(value[field])) {
+        return { error: 'classification.program must be a College of Technologies program' };
       }
       if (value[field].length > 200) {
         return { error: `${sectionName}.${field} is too long` };
