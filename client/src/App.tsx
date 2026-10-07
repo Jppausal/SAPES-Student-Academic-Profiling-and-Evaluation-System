@@ -71,7 +71,11 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className={`min-h-screen text-slate-900 flex flex-col font-sans ${
+      currentUser?.role === 'student'
+        ? 'bg-gradient-to-b from-[#e8f2fe] via-[#f1f6fd] to-[#f8fafc] selection:bg-blue-600 selection:text-white'
+        : 'bg-slate-100/70 selection:bg-indigo-500 selection:text-white'
+    }`}>
       <Navbar activePage={activePage} onNavigate={setActivePage} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

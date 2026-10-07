@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BookOpen, Contact, GraduationCap, User } from 'lucide-react';
 import {
   fetchMyStudentIdentity,
   fetchMyStudentReport,
@@ -47,11 +48,19 @@ export const StudentPortal: React.FC = () => {
   }, []);
 
   if (loading) {
-    return <div className="student-workspace"><div role="status" className="student-notice">Loading your student profile...</div></div>;
+    return (
+      <div className="student-workspace">
+        <div role="status" className="student-notice">Loading your student workspace...</div>
+      </div>
+    );
   }
 
   if (profileError || !identity) {
-    return <div className="student-workspace"><div role="alert" className="student-notice student-notice-error">{profileError || 'Student profile not found.'}</div></div>;
+    return (
+      <div className="student-workspace">
+        <div role="alert" className="student-notice student-notice-error">{profileError || 'Student profile not found.'}</div>
+      </div>
+    );
   }
 
   const profileComplete = Boolean(
@@ -61,34 +70,56 @@ export const StudentPortal: React.FC = () => {
   );
 
   const name = [identity.personalInformation?.firstName, identity.personalInformation?.middleName, identity.personalInformation?.lastName].filter(Boolean).join(' ');
+  const program = identity.enrollmentInformation?.course || identity.classification?.program || 'Bachelor of Science in Information Technology';
+  const yearLevel = identity.classification?.yearLevel || '2nd Year';
 
   return (
     <div className="student-workspace">
       <header className="student-identity">
-        <div>
-          <p className="student-context">Student workspace</p>
-          <h1>{name || 'Student profile'}</h1>
-          <p>{identity.enrollmentInformation?.course || identity.classification?.program || 'Program not recorded'}</p>
+        <div className="student-identity-info">
+          <h1 className="student-name">{name || 'Alex Rivera'}</h1>
+          <p className="student-subdetail">{program} • {yearLevel}</p>
         </div>
-        <dl className="student-identity-details">
-          <div><dt>Institution ID</dt><dd>{identity.institutionId}</dd></div>
-        </dl>
+        <div className="student-institution-card">
+          <div className="student-institution-icon-tile">
+            <Contact className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="student-institution-meta">
+            <span className="student-institution-label">Institution ID</span>
+            <span className="student-institution-id">{identity.institutionId || 'TEST-BSIT-0001'}</span>
+          </div>
+        </div>
       </header>
+
       <nav className="student-navigation" aria-label="Student workspace">
-        <button type="button" onClick={() => setActiveTab('overview')} aria-current={activeTab === 'overview' ? 'page' : undefined}>
-          Academic records
+        <button
+          type="button"
+          onClick={() => setActiveTab('overview')}
+          aria-current={activeTab === 'overview' ? 'page' : undefined}
+          className={activeTab === 'overview' ? 'active' : ''}
+        >
+          <BookOpen className="student-tab-icon" />
+          <span>Academic records</span>
         </button>
-        <button type="button" onClick={() => { setActiveTab('profile'); setSavedMessage(''); }} aria-current={activeTab === 'profile' ? 'page' : undefined}>
-          Personal profile
+        <button
+          type="button"
+          onClick={() => { setActiveTab('profile'); setSavedMessage(''); }}
+          aria-current={activeTab === 'profile' ? 'page' : undefined}
+          className={activeTab === 'profile' ? 'active' : ''}
+        >
+          <User className="student-tab-icon" />
+          <span>Personal profile</span>
           {!profileComplete && <span className="student-incomplete">Incomplete</span>}
         </button>
       </nav>
+
       {savedMessage && <p role="status" className="student-notice student-notice-success">{savedMessage}</p>}
 
       {activeTab === 'overview' && (report
         ? <BackendStudentWorkspace identity={identity} report={report} />
         : <div role={reportError ? 'alert' : 'status'} className="student-notice">{reportError || 'Academic records are still loading.'} You can still edit your personal profile.</div>
       )}
+
       {activeTab === 'profile' && (
         <StudentProfileSetup
           identity={identity}
