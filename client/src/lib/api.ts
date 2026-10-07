@@ -401,6 +401,11 @@ export interface InstitutionalStudentSummary {
   academicRecordCount: number;
   subjectCount: number;
   majorSubjectGwa: number;
+  latestAcademicPeriod: {
+    academicYear: string;
+    semester: string;
+    majorSubjectGwa: number;
+  } | null;
   facultyEvaluation: {
     evaluationStatus: string;
     evaluatedAt?: string;
@@ -427,7 +432,14 @@ export async function saveAcademicRecord(
 ) {
   const response = await request<{ success: true; data: AcademicTermRecord }>(
     `/api/students/${encodeURIComponent(institutionId)}/academic-records`,
-    { method: 'PUT', body: JSON.stringify(record) }
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        academicYear: record.academicYear,
+        semester: record.semester,
+        subjects: record.subjects,
+      }),
+    }
   );
   return response.data;
 }

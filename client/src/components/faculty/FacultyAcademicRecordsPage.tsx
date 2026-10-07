@@ -239,7 +239,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
               <p className="mt-2 text-xs text-slate-600">{selectedCourseLabel} · {yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-slate-300">Major-subject GWA</p><p className="mt-0.5 text-2xl font-black">{studentWorkspace.majorSubjectGwa.toFixed(2)}</p></div>
+              <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-slate-300">Cumulative major-subject GWA</p><p className="mt-0.5 text-2xl font-black">{studentWorkspace.majorSubjectGwa.toFixed(2)}</p></div>
               <button type="button" onClick={() => setStep('roster')} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
             </div>
           </div>

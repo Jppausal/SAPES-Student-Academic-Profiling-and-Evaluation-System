@@ -90,7 +90,7 @@ export const AdminReportsView: React.FC = () => {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500"><tr><th className="px-4 py-3">Student</th><th className="px-4 py-3">Classification</th><th className="px-4 py-3">Religion</th><th className="px-4 py-3">Records</th><th className="px-4 py-3">Major GWA</th><th className="px-4 py-3">Academic status</th><th className="px-4 py-3">Evaluation</th></tr></thead>
+            <thead className="bg-slate-50 text-slate-500"><tr><th className="px-4 py-3">Student</th><th className="px-4 py-3">Classification</th><th className="px-4 py-3">Religion</th><th className="px-4 py-3">Records</th><th className="px-4 py-3">Latest period GWA</th><th className="px-4 py-3">Academic status</th><th className="px-4 py-3">Evaluation</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {filteredStudents.map((student) => {
                 const name = [student.personalInformation.lastName, student.personalInformation.firstName, student.personalInformation.middleName].filter(Boolean).join(', ');
@@ -107,7 +107,15 @@ export const AdminReportsView: React.FC = () => {
                     <td className="px-4 py-3 text-slate-700">{classifications || 'Not recorded'}</td>
                     <td className="px-4 py-3 text-slate-700">{student.religiousInformation.religion || 'Not recorded'}</td>
                     <td className="px-4 py-3 text-slate-700">{student.academicRecordCount} terms · {student.subjectCount} subjects</td>
-                    <td className="px-4 py-3 font-bold text-indigo-800">{student.majorSubjectGwa.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      {student.latestAcademicPeriod ? (
+                        <>
+                          <strong className="block text-indigo-800">{student.latestAcademicPeriod.majorSubjectGwa.toFixed(2)}</strong>
+                          <span className="block text-[10px] text-slate-500">{student.latestAcademicPeriod.academicYear} · {student.latestAcademicPeriod.semester}</span>
+                          <span className="block text-[10px] text-slate-500">Cumulative: {student.majorSubjectGwa.toFixed(2)}</span>
+                        </>
+                      ) : <span className="text-slate-500">Not recorded</span>}
+                    </td>
                     <td className="px-4 py-3 text-slate-700">{student.academicStatus.currentStatus || 'Not recorded'}</td>
                     <td className="px-4 py-3 text-slate-700">{student.facultyEvaluation?.evaluationStatus || 'Pending'}</td>
                   </tr>

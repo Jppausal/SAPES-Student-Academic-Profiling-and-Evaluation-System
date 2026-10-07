@@ -9,8 +9,9 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
-const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
 const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
+const { buildStudentSearchFilter } = require('../utils/studentSearch');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -20,8 +21,6 @@ const TECHNOLOGY_PROGRAMS = [
   'Food Technology',
   'Automotive Technology'
 ];
-
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 router.put('/:institutionId/classification', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
   try {
@@ -291,33 +290,10 @@ router.get(
         return res.status(400).json({ success: false, message: 'Search query is too long' });
       }
 
-      const escapedQuery = escapeRegex(query);
-      const matchingText = new RegExp(escapedQuery, 'i');
-      const matchingIdPrefix = new RegExp(`^${escapedQuery}`, 'i');
-      const students = await Student.find({
-        accountStatus: 'active',
-        $or: [
-          { institutionId: matchingIdPrefix },
-          { username: matchingText },
-          { 'personalInformation.firstName': matchingText },
-          { 'personalInformation.lastName': matchingText },
-          {
-            $expr: {
-              $regexMatch: {
-                input: {
-                  $concat: [
-                    { $ifNull: ['$personalInformation.firstName', ''] },
-                    ' ',
-                    { $ifNull: ['$personalInformation.lastName', ''] }
-                  ]
-                },
-                regex: escapedQuery,
-                options: 'i'
-              }
-            }
-          }
-        ]
-      }, {
+      // Faculty/admin record access is independent of whether the student can
+      // currently authenticate. Account status is enforced by authentication,
+      // while historical student records remain searchable to authorized staff.
+      const students = await Student.find(buildStudentSearchFilter(query), {
         institutionId: 1,
         username: 1,
         'personalInformation.firstName': 1,
@@ -463,8 +439,8 @@ router.get(
         ? await Promise.all([
           AcademicRecord.find(
             { studentId: { $in: studentIds } },
-            { studentId: 1, subjects: 1 }
-          ).lean(),
+            { studentId: 1, academicYear: 1, semester: 1, subjects: 1 }
+          ).sort({ academicYear: -1, semester: -1 }).lean(),
           FacultyEvaluation.find({ studentId: { $in: studentIds } })
             .sort({ evaluatedAt: -1 })
             .select('studentId evaluationStatus evaluatedAt')
@@ -490,6 +466,7 @@ router.get(
           students: students.map((student) => {
             const studentRecords = recordsByStudent.get(String(student._id)) || [];
             const evaluation = evaluationByStudent.get(String(student._id));
+            const latestRecord = studentRecords[0];
             return {
               institutionId: student.institutionId,
               personalInformation: student.personalInformation || {},
@@ -499,6 +476,11 @@ router.get(
               academicRecordCount: studentRecords.length,
               subjectCount: studentRecords.reduce((count, record) => count + record.subjects.length, 0),
               majorSubjectGwa: calculateMajorSubjectGwa(studentRecords),
+              latestAcademicPeriod: latestRecord ? {
+                academicYear: latestRecord.academicYear,
+                semester: latestRecord.semester,
+                majorSubjectGwa: calculateMajorSubjectGwa([latestRecord])
+              } : null,
               facultyEvaluation: evaluation ? {
                 evaluationStatus: evaluation.evaluationStatus,
                 evaluatedAt: evaluation.evaluatedAt
@@ -560,7 +542,7 @@ router.get(
           student: {
             institutionId: student.institutionId
           },
-          academicRecords,
+          academicRecords: withMajorSubjectGwa(academicRecords),
           majorSubjectGwa: calculateMajorSubjectGwa(academicRecords)
         }
       });
@@ -713,7 +695,7 @@ router.get(
         success: true,
         data: {
           student,
-          academicRecords,
+          academicRecords: withMajorSubjectGwa(academicRecords),
           majorSubjectGwa,
           facultyEvaluation,
           statusHistory

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
 
 test('calculates a unit-weighted major-subject GWA', () => {
   const result = calculateMajorSubjectGwa([{
@@ -25,4 +25,20 @@ test('excludes dropped, ungraded, and zero-unit subjects', () => {
   }]);
 
   assert.equal(result, 0);
+});
+
+test('keeps selected-period and cumulative GWA scopes explicit', () => {
+  const latest = {
+    academicYear: '2025-2026',
+    semester: '2nd Semester',
+    subjects: [{ grade: 1.25, units: 3, isMajor: true, status: 'Completed' }]
+  };
+  const earlier = {
+    academicYear: '2025-2026',
+    semester: '1st Semester',
+    subjects: [{ grade: 1.35, units: 6, isMajor: true, status: 'Completed' }]
+  };
+
+  assert.equal(withMajorSubjectGwa([latest])[0].majorSubjectGwa, 1.25);
+  assert.equal(calculateMajorSubjectGwa([latest, earlier]), 1.32);
 });

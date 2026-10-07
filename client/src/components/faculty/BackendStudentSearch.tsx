@@ -79,8 +79,27 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
         const fullNameMatches = matches.filter((student) => `${student.firstName} ${student.lastName}`.trim().toLowerCase() === normalizedQuery);
         match = idMatch || usernameMatch || (fullNameMatches.length === 1 ? fullNameMatches[0] : undefined);
         if (!match && matches.length === 1) match = matches[0];
+        if (!match && matches.length) {
+          throw new Error('Choose a student from the suggestions.');
+        }
         if (!match) {
-          throw new Error(matches.length ? 'Choose a student from the suggestions.' : 'No matching student was found.');
+          try {
+            const result = await fetchStudentReport(query.trim());
+            setInstitutionId(result.student.institutionId);
+            setSuggestions([]);
+            setSuggestionsOpen(false);
+            setReport(result);
+            setEvaluationStatus(result.facultyEvaluation?.evaluationStatus || 'for_review');
+            setReasons(result.facultyEvaluation?.reasons?.join(', ') || '');
+            setRemarks(result.facultyEvaluation?.remarks || '');
+            setStudentStatus(result.student.academicStatus?.currentStatus || '');
+            return;
+          } catch (reportError) {
+            const reportMessage = reportError instanceof Error ? reportError.message : '';
+            throw new Error(reportMessage && reportMessage !== 'Student not found'
+              ? reportMessage
+              : 'No matching student was found.');
+          }
         }
       }
 
@@ -233,7 +252,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
               <p className="font-mono text-xs text-slate-500">{report.student.institutionId}</p>
             </div>
             <div className="rounded-xl bg-slate-900 px-4 py-3 text-white">
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">Major-subject GWA</p>
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Cumulative major-subject GWA</p>
               <p className="text-2xl font-black">{report.majorSubjectGwa.toFixed(2)}</p>
             </div>
           </div>
