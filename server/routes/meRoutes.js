@@ -2,6 +2,7 @@ const express = require('express');
 const Student = require('../models/Student');
 const User = require('../models/User');
 const AcademicRecord = require('../models/AcademicRecord');
+const FacultyEvaluation = require('../models/FacultyEvaluation');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
@@ -166,6 +167,10 @@ router.get(
       ).sort({ academicYear: -1, semester: -1 }).lean();
 
       const academicRecordsWithGwa = withAcademicGwas(academicRecords);
+      const facultyEvaluation = await FacultyEvaluation.findOne({ studentId: student._id })
+        .sort({ evaluatedAt: -1 })
+        .select('-_id evaluationStatus reasons remarks evaluatedAt')
+        .lean();
       const overallGwa = calculateOverallGwa(academicRecords);
       const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
 
@@ -175,6 +180,7 @@ router.get(
         data: {
           student: safeStudent,
           academicRecords: academicRecordsWithGwa,
+          facultyEvaluation,
           overallGwa,
           majorSubjectGwa,
           latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)

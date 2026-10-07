@@ -179,10 +179,12 @@
 
 .admin-page-stack {
   display: grid;
+  min-width: 0;
   gap: 18px;
 }
 
 .admin-panel {
+  min-width: 0;
   border: 1px solid var(--admin-rule);
   border-radius: 14px;
   background: var(--admin-paper);

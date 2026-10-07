@@ -216,6 +216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return 'ACADEMIC_RECORD';
         case 'UPDATE_STUDENT_CLASSIFICATION':
         case 'UPDATE_STUDENT_PROFILE':
+        case 'STUDENT_PROFILE_UPDATED':
           return 'PROFILE_UPDATE';
         default:
           return 'SYSTEM';

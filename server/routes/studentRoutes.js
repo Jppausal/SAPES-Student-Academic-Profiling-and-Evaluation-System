@@ -113,6 +113,7 @@ router.put(
       }
 
       student.academicStatus.currentStatus = status.trim();
+      student.academicStatus.isOnProbation = ['probation', 'probationary', 'on probation'].includes(status.trim().toLowerCase());
       student.academicStatus.statusRemarks = remarks;
       student.academicStatus.effectiveDate = parsedEffectiveDate;
       await student.save();
