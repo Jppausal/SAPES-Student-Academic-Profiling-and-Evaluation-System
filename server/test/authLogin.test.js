@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const bcrypt = require('bcryptjs');
 const express = require('express');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
@@ -232,4 +233,102 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
     { username: '2021301234@buksu.edu.ph' },
     { username: '2021301234' }
   ]);
+});
+
+test('Google student sign-in creates a linked enrolled profile from the verified identity', async (t) => {
+  const originalUserFindOne = User.findOne;
+  const originalUserCreate = User.create;
+  const originalUserDeleteOne = User.deleteOne;
+  const originalStudentFindOne = Student.findOne;
+  const originalStudentCreate = Student.create;
+  const originalSessionTokenCreate = SessionToken.create;
+  const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
+  const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalJwtSecret = process.env.JWT_SECRET;
+  const googlePayload = {
+    sub: 'google-student-123',
+    email: '2401110681@student.buksu.edu.ph',
+    email_verified: true,
+    iss: 'https://accounts.google.com',
+    aud: 'test-google-client-id',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    hd: 'student.buksu.edu.ph',
+    given_name: 'Mika',
+    family_name: 'Santos',
+    name: 'Mika Santos'
+  };
+  let createdUser;
+  let createdStudent;
+
+  process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
+  process.env.JWT_SECRET = 'test-secret';
+  OAuth2Client.prototype.verifyIdToken = async () => ({ getPayload: () => googlePayload });
+  User.findOne = async () => null;
+  User.create = async (fields) => {
+    createdUser = { ...fields, _id: 'google-student-user', save: async () => {} };
+    return createdUser;
+  };
+  User.deleteOne = async () => ({ deletedCount: 1 });
+  Student.findOne = async () => null;
+  Student.create = async (fields) => {
+    createdStudent = fields;
+    return fields;
+  };
+  SessionToken.create = async () => ({});
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', authRoutes);
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(async () => {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    User.findOne = originalUserFindOne;
+    User.create = originalUserCreate;
+    User.deleteOne = originalUserDeleteOne;
+    Student.findOne = originalStudentFindOne;
+    Student.create = originalStudentCreate;
+    SessionToken.create = originalSessionTokenCreate;
+    OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
+    if (originalGoogleClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+    if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = originalJwtSecret;
+  });
+
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}/api/auth/google`;
+  const response = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential: 'verified-test-credential' })
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.user.role, 'student');
+  assert.equal(payload.user.studentNumber, '2401110681');
+  assert.equal(payload.user.firstName, 'Mika');
+  assert.equal(payload.user.lastName, 'Santos');
+  assert.equal(createdUser.username, '2401110681');
+  assert.equal(createdUser.email, googlePayload.email);
+  assert.equal(createdStudent.institutionId, '2401110681');
+  assert.equal(createdStudent.userId, createdUser._id);
+  assert.deepEqual(createdStudent.personalInformation, {
+    firstName: 'Mika',
+    lastName: 'Santos'
+  });
+  assert.equal(createdStudent.enrollmentStatus, 'enrolled');
+  assert.ok(createdStudent.yearLevel >= 1 && createdStudent.yearLevel <= 4);
+  assert.match(createdStudent.section, /^(BSIT|BSEMC|BSELEX|BSFT|BSAT)-[1-4][A-C]$/);
+  assert.equal(createdStudent.classification.program, createdStudent.enrollmentInformation.course);
+
+  googlePayload.email = '240111068@student.buksu.edu.ph';
+  const invalidStudentIdResponse = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential: 'verified-test-credential' })
+  });
+  assert.equal(invalidStudentIdResponse.status, 403);
+  assert.match((await invalidStudentIdResponse.json()).message, /10-digit ID/);
 });

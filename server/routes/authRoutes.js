@@ -20,6 +20,13 @@ const ROLE_EMAIL_DOMAINS = {
   student: 'student.buksu.edu.ph',
   faculty: 'faculty.buksu.edu.ph'
 };
+const TECHNOLOGY_PROGRAMS = [
+  { name: 'Bachelor of Information Technology', code: 'BSIT' },
+  { name: 'Entertainment and Multimedia Computing', code: 'BSEMC' },
+  { name: 'Electronics', code: 'BSELEX' },
+  { name: 'Food Technology', code: 'BSFT' },
+  { name: 'Automotive Technology', code: 'BSAT' }
+];
 const INSTITUTIONAL_EMAIL_MESSAGE =
   'Use your institutional account: @student.buksu.edu.ph for students or @faculty.buksu.edu.ph for faculty';
 const resetCodeHash = (code) => crypto.createHash('sha256').update(code).digest('hex');
@@ -32,6 +39,42 @@ const emailMatchesRoleDomain = (email, role) => {
     typeof email === 'string'
     && email.trim().toLowerCase().endsWith(`@${domain}`)
   );
+};
+
+const getGoogleName = (payload) => {
+  const nameParts = typeof payload.name === 'string'
+    ? payload.name.trim().split(/\s+/).filter(Boolean)
+    : [];
+  const providedFirstName = typeof payload.given_name === 'string' && payload.given_name.trim()
+    ? payload.given_name.trim()
+    : '';
+  const firstName = providedFirstName || nameParts[0] || '';
+  if (providedFirstName) {
+    const firstNameIndex = nameParts.findIndex(
+      (part) => part.toLowerCase() === providedFirstName.toLowerCase()
+    );
+    nameParts.splice(0, firstNameIndex >= 0 ? firstNameIndex + 1 : 1);
+  } else {
+    nameParts.shift();
+  }
+  const lastName = typeof payload.family_name === 'string' && payload.family_name.trim()
+    ? payload.family_name.trim()
+    : nameParts.join(' ');
+
+  return { firstName, lastName };
+};
+
+const getDefaultStudentEnrollment = () => {
+  const program = TECHNOLOGY_PROGRAMS[crypto.randomInt(TECHNOLOGY_PROGRAMS.length)];
+  const yearLevel = crypto.randomInt(1, 5);
+  const section = String.fromCharCode(65 + crypto.randomInt(3));
+
+  return {
+    course: program.name,
+    program: program.name,
+    yearLevel,
+    section: `${program.code}-${yearLevel}${section}`
+  };
 };
 
 const createApplicationToken = async (user) => {
@@ -374,103 +417,137 @@ router.post('/google', async (req, res) => {
     }
 
     const email = payload.email.toLowerCase();
-    const studentEmailMatch = email.match(/^([0-9]+)@student\.buksu\.edu\.ph$/);
+    const studentEmailMatch = email.match(/^([0-9]{10})@student\.buksu\.edu\.ph$/);
     let user = await User.findOne({ googleId: payload.sub });
 
-    if (user) {
-      if (user.accountStatus !== 'active') {
+    if (email.endsWith('@student.buksu.edu.ph') && !studentEmailMatch) {
+      return res.status(403).json({
+        success: false,
+        message: 'Student Google account must use a 10-digit ID before @student.buksu.edu.ph'
+      });
+    }
+
+    if (studentEmailMatch) {
+      const institutionId = studentEmailMatch[1];
+      const { firstName, lastName } = getGoogleName(payload);
+      if (!firstName || !lastName) {
         return res.status(403).json({
           success: false,
-          message: 'Account is not active'
+          message: 'Google account must provide a first and last name'
         });
       }
 
-      if (user.role === 'student') {
-        if (!studentEmailMatch) {
-          return res.status(403).json({
-            success: false,
-            message: 'Student Google account must use the institutional student email format'
-          });
-        }
-        const linkedStudent = await Student.findOne({
-          institutionId: studentEmailMatch[1],
-          userId: user._id
-        }).select('institutionId');
-        if (!linkedStudent) {
-          return res.status(403).json({
-            success: false,
-            message: 'Google account is not linked to the matching student record'
-          });
-        }
-        user.username = linkedStudent.institutionId;
-        user.studentNumber = linkedStudent.institutionId;
-        user.email = email;
-      } else if (studentEmailMatch) {
+      const student = await Student.findOne({ institutionId });
+      const googleLinkedUser = user;
+      if (googleLinkedUser && googleLinkedUser.role !== 'student') {
         return res.status(403).json({
           success: false,
           message: 'Student Google accounts cannot use a non-student SAPES role'
         });
       }
-    } else if (studentEmailMatch) {
-      const institutionId = studentEmailMatch[1];
-      const student = await Student.findOne({ institutionId });
 
-      user = student?.userId ? await User.findById(student.userId) : null;
+      if (!user && student?.userId) {
+        user = await User.findById(student.userId);
+      }
+      if (!user) {
+        user = await User.findOne({ studentNumber: institutionId })
+          || await User.findOne({ email })
+          || await User.findOne({ username: institutionId });
+      }
+      if (student?.userId && (!user || String(student.userId) !== String(user._id))) {
+        return res.status(403).json({
+          success: false,
+          message: 'Student record is already linked to a different SAPES account'
+        });
+      }
       if (user && user.role !== 'student') {
         return res.status(403).json({
           success: false,
           message: 'The linked SAPES account is not a student account'
         });
       }
-
       if (user && user.accountStatus !== 'active') {
         return res.status(403).json({
           success: false,
           message: 'Account is not active'
         });
       }
+      if (user?.studentNumber && user.studentNumber !== institutionId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Google account does not match the linked student ID'
+        });
+      }
 
+      let createdUser = false;
       if (!user) {
         user = await User.create({
           username: institutionId,
           email,
           studentNumber: institutionId,
+          firstName,
+          lastName,
           passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
           googleId: payload.sub,
           role: 'student',
           accountStatus: 'active'
         });
-
-        try {
-          if (student) {
-            student.userId = user._id;
-            await student.save();
-          } else {
-            await Student.create({
-              userId: user._id,
-              institutionId,
-              personalInformation: {
-                firstName: 'New',
-                lastName: 'Student'
-              },
-              classification: {
-                studentType: 'regular'
-              },
-              academicStatus: {
-                currentStatus: 'regular'
-              }
-            });
-          }
-        } catch (profileError) {
-          await User.deleteOne({ _id: user._id });
-          throw profileError;
-        }
-      } else {
-        user.googleId = payload.sub;
-        await user.save();
+        createdUser = true;
       }
+
+      try {
+        if (student) {
+          student.userId = user._id;
+          student.username = institutionId;
+          student.email = email;
+          student.personalInformation = student.personalInformation || {};
+          student.personalInformation.firstName = firstName;
+          student.personalInformation.lastName = lastName;
+          await student.save();
+        } else {
+          const enrollment = getDefaultStudentEnrollment();
+          await Student.create({
+            userId: user._id,
+            institutionId,
+            username: institutionId,
+            email,
+            yearLevel: enrollment.yearLevel,
+            section: enrollment.section,
+            enrollmentStatus: 'enrolled',
+            personalInformation: { firstName, lastName },
+            classification: {
+              program: enrollment.program,
+              studentType: 'regular'
+            },
+            enrollmentInformation: {
+              course: enrollment.course,
+              level: String(enrollment.yearLevel),
+              yearLevel: String(enrollment.yearLevel)
+            },
+            academicStatus: { currentStatus: 'regular' }
+          });
+        }
+      } catch (profileError) {
+        if (createdUser) {
+          await User.deleteOne({ _id: user._id });
+        }
+        throw profileError;
+      }
+
+      user.googleId = payload.sub;
+      user.username = institutionId;
+      user.studentNumber = institutionId;
+      user.email = email;
+      user.firstName = firstName;
+      user.lastName = lastName;
     } else {
-      user = await User.findOne({ username: email });
+      if (user?.role === 'student') {
+        return res.status(403).json({
+          success: false,
+          message: 'Student Google account must use the institutional student email format'
+        });
+      }
+      user = user || await User.findOne({ username: email });
       if (!user || user.role === 'student') {
         return res.status(403).json({
           success: false,
