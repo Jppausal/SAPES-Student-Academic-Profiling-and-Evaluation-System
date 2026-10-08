@@ -10,11 +10,29 @@ const authenticateToken = require('../middleware/authMiddleware');
 const { sendPasswordResetCode } = require('../utils/email');
 
 const router = express.Router();
-const GOOGLE_ALLOWED_DOMAINS = new Set(['buksu.edu.ph', 'student.buksu.edu.ph']);
+const GOOGLE_ALLOWED_DOMAINS = new Set([
+  'buksu.edu.ph',
+  'student.buksu.edu.ph',
+  'faculty.buksu.edu.ph'
+]);
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
+const ROLE_EMAIL_DOMAINS = {
+  student: 'student.buksu.edu.ph',
+  faculty: 'faculty.buksu.edu.ph'
+};
+const INSTITUTIONAL_EMAIL_MESSAGE =
+  'Use your institutional account: @student.buksu.edu.ph for students or @faculty.buksu.edu.ph for faculty';
 const resetCodeHash = (code) => crypto.createHash('sha256').update(code).digest('hex');
 const RESET_WINDOW_MS = 10 * 60 * 1000;
 const RESET_REQUEST_INTERVAL_MS = 60 * 1000;
+
+const emailMatchesRoleDomain = (email, role) => {
+  const domain = ROLE_EMAIL_DOMAINS[role];
+  return !domain || (
+    typeof email === 'string'
+    && email.trim().toLowerCase().endsWith(`@${domain}`)
+  );
+};
 
 const createApplicationToken = async (user) => {
   const jti = crypto.randomUUID();
@@ -106,6 +124,19 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Invalid username or password'
+      });
+    }
+
+    if (
+      !emailMatchesRoleDomain(account.email, account.role)
+      || (
+        loginIdentifier.includes('@')
+        && !emailMatchesRoleDomain(loginIdentifier, account.role)
+      )
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: INSTITUTIONAL_EMAIL_MESSAGE
       });
     }
 
@@ -321,6 +352,20 @@ router.post('/google', async (req, res) => {
       correctDomain: GOOGLE_ALLOWED_DOMAINS.has(payload.hd),
     };
     console.info('[Google] Payload checks:', checks, '| email:', payload.email, '| hd:', payload.hd);
+    if (
+      checks.hasSub
+      && checks.hasEmail
+      && checks.emailVerified
+      && checks.validIssuer
+      && checks.validAudience
+      && checks.notExpired
+      && !checks.correctDomain
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: INSTITUTIONAL_EMAIL_MESSAGE
+      });
+    }
     if (Object.values(checks).some((v) => !v)) {
       return res.status(401).json({
         success: false,
@@ -440,6 +485,16 @@ router.post('/google', async (req, res) => {
       }
       user.googleId = payload.sub;
       await user.save();
+    }
+
+    if (!emailMatchesRoleDomain(email, user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: INSTITUTIONAL_EMAIL_MESSAGE
+      });
+    }
+    if (user.role === 'faculty') {
+      user.email = email;
     }
 
     user.lastLoginAt = new Date();

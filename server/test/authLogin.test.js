@@ -64,6 +64,17 @@ test('student login authenticates from the Student collection', async (t) => {
   assert.equal(payload.user.role, 'student');
   assert.equal(payload.user.studentNumber, '2021301234');
   assert.ok(lookupQueries[0].$or.some((condition) => condition.email === '2021301234@student.buksu.edu.ph'));
+
+  studentAccount.email = '2021301234@faculty.buksu.edu.ph';
+  const mismatchedAccountResponse = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: '2021301234@student.buksu.edu.ph', password: 'student123' })
+  });
+  assert.equal(mismatchedAccountResponse.status, 403);
+  const mismatchPayload = await mismatchedAccountResponse.json();
+  assert.match(mismatchPayload.message, /@student\.buksu\.edu\.ph/);
+  assert.match(mismatchPayload.message, /@faculty\.buksu\.edu\.ph/);
 });
 
 test('login accepts legacy plain-text password hashes for existing local accounts', async (t) => {
@@ -133,8 +144,8 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
   const accounts = [
     {
       _id: 'faculty-id',
-      username: 'faculty.cruz@buksu.edu.ph',
-      email: 'faculty.cruz@buksu.edu.ph',
+      username: 'faculty.cruz@faculty.buksu.edu.ph',
+      email: 'faculty.cruz@faculty.buksu.edu.ph',
       firstName: 'Maria',
       lastName: 'Cruz',
       employeeId: 'FAC-001',
@@ -184,22 +195,22 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
   const facultyResponse = await fetch(baseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'FACULTY.CRUZ@BUKSU.EDU.PH', password: 'correct-password' })
+    body: JSON.stringify({ username: 'FACULTY.CRUZ@FACULTY.BUKSU.EDU.PH', password: 'correct-password' })
   });
   assert.equal(facultyResponse.status, 200);
   const facultyPayload = await facultyResponse.json();
   assert.equal(facultyPayload.user.role, 'faculty');
   assert.equal(facultyPayload.user.employeeId, 'FAC-001');
-  assert.deepEqual(lookupQueries, [{ email: 'faculty.cruz@buksu.edu.ph' }]);
+  assert.deepEqual(lookupQueries, [{ email: 'faculty.cruz@faculty.buksu.edu.ph' }]);
 
   lookupQueries.length = 0;
   const wrongPasswordResponse = await fetch(baseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'faculty.cruz@buksu.edu.ph', password: 'wrong-password' })
+    body: JSON.stringify({ username: 'faculty.cruz@faculty.buksu.edu.ph', password: 'wrong-password' })
   });
   assert.equal(wrongPasswordResponse.status, 401);
-  assert.deepEqual(lookupQueries, [{ email: 'faculty.cruz@buksu.edu.ph' }]);
+  assert.deepEqual(lookupQueries, [{ email: 'faculty.cruz@faculty.buksu.edu.ph' }]);
 
   lookupQueries.length = 0;
   const unknownEmailResponse = await fetch(baseUrl, {
@@ -215,7 +226,7 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: '2021301234@buksu.edu.ph', password: 'correct-password' })
   });
-  assert.equal(legacyResponse.status, 200);
+  assert.equal(legacyResponse.status, 403);
   assert.deepEqual(lookupQueries, [
     { email: '2021301234@buksu.edu.ph' },
     { username: '2021301234@buksu.edu.ph' },
