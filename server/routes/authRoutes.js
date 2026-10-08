@@ -404,7 +404,7 @@ router.post('/google', async (req, res) => {
         user = await User.create({
           username: institutionId,
           email,
-          studentNumber: institutionId,
+          studentNumber: institutionId, firstName: payload.given_name || '', lastName: payload.family_name || '',
           passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
           googleId: payload.sub,
           role: 'student',
@@ -420,8 +420,8 @@ router.post('/google', async (req, res) => {
               userId: user._id,
               institutionId,
               personalInformation: {
-                firstName: 'New',
-                lastName: 'Student'
+                firstName: payload.given_name || 'New',
+                lastName: payload.family_name || 'Student'
               },
               classification: {
                 studentType: 'regular'
@@ -455,6 +455,27 @@ router.post('/google', async (req, res) => {
       }
       user.googleId = payload.sub;
       await user.save();
+    }
+
+    if (user.role === 'student' && studentInstitutionId) {
+      const studentRecord = await Student.findOne({ institutionId: studentInstitutionId });
+      if (studentRecord) {
+        let profileChanged = false;
+        if (studentRecord.email !== email) {
+          studentRecord.email = email;
+          profileChanged = true;
+        }
+        if (!studentRecord.contactInformation) {
+          studentRecord.contactInformation = {};
+        }
+        if (studentRecord.contactInformation.institutionalEmail !== email) {
+          studentRecord.contactInformation.institutionalEmail = email;
+          profileChanged = true;
+        }
+        if (profileChanged) {
+          await studentRecord.save();
+        }
+      }
     }
 
     user.lastLoginAt = new Date();

@@ -27,5 +27,8 @@
   "bugs": {
     "url": "https://github.com/Jppausal/SAPES-Student-Academic-Profiling-and-Evaluation-System/issues"
   },
-  "homepage": "https://github.com/Jppausal/SAPES-Student-Academic-Profiling-and-Evaluation-System#readme"
+  "homepage": "https://github.com/Jppausal/SAPES-Student-Academic-Profiling-and-Evaluation-System#readme",
+  "dependencies": {
+    "mongodb": "^7.7.0"
+  }
 }

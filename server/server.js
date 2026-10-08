@@ -33,9 +33,24 @@ app.use('/api/users', userRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error(err));
+const connectDB = async () => {
+  try {
+    console.log('Attempting to connect to primary MongoDB (Atlas)...');
+    // It will first try to connect using ATLAS_URI
+    await mongoose.connect(process.env.ATLAS_URI);
+    console.log('Successfully connected to MongoDB Atlas');
+  } catch (err) {
+    console.log('Atlas connection failed. Falling back to local MongoDB...');
+    try {
+      // If Atlas fails, it falls back to LOCAL_MONGO_URI
+      await mongoose.connect(process.env.LOCAL_MONGO_URI);
+      console.log('Successfully connected to local MongoDB');
+    } catch (localErr) {
+      console.error('Failed to connect to both Atlas and local databases:', localErr);
+    }
+  }
+};
+connectDB();
 
 const PORT = process.env.PORT || 5001;
 
