@@ -103,6 +103,7 @@ test('A103 lets an authorized admin create student, faculty, and admin accounts'
     role: 'student',
     firstName: 'Alex',
     lastName: 'Rivera',
+    accountStatus: 'inactive',
     email: '  2401105814@STUDENT.BUKSU.EDU.PH  ',
     department: 'College of Technologies'
   });
@@ -111,6 +112,8 @@ test('A103 lets an authorized admin create student, faculty, and admin accounts'
   assert.equal(createdUsers[0].studentNumber, '2401105814');
   assert.equal(createdUsers[0].email, '2401105814@student.buksu.edu.ph');
   assert.equal(createdStudents[0].institutionId, '2401105814');
+  assert.equal(createdStudents[0].accountStatus, 'inactive');
+  assert.deepEqual(createdStudents[0].personalInformation, { firstName: 'Alex', lastName: 'Rivera' });
   assert.equal(
     createdStudents[0].contactInformation.institutionalEmail,
     '2401105814@student.buksu.edu.ph'

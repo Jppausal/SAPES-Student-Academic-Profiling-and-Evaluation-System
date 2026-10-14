@@ -1,5 +1,6 @@
 const express = require('express');
 const Student = require('../models/Student');
+const User = require('../models/User');
 const AcademicRecord = require('../models/AcademicRecord');
 const FacultyEvaluation = require('../models/FacultyEvaluation');
 const StudentStatusHistory = require('../models/StudentStatusHistory');
@@ -786,6 +787,16 @@ router.put(
       }
 
       await student.save();
+
+      const accountNames = {};
+      for (const field of ['firstName', 'lastName']) {
+        if (profileUpdate.value.personalInformation?.[field] !== undefined) {
+          accountNames[field] = student.personalInformation[field];
+        }
+      }
+      if (student.userId && Object.keys(accountNames).length) {
+        await User.updateOne({ _id: student.userId, role: 'student' }, { $set: accountNames });
+      }
 
       await AuditLog.create({
         userId: req.user.userId,

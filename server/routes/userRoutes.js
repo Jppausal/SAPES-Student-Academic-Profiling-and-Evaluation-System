@@ -41,6 +41,7 @@ const syncStudentIdentity = async (user) => {
   const student = await Student.findOne({ userId: user._id });
   if (!student) return;
 
+  student.accountStatus = user.accountStatus;
   student.personalInformation.firstName = user.firstName || student.personalInformation.firstName;
   student.personalInformation.lastName = user.lastName || student.personalInformation.lastName;
   student.contactInformation = student.contactInformation || {};
@@ -276,6 +277,7 @@ router.post(
         await Student.create({
           userId: user._id,
           institutionId: normalizedStudentNumber,
+          accountStatus: user.accountStatus,
           personalInformation: {
             firstName: String(firstName).trim(),
             lastName: String(lastName).trim()
@@ -375,6 +377,9 @@ router.put(
       for (const [field, value] of Object.entries({ firstName, lastName, email, studentNumber, employeeId, department })) {
         if (value !== undefined && typeof value !== 'string') {
           return res.status(400).json({ success: false, message: `${field} must be a string` });
+        }
+        if (['firstName', 'lastName'].includes(field) && value !== undefined && !value.trim()) {
+          return res.status(400).json({ success: false, message: `${field} must not be empty` });
         }
         if (value !== undefined) updates[field] = value.trim();
       }
@@ -552,6 +557,10 @@ router.put(
 
       user.accountStatus = accountStatus;
       await user.save();
+
+      if (user.role === 'student') {
+        await Student.updateOne({ userId: user._id }, { $set: { accountStatus: user.accountStatus } });
+      }
 
       if (accountStatus !== 'active') {
         await SessionToken.updateMany(
