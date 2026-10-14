@@ -12,6 +12,7 @@ import {
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { AdminStudentProfileSetup } from './AdminStudentProfileSetup';
+import { AdminStudentReport } from './AdminStudentReport';
 
 const emptySubject = (): AcademicSubject => ({
   subjectCode: '', subjectName: '', units: 3, grade: 0, isMajor: false, status: 'Ongoing',
@@ -20,7 +21,7 @@ const emptySubject = (): AcademicSubject => ({
 const emptyRecord = (): AcademicTermRecord => ({ academicYear: '', semester: '', subjects: [] });
 
 export const BackendAcademicRecordManager: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'academic' | 'profile'>('academic');
+  const [activeTab, setActiveTab] = useState<'academic' | 'profile' | 'report'>('academic');
   const [institutionId, setInstitutionId] = useState('');
   const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
@@ -31,6 +32,7 @@ export const BackendAcademicRecordManager: React.FC = () => {
   const [record, setRecord] = useState<AcademicTermRecord>(emptyRecord);
   const [status, setStatus] = useState('');
   const [statusReason, setStatusReason] = useState('');
+  const [statusRemarks, setStatusRemarks] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -99,6 +101,8 @@ export const BackendAcademicRecordManager: React.FC = () => {
         ? { ...nextReport.academicRecords[0], subjects: nextReport.academicRecords[0].subjects.map((subject) => ({ ...subject })) }
         : emptyRecord());
       setStatus(nextReport.student.academicStatus?.currentStatus || 'regular');
+      setStatusRemarks(nextReport.student.academicStatus?.statusRemarks || '');
+      setStatusReason('');
     } catch (requestError) {
       setReport(null); setRecord(emptyRecord());
       setError(requestError instanceof Error ? requestError.message : 'Unable to load student record.');
@@ -133,7 +137,7 @@ export const BackendAcademicRecordManager: React.FC = () => {
     if (!report || !status.trim()) return;
     setSaving(true); setError(''); setMessage('');
     try {
-      await updateStudentStatus(report.student.institutionId, { status: status.trim(), reason: statusReason.trim() || undefined });
+      await updateStudentStatus(report.student.institutionId, { status: status.trim(), reason: statusReason.trim() || undefined, remarks: statusRemarks.trim() });
       await loadReport(report.student.institutionId);
       setMessage('Academic status saved with a history entry.');
     } catch (requestError) {
@@ -253,16 +257,19 @@ export const BackendAcademicRecordManager: React.FC = () => {
         </section>
 
         <nav className="admin-subtabs" aria-label="Student management sections">
+          <button type="button" aria-current={activeTab === 'report' ? 'page' : undefined} onClick={() => setActiveTab('report')} className={`admin-subtab ${activeTab === 'report' ? 'is-active' : ''}`}>Consolidated Report</button>
           <button type="button" aria-current={activeTab === 'academic' ? 'page' : undefined} onClick={() => setActiveTab('academic')} className={`admin-subtab ${activeTab === 'academic' ? 'is-active' : ''}`}>Academic Records</button>
           <button type="button" aria-current={activeTab === 'profile' ? 'page' : undefined} onClick={() => setActiveTab('profile')} className={`admin-subtab ${activeTab === 'profile' ? 'is-active' : ''}`}>Student Profile</button>
         </nav>
 
+        {activeTab === 'report' && <AdminStudentReport report={report} />}
         {activeTab === 'academic' && <>
           <section className="admin-panel admin-panel-body">
             <div className="admin-section-heading"><div><h3>Academic status</h3><p>Save an authorized standing update with its reason.</p></div></div>
             <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
               <input aria-label="Academic status" value={status} onChange={(event) => setStatus(event.target.value)} placeholder="e.g. regular, probation" className="px-3 py-2 text-sm" />
               <input aria-label="Reason for academic status" value={statusReason} onChange={(event) => setStatusReason(event.target.value)} placeholder="Reason for this status update" className="px-3 py-2 text-sm" />
+              <input aria-label="Remarks for academic status" value={statusRemarks} onChange={(event) => setStatusRemarks(event.target.value)} placeholder="Status remarks (optional)" className="px-3 py-2 text-sm" />
               <button type="button" disabled={saving} onClick={handleSaveStatus} className="admin-primary-button">Save Status</button>
             </div>
           </section>
