@@ -248,11 +248,15 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
           <div className="student-standing-body">
             <div className="student-standing-badge">
               <span className="student-standing-indicator" />
-              <span>{statusLabel(identity.academicStatus?.currentStatus) || 'Regular'}</span>
+              <span>{identity.academicStatus?.currentStatus ? statusLabel(identity.academicStatus.currentStatus) : 'Not recorded'}</span>
             </div>
             {identity.academicStatus?.statusRemarks && (
               <p className="student-standing-remarks">{identity.academicStatus.statusRemarks}</p>
             )}
+            {identity.academicStatus?.effectiveDate && !Number.isNaN(Date.parse(identity.academicStatus.effectiveDate)) && (
+              <p className="student-standing-remarks">Effective: {new Date(identity.academicStatus.effectiveDate).toLocaleDateString()}</p>
+            )}
+            <p className="student-muted">Recorded by authorized faculty or administrators. Read-only.</p>
             {identity.academicStatus?.isOnProbation && (
               <div className="student-probation">
                 <strong>At-risk: on probation</strong>

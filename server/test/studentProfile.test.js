@@ -122,3 +122,23 @@ test('accepts valid recurring spiritual activity times and rejects invalid range
   assert.equal(valid.value.religiousInformation.spiritualActivities[0].startTime, '18:00');
   assert.equal(invalid.error, 'Each spiritual activity must have a valid day and time range');
 });
+
+test('student self-service accepts independent classification flags without administrative options', () => {
+  const classification = { isShifter: true, isTransferee: true, isIP: false, isPWD: true };
+  const result = validateAndNormalizeStudentProfile({ classification });
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.value.classification, classification);
+  assert.deepEqual(validateAndNormalizeStudentProfile({ classification: { isShifter: false } }).value.classification, { isShifter: false });
+});
+
+test('student classification edits reject restricted configuration and malformed flags', () => {
+  for (const field of ['program', 'studentType']) {
+    assert.ok(validateAndNormalizeStudentProfile({ classification: { isShifter: true, [field]: 'forged' } }).error);
+  }
+  for (const field of ['isShifter', 'isTransferee', 'isIP', 'isPWD']) {
+    assert.ok(validateAndNormalizeStudentProfile({ classification: { [field]: 'true' } }).error);
+  }
+  for (const field of ['institutionId', 'userId', 'academicStatus', 'grades', 'GWA']) {
+    assert.ok(validateAndNormalizeStudentProfile({ classification: { isShifter: true }, [field]: 'forged' }).error);
+  }
+});

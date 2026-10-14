@@ -34,6 +34,12 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
 
   useEffect(() => {
     setProfile({
+      classification: {
+        isShifter: Boolean(identity.classification?.isShifter),
+        isTransferee: Boolean(identity.classification?.isTransferee),
+        isIP: Boolean(identity.classification?.isIP),
+        isPWD: Boolean(identity.classification?.isPWD),
+      },
       personalInformation: { ...identity.personalInformation },
       religiousInformation: { ...identity.religiousInformation },
       contactInformation: {
@@ -152,6 +158,17 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
           <label className="text-xs font-semibold">Blood type<select value={personal.bloodType || ''} onChange={(event) => setPersonal('bloodType', event.target.value)} className="mt-1 w-full px-3 py-2"><option value="">Select</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option><option>Unknown</option></select></label>
           <label className="text-xs font-semibold">Height<input value={personal.height || ''} onChange={(event) => setPersonal('height', event.target.value)} placeholder="e.g. 165 cm" className="mt-1 w-full px-3 py-2" /></label>
           <label className="text-xs font-semibold">Weight<input value={personal.weight || ''} onChange={(event) => setPersonal('weight', event.target.value)} placeholder="e.g. 60 kg" className="mt-1 w-full px-3 py-2" /></label>
+        </div>
+      </section>
+
+      <section id="student-classifications" className="student-form-section" aria-labelledby="student-classifications-heading">
+        <h3 id="student-classifications-heading">Student Classifications</h3>
+        <p className="mt-1 text-sm">Select all that apply. These flags do not change your academic standing or assigned program.</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {(['isShifter', 'isTransferee', 'isIP', 'isPWD'] as const).map((field) => <label key={field} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={profile.classification?.[field] || false} onChange={(event) => setProfile((current) => ({ ...current, classification: { ...current.classification, [field]: event.target.checked } }))} />
+            {{ isShifter: 'Shifter', isTransferee: 'Transferee', isIP: 'Indigenous Peoples (IP)', isPWD: 'Person with Disability (PWD)' }[field]}
+          </label>)}
         </div>
       </section>
 
