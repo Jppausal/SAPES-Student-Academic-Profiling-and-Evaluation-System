@@ -38,6 +38,11 @@ app.use('/api/permissions', permissionRoutes);
 const PORT = process.env.PORT || 5001;
 
 const startServer = async () => {
+  const jwtSecret = process.env.JWT_SECRET?.trim();
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET is required. Set a unique secret in server/.env before starting the API.');
+  }
+
   const mongoUri = process.env.MONGO_URI?.trim();
   if (!mongoUri) {
     throw new Error('MONGO_URI is required. Copy server/.env.example to server/.env and configure a MongoDB connection.');

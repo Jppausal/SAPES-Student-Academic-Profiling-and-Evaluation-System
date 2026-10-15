@@ -100,17 +100,17 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-700">
-            Email
+            Email, username, or student number
           </label>
           <div className="mt-2 flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-100">
             <input
               id="username"
               name="username"
               type="text"
-              autoComplete="email"
+              autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="your.name@example.com"
+              placeholder="Enter your institutional email or account ID"
               maxLength={64}
               onChange={(event) => {
                 setLoginIdentifier(event.target.value);

@@ -20,6 +20,8 @@ npm --prefix server install
 
 Create the server environment file by copying `server/.env.example` to `server/.env`, then set `MONGO_URI` to a database you can access and replace `JWT_SECRET` with a random development secret. Do not commit `.env` files or share database credentials. If a MongoDB URI contains reserved characters in its username or password, URL-encode them (for example, `@` as `%40`).
 
+For MongoDB Atlas, make sure the cluster allows connections from your deployment/network and the database user has access to the database in the URI. Authentication looks for accounts in the role-specific `admin users`, `faculty users`, and `student users` collections.
+
 If your network's DNS resolver cannot resolve MongoDB Atlas SRV records, set `MONGO_DNS_SERVERS` in your local `server/.env` to a comma-separated resolver list. The server otherwise uses the operating system's default DNS.
 
 Google sign-in is optional. To use it locally, set `GOOGLE_CLIENT_ID` in `server/.env` and add the exact client origin you open (normally `http://localhost:3000`) to the OAuth client's **Authorized JavaScript origins** in Google Cloud Console. If this origin is not authorized, email/password sign-in still works, but Google sign-in reports an origin error.
@@ -31,6 +33,14 @@ npm run dev
 ```
 
 Open the **Local** URL printed by Vite (normally `http://localhost:3000`). If port `3000` is already in use, Vite selects another available port; use that printed URL or stop the other server and restart. The API listens on port `5001`; `http://localhost:5001/api/health` reports whether the database connection is ready. The API exits with a startup error if MongoDB cannot be reached or its credentials are rejected.
+
+To check the client build, TypeScript types, and server tests:
+
+```bash
+npm run build
+npm run lint --prefix client
+npm test
+```
 
 To create local demo accounts for all three roles and sample student records, run:
 
