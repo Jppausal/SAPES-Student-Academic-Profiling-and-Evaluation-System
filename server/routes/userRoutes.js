@@ -1,28 +1,49 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
-const User = require('../models/User');
-const Student = require('../models/Student');
 const AuditLog = require('../models/AuditLog');
 const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
+const {
+  ACCOUNT_MODELS,
+  findAccountByIdAcrossRoles,
+  findAccountByIdentifier,
+  getAccountModel
+} = require('../utils/accountCollections');
+const {
+  isInstitutionalEmail,
+  normalizeInstitutionalEmail,
+  resolveStudentInstitutionIdentity
+} = require('../utils/institutionalIdentity');
 
 const router = express.Router();
 const MAX_LIMIT = 100;
 const validRoles = ['student', 'faculty', 'admin'];
 const validAccountStatuses = ['active', 'inactive', 'suspended'];
+const roleEmailDomains = {
+  student: 'student.buksu.edu.ph',
+  faculty: 'faculty.buksu.edu.ph'
+};
+
+const isValidAccountEmail = (email, role) => {
+  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return false;
+  }
+  const requiredDomain = roleEmailDomains[role];
+  return !requiredDomain || email.trim().toLowerCase().endsWith(`@${requiredDomain}`);
+};
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const toSafeUser = (user) => ({
   id: user._id,
   username: user.username,
-  firstName: user.firstName || '',
-  lastName: user.lastName || '',
+  firstName: user.firstName || user.personalInformation?.firstName || '',
+  lastName: user.lastName || user.personalInformation?.lastName || '',
   email: user.email || '',
-  studentNumber: user.studentNumber || '',
+  studentNumber: user.studentNumber || user.institutionId || '',
   employeeId: user.employeeId || '',
   department: user.department || '',
   role: user.role,
@@ -30,16 +51,11 @@ const toSafeUser = (user) => ({
   createdAt: user.createdAt
 });
 
-const syncStudentIdentity = async (user) => {
-  if (user.role !== 'student') return;
-
-  const student = await Student.findOne({ userId: user._id });
-  if (!student) return;
-
-  student.personalInformation.firstName = user.firstName || student.personalInformation.firstName;
-  student.personalInformation.lastName = user.lastName || student.personalInformation.lastName;
-  await student.save();
-};
+const getAuditActorModel = (role) => ({
+  admin: 'AdminUser',
+  faculty: 'FacultyUser',
+  student: 'Student'
+}[role]);
 
 router.get(
   '/',
@@ -106,51 +122,32 @@ router.get(
         };
       }
 
-      const [total, users] = await Promise.all([
-        User.countDocuments(filter),
-        User.find(
-          filter,
-          {
-            username: 1,
-            firstName: 1,
-            lastName: 1,
-            email: 1,
-            studentNumber: 1,
-            employeeId: 1,
-            department: 1,
-            role: 1,
-            accountStatus: 1,
-            createdAt: 1
-          }
-        )
-          .sort({ createdAt: -1, _id: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .lean()
+      const entries = role
+        ? [[role, getAccountModel(role)]]
+        : Object.entries(ACCOUNT_MODELS);
+      const [counts, accountsByRole] = await Promise.all([
+        Promise.all(entries.map(([, AccountModel]) => AccountModel.countDocuments(filter))),
+        Promise.all(entries.map(async ([accountRole, AccountModel]) => ({
+          role: accountRole,
+          accounts: await AccountModel.find(filter)
+            .select('username firstName lastName email studentNumber institutionId personalInformation employeeId department role accountStatus createdAt')
+            .lean()
+        })))
       ]);
-
-      const studentIds = users
-        .filter((user) => user.role === 'student' && !user.studentNumber)
-        .map((user) => user._id);
-      const linkedStudents = studentIds.length
-        ? await Student.find({ userId: { $in: studentIds } }, { userId: 1, institutionId: 1, personalInformation: 1 }).lean()
-        : [];
-      const studentNumberByUserId = new Map(
-        linkedStudents.map((student) => [String(student.userId), student.institutionId])
-      );
-      const studentIdentityByUserId = new Map(
-        linkedStudents.map((student) => [String(student.userId), student.personalInformation || {}])
-      );
+      const total = counts.reduce((sum, count) => sum + count, 0);
+      const users = accountsByRole
+        .flatMap(({ role: accountRole, accounts }) => accounts.map((account) => ({
+          ...account,
+          role: accountRole
+        })))
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+          || String(b._id).localeCompare(String(a._id)))
+        .slice((page - 1) * limit, page * limit);
 
       res.json({
         success: true,
         data: {
-          users: users.map((user) => toSafeUser({
-            ...user,
-            firstName: user.firstName || studentIdentityByUserId.get(String(user._id))?.firstName || '',
-            lastName: user.lastName || studentIdentityByUserId.get(String(user._id))?.lastName || '',
-            studentNumber: user.studentNumber || studentNumberByUserId.get(String(user._id)) || ''
-          })),
+          users: users.map(toSafeUser),
           pagination: {
             page,
             limit,
@@ -176,9 +173,11 @@ router.post(
   authorizeRoles('admin'),
   authorizePermission('manage_users'),
   async (req, res) => {
+    let createdUser = null;
+    let createdAccountModel = null;
     try {
       const body = req.body || {};
-      const allowedFields = ['username', 'password', 'role', 'firstName', 'lastName', 'email', 'studentNumber', 'employeeId', 'department'];
+      const allowedFields = ['username', 'password', 'role', 'accountStatus', 'firstName', 'lastName', 'email', 'studentNumber', 'employeeId', 'department'];
       const unsupportedFields = Object.keys(body).filter(
         (field) => !allowedFields.includes(field)
       );
@@ -190,13 +189,12 @@ router.post(
         });
       }
 
-      const { username, password, role, firstName = '', lastName = '', email = '', studentNumber = '', employeeId = '', department = '' } = body;
+      const { username = '', password, role, accountStatus = 'active', firstName = '', lastName = '', email = '', studentNumber = '', employeeId = '', department = '' } = body;
 
-      if (typeof username !== 'string' || !username.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'A valid username is required'
-        });
+      for (const [field, value] of Object.entries({ username, firstName, lastName, email, studentNumber, employeeId, department })) {
+        if (typeof value !== 'string') {
+          return res.status(400).json({ success: false, message: `${field} must be a string` });
+        }
       }
 
       if (typeof password !== 'string' || password.length < 8) {
@@ -213,48 +211,87 @@ router.post(
         });
       }
 
-      if (role === 'student' && (typeof studentNumber !== 'string' || !studentNumber.trim())) {
-        return res.status(400).json({ success: false, message: 'Student number is required for student accounts' });
-      }
-      if (role === 'student' && (!String(firstName).trim() || !String(lastName).trim())) {
-        return res.status(400).json({ success: false, message: 'First name and last name are required for student accounts' });
-      }
-      if (role === 'student' && await Student.exists({ institutionId: studentNumber.trim() })) {
-        return res.status(409).json({ success: false, message: 'Student number already exists' });
+      if (!validAccountStatuses.includes(accountStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: 'accountStatus must be one of active, inactive, or suspended'
+        });
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
-      const user = await User.create({
-        username: role === 'student' ? studentNumber.trim() : username.trim(),
+      if (!firstName.trim() || !lastName.trim()) {
+        return res.status(400).json({ success: false, message: 'First name and last name are required' });
+      }
+
+      const normalizedEmail = normalizeInstitutionalEmail(email);
+      if (!isValidAccountEmail(normalizedEmail, role) || !isInstitutionalEmail(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: roleEmailDomains[role]
+            ? `A valid @${roleEmailDomains[role]} email is required`
+            : 'A valid BukSU institutional email is required'
+        });
+      }
+
+      let accountUsername = username.trim();
+      let institutionId;
+      if (role === 'student') {
+        const identity = resolveStudentInstitutionIdentity({
+          email: normalizedEmail,
+          studentNumber
+        });
+        if (identity.error || !/^\d{10}$/.test(identity.institutionId || '')) {
+          return res.status(400).json({
+            success: false,
+            message: identity.error || 'Student email must contain a 10-digit student number'
+          });
+        }
+        accountUsername = identity.username;
+        institutionId = identity.institutionId;
+      } else if (!accountUsername) {
+        return res.status(400).json({ success: false, message: 'A valid username is required' });
+      }
+
+      const existingUsername = await findAccountByIdentifier(accountUsername, ['username', 'institutionId', 'studentNumber']);
+      const existingEmail = await findAccountByIdentifier(normalizedEmail, ['email']);
+      if (existingUsername.account || existingUsername.ambiguous || existingEmail.account || existingEmail.ambiguous) {
+        return res.status(409).json({ success: false, message: 'Username, student number, or email already exists' });
+      }
+      const AccountModel = getAccountModel(role);
+      if (!AccountModel) {
+        return res.status(400).json({ success: false, message: 'Unsupported account role' });
+      }
+      createdAccountModel = AccountModel;
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await AccountModel.create(role === 'student' ? {
+        username: accountUsername,
+        institutionId,
         passwordHash,
         role,
-        firstName: String(firstName).trim(),
-        lastName: String(lastName).trim(),
-        email: String(email).trim(),
-        studentNumber: String(studentNumber).trim(),
-        employeeId: String(employeeId).trim(),
-        department: String(department).trim()
+        accountStatus,
+        email: normalizedEmail,
+        contactInformation: { institutionalEmail: normalizedEmail },
+        personalInformation: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim()
+        },
+        classification: { studentType: 'regular' }
+      } : {
+        username: accountUsername,
+        passwordHash,
+        role,
+        accountStatus,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: normalizedEmail,
+        employeeId: employeeId.trim(),
+        department: department.trim()
       });
-
-      if (role === 'student') {
-        try {
-          await Student.create({
-            userId: user._id,
-            institutionId: studentNumber.trim(),
-            personalInformation: {
-              firstName: String(firstName).trim(),
-              lastName: String(lastName).trim()
-            },
-            classification: { studentType: 'regular' }
-          });
-        } catch (profileError) {
-          await User.deleteOne({ _id: user._id });
-          throw profileError;
-        }
-      }
+      createdUser = user;
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAuditActorModel(req.user.role),
         action: 'USER_CREATED',
         targetType: 'user',
         targetId: user._id,
@@ -265,7 +302,7 @@ router.post(
         }
       });
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: 'User created successfully',
         data: {
@@ -273,6 +310,13 @@ router.post(
         }
       });
     } catch (error) {
+      if (createdUser) {
+        const cleanupResult = await createdAccountModel.deleteOne({ _id: createdUser._id });
+        if (cleanupResult.deletedCount !== 1) {
+          console.error('Unable to fully roll back failed user creation');
+        }
+      }
+
       if (error?.code === 11000 && error.keyPattern?.username) {
         return res.status(409).json({
           success: false,
@@ -318,13 +362,11 @@ router.put(
         if (typeof username !== 'string' || !username.trim()) {
           return res.status(400).json({ success: false, message: 'A valid username is required' });
         }
-        updates.username = username.trim();
       }
       if (password !== undefined) {
         if (typeof password !== 'string' || password.length < 8) {
           return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
         }
-        updates.passwordHash = await bcrypt.hash(password, 10);
       }
       if (role !== undefined && !validRoles.includes(role)) {
         return res.status(400).json({ success: false, message: 'role must be one of student, faculty, or admin' });
@@ -333,40 +375,78 @@ router.put(
         if (value !== undefined && typeof value !== 'string') {
           return res.status(400).json({ success: false, message: `${field} must be a string` });
         }
+        if (['firstName', 'lastName'].includes(field) && value !== undefined && !value.trim()) {
+          return res.status(400).json({ success: false, message: `${field} must not be empty` });
+        }
         if (value !== undefined) updates[field] = value.trim();
       }
       if (accountStatus !== undefined && !validAccountStatuses.includes(accountStatus)) {
         return res.status(400).json({ success: false, message: 'accountStatus must be one of active, inactive, or suspended' });
       }
-      if (String(req.user.userId) === String(userId) && accountStatus !== undefined && accountStatus !== 'active') {
-        return res.status(400).json({ success: false, message: 'Administrators cannot disable their own account' });
+      const targetRole = req.query.role;
+      if (targetRole !== undefined && !validRoles.includes(targetRole)) {
+        return res.status(400).json({ success: false, message: 'role must be one of student, faculty, or admin' });
       }
-
-      const existingUser = await User.findById(userId);
+      const lookup = targetRole
+        ? { account: await getAccountModel(targetRole).findById(userId), role: targetRole, ambiguous: false }
+        : await findAccountByIdAcrossRoles(userId);
+      if (lookup.ambiguous) {
+        return res.status(409).json({ success: false, message: 'This ID exists in multiple role collections. Specify the account role.' });
+      }
+      const existingUser = lookup.account;
       if (!existingUser) {
         return res.status(404).json({ success: false, message: 'User not found' });
       }
 
-      const linkedStudent = existingUser.role === 'student'
-        ? await Student.findOne({ userId: existingUser._id }).select('institutionId').lean()
-        : null;
-      const currentStudentNumber = linkedStudent?.institutionId || existingUser.studentNumber;
+      const currentStudentNumber = existingUser.institutionId || existingUser.studentNumber;
+
+      if (email !== undefined) {
+        const normalizedEmail = normalizeInstitutionalEmail(email);
+        if (!isInstitutionalEmail(normalizedEmail)) {
+          return res.status(400).json({ success: false, message: 'A valid BukSU institutional email is required' });
+        }
+        if (existingUser.role === 'student') {
+          const identity = resolveStudentInstitutionIdentity({
+            email: normalizedEmail,
+            studentNumber: currentStudentNumber
+          });
+          if (identity.error) {
+            return res.status(400).json({ success: false, message: identity.error });
+          }
+        }
+        updates.email = normalizedEmail;
+      }
 
       if (
-        role !== undefined &&
-        role !== existingUser.role &&
-        (role === 'student' || existingUser.role === 'student')
+        lookup.role === req.user.role &&
+        String(req.user.userId) === String(userId) &&
+        accountStatus !== undefined &&
+        accountStatus !== 'active'
       ) {
+        return res.status(400).json({ success: false, message: 'Administrators cannot disable their own account' });
+      }
+
+      if (role !== undefined && role !== lookup.role) {
         return res.status(400).json({
           success: false,
-          message: 'Student accounts cannot be converted to or from another role'
+          message: 'Account roles cannot be changed. Create a new account in the correct role collection.'
         });
       }
 
       if (
-        existingUser.role === 'student' &&
+        lookup.role === 'student' &&
+        username !== undefined &&
+        username.trim() !== existingUser.institutionId
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'A student username is the institution ID and cannot be changed through account management'
+        });
+      }
+      if (
+        lookup.role === 'student' &&
         studentNumber !== undefined &&
-        studentNumber.trim() !== currentStudentNumber
+        studentNumber.trim() !== existingUser.institutionId
       ) {
         return res.status(400).json({
           success: false,
@@ -374,39 +454,70 @@ router.put(
         });
       }
 
-      if (role !== undefined) updates.role = role;
-      if (accountStatus !== undefined) updates.accountStatus = accountStatus;
-
-      const effectiveRole = role || existingUser.role;
-      const effectiveStudentNumber = studentNumber || currentStudentNumber;
-      if (effectiveRole === 'student' && !effectiveStudentNumber) {
-        return res.status(400).json({ success: false, message: 'Student number is required for student accounts' });
+      if (username !== undefined && lookup.role !== 'student') {
+        const duplicateUsername = await findAccountByIdentifier(username.trim(), ['username']);
+        if (duplicateUsername.ambiguous || (
+          duplicateUsername.account &&
+          String(duplicateUsername.account._id) !== String(existingUser._id)
+        )) {
+          return res.status(409).json({ success: false, message: 'Username already exists' });
+        }
       }
-      if (effectiveRole === 'student') {
-        updates.username = effectiveStudentNumber.trim();
-        updates.studentNumber = effectiveStudentNumber.trim();
+      if (email !== undefined) {
+        if (!isValidAccountEmail(email, lookup.role)) {
+          return res.status(400).json({
+            success: false,
+            message: roleEmailDomains[lookup.role]
+              ? `A valid @${roleEmailDomains[lookup.role]} email is required`
+              : 'A valid email is required'
+          });
+        }
+        const duplicateEmail = await findAccountByIdentifier(email.trim(), ['email']);
+        if (duplicateEmail.ambiguous || (
+          duplicateEmail.account &&
+          String(duplicateEmail.account._id) !== String(existingUser._id)
+        )) {
+          return res.status(409).json({ success: false, message: 'Email already exists' });
+        }
       }
 
-      const user = await User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true });
-      if (!user) {
-        return res.status(404).json({ success: false, message: 'User not found' });
+      const user = existingUser;
+      const normalizedValues = { firstName, lastName, email, studentNumber, employeeId, department };
+      if (lookup.role === 'student') {
+        user.personalInformation = user.personalInformation || {};
+        if (firstName !== undefined) user.personalInformation.firstName = firstName.trim();
+        if (lastName !== undefined) user.personalInformation.lastName = lastName.trim();
+      } else {
+        for (const field of ['firstName', 'lastName', 'employeeId', 'department']) {
+          if (normalizedValues[field] !== undefined) user[field] = normalizedValues[field].trim();
+        }
       }
-
-      await syncStudentIdentity(user);
+      if (email !== undefined) {
+        user.email = updates.email;
+        if (lookup.role === 'student') {
+          user.contactInformation = user.contactInformation || {};
+          user.contactInformation.institutionalEmail = updates.email;
+        }
+      }
+      if (username !== undefined && lookup.role !== 'student') user.username = username.trim();
+      if (password !== undefined) user.passwordHash = await bcrypt.hash(password, 10);
+      if (accountStatus !== undefined) user.accountStatus = accountStatus;
+      await user.save();
 
       if (
         password !== undefined ||
-        role !== undefined && role !== existingUser.role ||
         accountStatus !== undefined && accountStatus !== 'active'
       ) {
         await SessionToken.updateMany(
-          { userId: user._id, revokedAt: null },
+          { userId: user._id, accountRole: lookup.role, revokedAt: null },
           { revokedAt: new Date() }
         );
       }
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAuditActorModel(req.user.role),
         action: 'USER_UPDATED',
         targetType: 'user',
         targetId: user._id,
@@ -464,7 +575,28 @@ router.put(
         });
       }
 
+      const targetRole = req.query.role;
+      if (targetRole !== undefined && !validRoles.includes(targetRole)) {
+        return res.status(400).json({ success: false, message: 'role must be one of student, faculty, or admin' });
+      }
+      const lookup = targetRole
+        ? { account: await getAccountModel(targetRole).findById(userId), role: targetRole, ambiguous: false }
+        : await findAccountByIdAcrossRoles(userId);
+      if (lookup.ambiguous) {
+        return res.status(409).json({ success: false, message: 'This ID exists in multiple role collections. Specify the account role.' });
+      }
+      const user = lookup.account;
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+      if (user.role !== lookup.role) {
+        return res.status(409).json({ success: false, message: 'Account role does not match its role-specific collection' });
+      }
       if (
+        lookup.role === req.user.role &&
         String(req.user.userId) === String(userId) &&
         accountStatus !== 'active'
       ) {
@@ -474,27 +606,20 @@ router.put(
         });
       }
 
-      const user = await User.findById(userId);
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
       user.accountStatus = accountStatus;
       await user.save();
 
       if (accountStatus !== 'active') {
         await SessionToken.updateMany(
-          { userId: user._id, revokedAt: null },
+          { userId: user._id, accountRole: lookup.role, revokedAt: null },
           { revokedAt: new Date() }
         );
       }
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAuditActorModel(req.user.role),
         action: 'USER_STATUS_UPDATED',
         targetType: 'user',
         targetId: user._id,

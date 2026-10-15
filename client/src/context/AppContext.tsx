@@ -62,13 +62,13 @@ interface AppContextType {
     updates: Partial<SubjectGrade>
   ) => void;
   deleteSubjectGrade: (studentNumber: string, subjectCode: string) => void;
-  createUserAccount: (accountData: { username: string; password: string; role: UserRole; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
+  createUserAccount: (accountData: { username: string; password: string; role: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
   updateUserAccount: (userId: string, updates: Partial<UserAccount>) => void;
   toggleUserActiveStatus: (userId: string) => void;
-  deactivateUserAccount: (userId: string) => Promise<void>;
-  reactivateUserAccount: (userId: string) => Promise<void>;
-  updateUserAccountStatus: (userId: string, status: 'active' | 'inactive' | 'suspended') => Promise<void>;
-  saveUserAccount: (userId: string, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
+  deactivateUserAccount: (userId: string, role: UserRole) => Promise<void>;
+  reactivateUserAccount: (userId: string, role: UserRole) => Promise<void>;
+  updateUserAccountStatus: (userId: string, role: UserRole, status: 'active' | 'inactive' | 'suspended') => Promise<void>;
+  saveUserAccount: (userId: string, role: UserRole, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
   addAuditLog: (action: string, category: SystemAuditLog['category'], details: string) => void;
   resetAllData: () => void;
   currentStudentProfile: StudentProfile | null;
@@ -116,10 +116,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_EVALUATIONS;
   });
 
-  const [auditLogs, setAuditLogs] = useState<SystemAuditLog[]>(() => {
+  const [mockAuditLogs, setMockAuditLogs] = useState<SystemAuditLog[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.LOGS);
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
+
+  const [auditLogs, setAuditLogs] = useState<SystemAuditLog[]>([]);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (!localStorage.getItem('sapes_jwt')) return null;
@@ -145,8 +147,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [evaluations]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(auditLogs));
-  }, [auditLogs]);
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(mockAuditLogs));
+  }, [mockAuditLogs]);
 
   useEffect(() => {
     if (currentUserId) {
@@ -199,6 +201,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       });
     });
+    const mapActionToCategory = (action: string): SystemAuditLog['category'] => {
+      switch (action) {
+        case 'COURSE_EVALUATION_UPDATED':
+        case 'UPDATE_FACULTY_EVALUATION':
+          return 'FACULTY_EVALUATION';
+        case 'ROLE_PERMISSIONS_UPDATED':
+        case 'USER_CREATED':
+        case 'USER_UPDATED':
+        case 'USER_STATUS_UPDATED':
+          return 'USER_MANAGEMENT';
+        case 'UPDATE_STUDENT_STATUS':
+        case 'ACADEMIC_RECORD_SAVED':
+          return 'ACADEMIC_RECORD';
+        case 'UPDATE_STUDENT_CLASSIFICATION':
+        case 'UPDATE_STUDENT_PROFILE':
+        case 'STUDENT_PROFILE_UPDATED':
+          return 'PROFILE_UPDATE';
+        default:
+          return 'SYSTEM';
+      }
+    };
+
     setAuditLogs(apiLogs.map((log, index) => ({
       id: `${log.timestamp}-${index}`,
       timestamp: log.timestamp,
@@ -206,7 +230,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userName: log.userId?.username || 'System',
       userRole: log.userId?.role || 'admin',
       action: log.action,
-      category: 'SYSTEM_CONFIG',
+      targetType: log.targetType,
+      targetId: log.targetId,
+      category: mapActionToCategory(log.action),
       details: JSON.stringify(log.details),
     })));
   };
@@ -264,7 +290,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       details,
       ipAddress: '192.168.1.105',
     };
-    setAuditLogs((prev) => [newLog, ...prev]);
+    setMockAuditLogs((prev) => [newLog, ...prev]);
   };
 
   const login = async (username: string, password: string) => {
@@ -318,7 +344,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser) {
       addAuditLog(
         'USER_LOGOUT',
-        'AUTH',
+        'SYSTEM',
         `${currentUser.fullName} (${currentUser.role.toUpperCase()}) logged out.`
       );
     }
@@ -338,7 +364,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUserId(userId);
       addAuditLog(
         'USER_ROLE_SWITCH',
-        'AUTH',
+        'SYSTEM',
         `Switched session to ${targetUser.fullName} (${targetUser.role.toUpperCase()}).`
       );
     }
@@ -624,6 +650,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           employeeId: item.employeeId || local?.employeeId,
           department: item.department || local?.department || '',
           isActive: item.accountStatus === 'active',
+          accountStatus: item.accountStatus,
           createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
         };
       });
@@ -634,6 +661,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     username: string;
     password: string;
     role: UserRole;
+    accountStatus?: 'active' | 'inactive' | 'suspended';
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -673,26 +701,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const deactivateUserAccount = async (userId: string) => {
-    await updateUserStatus(userId, 'inactive');
+  const deactivateUserAccount = async (userId: string, role: UserRole) => {
+    await updateUserStatus(userId, role, 'inactive');
     await refreshUsersFromBackend();
   };
 
-  const reactivateUserAccount = async (userId: string) => {
-    await updateUserStatus(userId, 'active');
+  const reactivateUserAccount = async (userId: string, role: UserRole) => {
+    await updateUserStatus(userId, role, 'active');
     await refreshUsersFromBackend();
   };
 
   const updateUserAccountStatus = async (
     userId: string,
+    role: UserRole,
     status: 'active' | 'inactive' | 'suspended'
   ) => {
-    await updateUserStatus(userId, status);
+    await updateUserStatus(userId, role, status);
     await refreshUsersFromBackend();
   };
 
-  const saveUserAccount = async (userId: string, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => {
-    await updateUser(userId, updates);
+  const saveUserAccount = async (userId: string, role: UserRole, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => {
+    await updateUser(userId, role, updates);
     await refreshUsersFromBackend();
   };
 
@@ -701,11 +730,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStudents(INITIAL_STUDENT_PROFILES);
     setAcademicRecords(INITIAL_ACADEMIC_RECORDS);
     setEvaluations(INITIAL_EVALUATIONS);
-    setAuditLogs(INITIAL_AUDIT_LOGS);
+    setMockAuditLogs(INITIAL_AUDIT_LOGS);
+    setAuditLogs([]);
     setCurrentUserId(null);
     localStorage.removeItem('sapes_jwt');
     localStorage.clear();
-    addAuditLog('SYSTEM_DATA_RESET', 'SYSTEM_CONFIG', 'Reset all system data to initial baseline.');
+    addAuditLog('SYSTEM_DATA_RESET', 'SYSTEM', 'Reset all system data to initial baseline.');
   };
 
   // Derived current student info

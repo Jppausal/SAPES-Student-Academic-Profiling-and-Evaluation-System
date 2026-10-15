@@ -8,13 +8,15 @@ import {
   StudentSuggestion,
   updateStudentStatus,
 } from '../../lib/api';
+import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 
 interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
+  initialQuery?: string;
 }
 
-export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated' }) => {
-  const [institutionId, setInstitutionId] = useState('');
+export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated', initialQuery = '' }) => {
+  const [institutionId, setInstitutionId] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -32,7 +34,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
   useEffect(() => {
     const query = institutionId.trim();
-    if (!query || report) {
+    if (!query || report || initialQuery.trim()) {
       setSuggestions([]);
       setSuggestionsOpen(false);
       setSuggestionsLoading(false);
@@ -79,8 +81,27 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
         const fullNameMatches = matches.filter((student) => `${student.firstName} ${student.lastName}`.trim().toLowerCase() === normalizedQuery);
         match = idMatch || usernameMatch || (fullNameMatches.length === 1 ? fullNameMatches[0] : undefined);
         if (!match && matches.length === 1) match = matches[0];
+        if (!match && matches.length) {
+          throw new Error('Choose a student from the suggestions.');
+        }
         if (!match) {
-          throw new Error(matches.length ? 'Choose a student from the suggestions.' : 'No matching student was found.');
+          try {
+            const result = await fetchStudentReport(query.trim());
+            setInstitutionId(result.student.institutionId);
+            setSuggestions([]);
+            setSuggestionsOpen(false);
+            setReport(result);
+            setEvaluationStatus(result.facultyEvaluation?.evaluationStatus || 'for_review');
+            setReasons(result.facultyEvaluation?.reasons?.join(', ') || '');
+            setRemarks(result.facultyEvaluation?.remarks || '');
+            setStudentStatus(result.student.academicStatus?.currentStatus || '');
+            return;
+          } catch (reportError) {
+            const reportMessage = reportError instanceof Error ? reportError.message : '';
+            throw new Error(reportMessage && reportMessage !== 'Student not found'
+              ? reportMessage
+              : 'No matching student was found.');
+          }
         }
       }
 
@@ -100,6 +121,10 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (initialQuery.trim()) void findStudent(initialQuery);
+  }, [initialQuery]);
 
   const searchStudent = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -147,6 +172,17 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const studentName = report?.student.personalInformation
     ? `${report.student.personalInformation.firstName || ''} ${report.student.personalInformation.lastName || ''}`.trim()
     : report?.student.institutionId;
+  const latestRecord = report?.academicRecords[0];
+  const latestFallbackGwas = resolvePeriodGwas(latestRecord);
+  const reportedLatestPeriod = report?.latestAcademicPeriod;
+  const latestAcademicPeriod = reportedLatestPeriod || latestRecord ? {
+    academicYear: reportedLatestPeriod?.academicYear || latestRecord?.academicYear || '',
+    semester: reportedLatestPeriod?.semester || latestRecord?.semester || '',
+    overallGwa: reportedLatestPeriod?.overallGwa ?? latestFallbackGwas.overallGwa ?? undefined,
+    majorSubjectGwa: reportedLatestPeriod?.majorSubjectGwa ?? latestFallbackGwas.majorSubjectGwa ?? 0,
+  } : null;
+  const historicalFallbackGwas = resolveAcademicGwas(report?.academicRecords || []);
+  const historicalOverallGwa = report?.overallGwa ?? historicalFallbackGwas.overallGwa;
 
   return (
     <section className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm sm:p-6">
@@ -232,9 +268,14 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
               <p className="text-lg font-extrabold text-slate-900">{studentName || 'Student record'}</p>
               <p className="font-mono text-xs text-slate-500">{report.student.institutionId}</p>
             </div>
-            <div className="rounded-xl bg-slate-900 px-4 py-3 text-white">
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">Major-subject GWA</p>
-              <p className="text-2xl font-black">{report.majorSubjectGwa.toFixed(2)}</p>
+            <div className="min-w-64 rounded-xl bg-slate-900 px-4 py-3 text-white">
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Latest-period GWA</p>
+              <div className="mt-1 grid grid-cols-2 gap-4">
+                <div><span className="text-[10px] text-slate-400">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div>
+                <div><span className="text-[10px] text-slate-400">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div>
+              </div>
+              {latestAcademicPeriod && <p className="mt-1 text-[10px] text-slate-300">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}
+              <p className="mt-1 text-[10px] text-slate-400">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(report.majorSubjectGwa)}</p>
             </div>
           </div>
 
@@ -265,6 +306,8 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             </div>
           </div>}
 
+          {report.student.schedulingRestrictions && report.student.schedulingRestrictions.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>Scheduling restrictions</strong><p className="mt-1 text-xs">Do not enroll the student in meeting times that overlap: {report.student.schedulingRestrictions.map((slot) => `${slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`).join('; ')}.</p></div>}
+
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
             {report.academicRecords.length === 0 && (
@@ -272,7 +315,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             )}
             {report.academicRecords.map((term) => (
               <div key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-xl border border-slate-200">
-                <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700">{term.academicYear} · {term.semester}</div>
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700"><span>{term.academicYear} · {term.semester}</span><span className="font-medium text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} · Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="border-y border-slate-200 text-slate-500"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Status</th></tr></thead>
@@ -283,7 +326,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                           <td className="px-3 py-2">{subject.subjectName}</td>
                           <td className="px-3 py-2">{subject.units}</td>
                           <td className="px-3 py-2 font-semibold">{subject.grade || '—'}</td>
-                          <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'General'}</td>
+                          <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
                           <td className="px-3 py-2">{subject.status}</td>
                         </tr>
                       ))}

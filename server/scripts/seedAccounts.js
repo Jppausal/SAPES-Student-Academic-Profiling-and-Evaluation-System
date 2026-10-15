@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-require('dotenv').config();
 
-const User = require('../models/User');
+const FacultyUser = require('../models/FacultyUser');
 const Student = require('../models/Student');
+const { connectCloudDatabase } = require('../utils/database');
 
 const STUDENTS = [
   {
@@ -58,15 +58,15 @@ const FACULTY = [
 async function seedAccounts() {
   try {
     console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGO_URI);
+    await connectCloudDatabase();
     console.log('Connected to MongoDB');
 
     // Create student accounts
     console.log('\n=== Creating Student Accounts ===');
     for (const student of STUDENTS) {
       // Check if user already exists
-      const existingUser = await User.findOne({ username: student.institutionId });
-      if (existingUser) {
+      const existingStudent = await Student.findOne({ institutionId: student.institutionId });
+      if (existingStudent) {
         console.log(`✓ Student ${student.institutionId} (${student.firstName} ${student.lastName}) already exists`);
         continue;
       }
@@ -74,27 +74,16 @@ async function seedAccounts() {
       // Hash password
       const passwordHash = await bcrypt.hash(student.password, 12);
 
-      // Create user account
-      const user = await User.create({
-        username: student.institutionId,
-        passwordHash,
-        role: 'student',
-        accountStatus: 'active'
-      });
-
-      // Create student profile with app-level student credentials kept in the Student collection.
       await Student.create({
-        userId: user._id,
+        username: student.institutionId,
         institutionId: student.institutionId,
-        username: `${student.firstName.toLowerCase()}${student.lastName.toLowerCase()}`,
         email: student.email,
-        passwordHash: await bcrypt.hash('student123', 12),
+        passwordHash,
         role: 'student',
         accountStatus: 'active',
         personalInformation: {
           firstName: student.firstName,
-          lastName: student.lastName,
-          email: student.email
+          lastName: student.lastName
         },
         classification: {
           studentType: 'regular'
@@ -112,7 +101,7 @@ async function seedAccounts() {
     // Create faculty accounts
     console.log('\n=== Creating Faculty Accounts ===');
     for (const faculty of FACULTY) {
-      const existingUser = await User.findOne({ username: faculty.institutionId });
+      const existingUser = await FacultyUser.findOne({ username: faculty.institutionId });
       if (existingUser) {
         if (!existingUser.email) existingUser.email = faculty.email;
         if (!existingUser.employeeId) existingUser.employeeId = faculty.institutionId;
@@ -127,7 +116,7 @@ async function seedAccounts() {
       const passwordHash = await bcrypt.hash(faculty.password, 12);
 
       // Create user account
-      await User.create({
+      await FacultyUser.create({
         username: faculty.institutionId,
         firstName: faculty.firstName,
         lastName: faculty.lastName,

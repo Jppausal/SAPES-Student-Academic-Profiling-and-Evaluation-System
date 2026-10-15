@@ -14,9 +14,10 @@ import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPag
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { FacultyPage } from './types';
 
-type AuthView = 'landing' | 'login' | 'dashboard';
+type AuthView = 'landing' | 'login' | 'forgot-password' | 'dashboard';
 
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus, sessionReady, login, loginWithGoogle } = useApp();
@@ -24,6 +25,7 @@ const AppContent: React.FC = () => {
     currentUser ? 'dashboard' : 'landing'
   ));
   const [activePage, setActivePage] = useState<FacultyPage>('dashboard');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -52,8 +54,13 @@ const AppContent: React.FC = () => {
           return result;
         }}
         onBack={() => setAuthView('landing')}
+        onForgotPassword={() => setAuthView('forgot-password')}
       />
     );
+  }
+
+  if (authView === 'forgot-password') {
+    return <ForgotPasswordPage onBack={() => setAuthView('login')} />;
   }
 
   if (authView === 'landing') {
@@ -66,12 +73,19 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Navbar activePage={activePage} onNavigate={setActivePage} />
+      <Navbar
+        activePage={activePage}
+        onNavigate={setActivePage}
+        onStudentSearch={(query) => {
+          setStudentSearchQuery(query);
+          setActivePage('student-search');
+        }}
+      />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {currentUser?.role === 'student' && <StudentPortal />}
         {currentUser?.role === 'faculty' && (
-          activePage === 'student-search' ? <StudentSearchPage />
+          activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
             : activePage === 'student-records' ? <FacultyAcademicRecordsPage />
               : activePage === 'evaluations' ? <FacultyEvaluationPage />
                 : <FacultyPortal />

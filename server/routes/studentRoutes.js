@@ -9,7 +9,10 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
-const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
+const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
+const { buildStudentSearchFilter } = require('../utils/studentSearch');
+const { getAccountModelName } = require('../utils/accountCollections');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -20,7 +23,30 @@ const TECHNOLOGY_PROGRAMS = [
   'Automotive Technology'
 ];
 
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+router.put('/:institutionId/classification', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
+  try {
+    const profileUpdate = validateAndNormalizeStudentProfile({ classification: req.body?.classification }, { allowClassification: true });
+    if (profileUpdate.error) return res.status(400).json({ success: false, message: profileUpdate.error });
+    const student = await Student.findOne({ institutionId: req.params.institutionId });
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    Object.assign(student.classification, profileUpdate.value.classification);
+    await student.save();
+    await AuditLog.create({ userId: req.user.userId, userRole: req.user.role, userModel: getAccountModelName(req.user.role), action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
+    return res.json({ success: true, data: student.classification });
+  } catch (error) { console.error('Classification update failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
+});
+
+router.post('/:institutionId/schedule-conflicts', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
+  try {
+    const meetings = req.body?.meetings;
+    if (!Array.isArray(meetings) || meetings.length < 1 || meetings.some((meeting) => !meeting || !DAYS.includes(meeting.dayOfWeek) || !isTime(meeting.startTime) || !isTime(meeting.endTime) || meeting.startTime >= meeting.endTime)) return res.status(400).json({ success: false, message: 'Provide valid meeting day and time ranges.' });
+    const student = await Student.findOne({ institutionId: req.params.institutionId }, { religiousInformation: 1 }).lean();
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    const activities = student.religiousInformation?.shareSpiritualSchedule ? student.religiousInformation.spiritualActivities || [] : [];
+    const conflicts = findScheduleConflicts(activities, meetings);
+    return res.json({ success: true, data: { eligible: conflicts.length === 0, conflicts } });
+  } catch (error) { console.error('Schedule conflict check failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
+});
 
 // Record an authorized student status update and preserve its history
 router.put(
@@ -88,6 +114,7 @@ router.put(
       }
 
       student.academicStatus.currentStatus = status.trim();
+      student.academicStatus.isOnProbation = ['probation', 'probationary', 'on probation'].includes(status.trim().toLowerCase());
       student.academicStatus.statusRemarks = remarks;
       student.academicStatus.effectiveDate = parsedEffectiveDate;
       await student.save();
@@ -98,11 +125,14 @@ router.put(
         reason,
         effectiveDate: parsedEffectiveDate,
         recordedBy: req.user.userId,
+        recordedByModel: getAccountModelName(req.user.role),
         remarks
       });
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_STUDENT_STATUS',
         targetType: 'student_status_history',
         targetId: history._id,
@@ -216,6 +246,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_FACULTY_EVALUATION',
         targetType: 'faculty_evaluation',
         targetId: evaluation._id,
@@ -265,33 +297,10 @@ router.get(
         return res.status(400).json({ success: false, message: 'Search query is too long' });
       }
 
-      const escapedQuery = escapeRegex(query);
-      const matchingText = new RegExp(escapedQuery, 'i');
-      const matchingIdPrefix = new RegExp(`^${escapedQuery}`, 'i');
-      const students = await Student.find({
-        accountStatus: 'active',
-        $or: [
-          { institutionId: matchingIdPrefix },
-          { username: matchingText },
-          { 'personalInformation.firstName': matchingText },
-          { 'personalInformation.lastName': matchingText },
-          {
-            $expr: {
-              $regexMatch: {
-                input: {
-                  $concat: [
-                    { $ifNull: ['$personalInformation.firstName', ''] },
-                    ' ',
-                    { $ifNull: ['$personalInformation.lastName', ''] }
-                  ]
-                },
-                regex: escapedQuery,
-                options: 'i'
-              }
-            }
-          }
-        ]
-      }, {
+      // Faculty/admin record access is independent of whether the student can
+      // currently authenticate. Account status is enforced by authentication,
+      // while historical student records remain searchable to authorized staff.
+      const students = await Student.find(buildStudentSearchFilter(query), {
         institutionId: 1,
         username: 1,
         'personalInformation.firstName': 1,
@@ -420,8 +429,10 @@ router.get(
         Student.find({}, {
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
           classification: 1,
           religiousInformation: 1,
+          healthInformation: 1,
           academicStatus: 1
         })
           .sort({ institutionId: 1, _id: 1 })
@@ -435,8 +446,8 @@ router.get(
         ? await Promise.all([
           AcademicRecord.find(
             { studentId: { $in: studentIds } },
-            { studentId: 1, subjects: 1 }
-          ).lean(),
+            { studentId: 1, academicYear: 1, semester: 1, subjects: 1 }
+          ).sort({ academicYear: -1, semester: -1 }).lean(),
           FacultyEvaluation.find({ studentId: { $in: studentIds } })
             .sort({ evaluatedAt: -1 })
             .select('studentId evaluationStatus evaluatedAt')
@@ -462,6 +473,7 @@ router.get(
           students: students.map((student) => {
             const studentRecords = recordsByStudent.get(String(student._id)) || [];
             const evaluation = evaluationByStudent.get(String(student._id));
+            const latestAcademicPeriod = getLatestAcademicPeriod(studentRecords);
             return {
               institutionId: student.institutionId,
               personalInformation: student.personalInformation || {},
@@ -470,7 +482,9 @@ router.get(
               academicStatus: student.academicStatus || {},
               academicRecordCount: studentRecords.length,
               subjectCount: studentRecords.reduce((count, record) => count + record.subjects.length, 0),
+              overallGwa: calculateOverallGwa(studentRecords),
               majorSubjectGwa: calculateMajorSubjectGwa(studentRecords),
+              latestAcademicPeriod,
               facultyEvaluation: evaluation ? {
                 evaluationStatus: evaluation.evaluationStatus,
                 evaluatedAt: evaluation.evaluatedAt
@@ -532,8 +546,10 @@ router.get(
           student: {
             institutionId: student.institutionId
           },
-          academicRecords,
-          majorSubjectGwa: calculateMajorSubjectGwa(academicRecords)
+          academicRecords: withAcademicGwas(academicRecords),
+          overallGwa: calculateOverallGwa(academicRecords),
+          majorSubjectGwa: calculateMajorSubjectGwa(academicRecords),
+          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)
         }
       });
     } catch (error) {
@@ -583,6 +599,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'ACADEMIC_RECORD_SAVED',
         targetType: 'academic_record',
         targetId: academicRecord._id,
@@ -631,8 +649,10 @@ router.get(
           _id: 1,
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
           classification: 1,
           religiousInformation: 1,
+          healthInformation: 1,
           academicStatus: 1
         }
       ).lean();
@@ -645,6 +665,18 @@ router.get(
       }
 
       const { _id: studentId, ...student } = studentRecord;
+      if (req.user.role === 'faculty' && student.healthInformation) {
+        student.healthInformation = {
+          hasRelevantHealthConcern: Boolean(student.healthInformation.hasRelevantHealthConcern),
+          accommodationRequired: Boolean(student.healthInformation.accommodationRequired),
+          accommodationNotes: student.healthInformation.accommodationNotes || ''
+        };
+      }
+      if (req.user.role === 'faculty') {
+        const activities = student.religiousInformation?.shareSpiritualSchedule ? student.religiousInformation.spiritualActivities || [] : [];
+        delete student.religiousInformation;
+        student.schedulingRestrictions = activities;
+      }
 
       const [academicRecords, facultyEvaluation, statusHistory] = await Promise.all([
         AcademicRecord.find(
@@ -666,13 +698,16 @@ router.get(
       ]);
 
       const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
+      const overallGwa = calculateOverallGwa(academicRecords);
 
       res.json({
         success: true,
         data: {
           student,
-          academicRecords,
+          academicRecords: withAcademicGwas(academicRecords),
+          overallGwa,
           majorSubjectGwa,
+          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords),
           facultyEvaluation,
           statusHistory
         }
@@ -734,7 +769,11 @@ router.put(
     try {
       const { institutionId } = req.params;
       const body = req.body || {};
-      const profileUpdate = validateAndNormalizeStudentProfile(body);
+      const profileUpdate = validateAndNormalizeStudentProfile(body, {
+        allowClassification: true,
+        allowEnrollmentInformation: true,
+        allowInstitutionalContact: true
+      });
       if (profileUpdate.error) {
         return res.status(400).json({ success: false, message: profileUpdate.error });
       }
@@ -758,6 +797,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_STUDENT_PROFILE',
         targetType: 'student',
         targetId: student._id,

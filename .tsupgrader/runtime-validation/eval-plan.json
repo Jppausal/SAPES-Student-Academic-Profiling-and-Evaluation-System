@@ -1,0 +1,56 @@
+{
+  "generatedAt": "2026-10-15T16:08:00+08:00",
+  "generatedOnPlatform": "win32",
+  "projectType": "webapp",
+  "assertions": [
+    {
+      "name": "client-build",
+      "kind": "process",
+      "command": "npm",
+      "args": ["run", "build"],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "home-page-serves",
+      "kind": "http-probe",
+      "startCommand": "npm",
+      "startArgs": [
+        "--prefix",
+        "client",
+        "run",
+        "dev",
+        "--",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "3002",
+        "--strictPort"
+      ],
+      "url": "http://127.0.0.1:3002/",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 120
+    },
+    {
+      "name": "api-health",
+      "kind": "http-probe",
+      "startCommand": "npm",
+      "startArgs": ["--prefix", "server", "run", "start"],
+      "url": "http://127.0.0.1:5001/api/health",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 120
+    },
+    {
+      "name": "tests-pass",
+      "kind": "process",
+      "command": "npm",
+      "args": ["--prefix", "server", "run", "test", "--", "--test-reporter=tap"],
+      "verificationMethod": "test-results",
+      "expected": "0",
+      "timeoutSeconds": 300
+    }
+  ]
+}

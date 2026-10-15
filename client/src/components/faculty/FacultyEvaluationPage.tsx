@@ -19,6 +19,7 @@ import {
   saveFacultyCourseEvaluation,
 } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
+import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 
 type EvaluationTab = 'gradebook' | 'attendance' | 'remarks' | 'history';
 
@@ -130,6 +131,17 @@ export const FacultyEvaluationPage: React.FC = () => {
 
   const sections = [...new Set(roster.map((student) => student.section).filter((section) => section !== 'Unassigned'))].sort();
   const years = [...new Set(roster.map((student) => student.yearLevel).filter((year): year is number => year !== null))].sort();
+  const latestRecord = workspace?.academicRecords[0];
+  const latestFallbackGwas = resolvePeriodGwas(latestRecord);
+  const reportedLatestPeriod = workspace?.latestAcademicPeriod;
+  const latestAcademicPeriod = reportedLatestPeriod || latestRecord ? {
+    academicYear: reportedLatestPeriod?.academicYear || latestRecord?.academicYear || '',
+    semester: reportedLatestPeriod?.semester || latestRecord?.semester || '',
+    overallGwa: reportedLatestPeriod?.overallGwa ?? latestFallbackGwas.overallGwa ?? undefined,
+    majorSubjectGwa: reportedLatestPeriod?.majorSubjectGwa ?? latestFallbackGwas.majorSubjectGwa ?? 0,
+  } : null;
+  const historicalFallbackGwas = resolveAcademicGwas(workspace?.academicRecords || []);
+  const historicalOverallGwa = workspace?.overallGwa ?? historicalFallbackGwas.overallGwa;
 
   const updateAssessment = (index: number, field: string, value: string | number | boolean) => {
     setDraft((current) => current ? {
@@ -273,6 +285,48 @@ export const FacultyEvaluationPage: React.FC = () => {
                 </div>
               </section>
 
+              <section aria-label="Student profile and latest evaluation" className="grid gap-3 lg:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Student profile for evaluation</h3>
+                  <dl className="mt-3 grid gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
+                    <div><dt className="text-slate-500">Declared religion</dt><dd className="mt-0.5 font-semibold text-slate-900">{workspaceStudent.religiousInformation.religion || 'Not provided'}</dd></div>
+                    <div><dt className="text-slate-500">Enrollment status</dt><dd className="mt-0.5 font-semibold capitalize text-slate-900">{workspaceStudent.enrollmentStatus.replace(/_/g, ' ')}</dd></div>
+                    <div><dt className="text-slate-500">Student classification</dt><dd className="mt-0.5 font-semibold text-slate-900">{[
+                      workspaceStudent.classification.isIP && (workspaceStudent.classification.indigenousGroup ? `IP · ${workspaceStudent.classification.indigenousGroup}` : 'IP'),
+                      workspaceStudent.classification.isPWD && 'PWD',
+                      workspaceStudent.classification.isShifter && 'Shifter',
+                      workspaceStudent.classification.isTransferee && 'Transferee',
+                    ].filter(Boolean).join(' · ') || 'No special classification recorded'}</dd></div>
+                    <div><dt className="text-slate-500">Student type</dt><dd className="mt-0.5 font-semibold capitalize text-slate-900">{workspaceStudent.enrollmentInformation.studentType || workspaceStudent.classification.studentType || 'Not recorded'}</dd></div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-slate-500">Faculty-relevant accommodation</dt>
+                      <dd className="mt-0.5 font-semibold text-slate-900">
+                        {workspaceStudent.healthInformation.accommodationRequired
+                          ? workspaceStudent.healthInformation.accommodationNotes || 'Accommodation requested; details not provided'
+                          : 'None recorded'}
+                      </dd>
+                    </div>
+                    {workspaceStudent.religiousInformation.shareSpiritualSchedule && workspaceStudent.religiousInformation.spiritualActivities.length > 0 && (
+                      <div className="sm:col-span-2">
+                        <dt className="text-slate-500">Shared unavailable times</dt>
+                        <dd className="mt-0.5 font-semibold text-slate-900">{workspaceStudent.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(' · ')}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Latest faculty evaluation</h3>
+                  {workspace.facultyEvaluation ? (
+                    <>
+                      <p className="mt-3 text-sm font-bold capitalize text-slate-900">{workspace.facultyEvaluation.evaluationStatus.replace(/_/g, ' ')}</p>
+                      <p className="mt-1 text-xs text-slate-500">Evaluated {new Date(workspace.facultyEvaluation.evaluatedAt).toLocaleDateString()}</p>
+                      {workspace.facultyEvaluation.remarks && <p className="mt-3 whitespace-pre-wrap text-xs text-slate-700">{workspace.facultyEvaluation.remarks}</p>}
+                      {workspace.facultyEvaluation.reasons.length > 0 && <ul className="mt-2 list-inside list-disc text-xs text-slate-700">{workspace.facultyEvaluation.reasons.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul>}
+                    </>
+                  ) : <p className="mt-3 text-xs text-slate-500">No prior faculty evaluation is recorded.</p>}
+                </div>
+              </section>
+
               <section aria-label="Key performance indicators" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                 {[
                   { label: 'Attendance rate', value: formatPercent(workspace.metrics.attendanceRate), icon: CalendarCheck2, color: 'text-sky-700' },
@@ -363,15 +417,27 @@ export const FacultyEvaluationPage: React.FC = () => {
 
                 {activeTab === 'history' && (
                   <div className="space-y-5 p-4 sm:p-5">
+                    <section className="rounded-md border border-slate-200 p-3">
+                      <h3 className="text-xs font-bold text-slate-800">Student status history</h3>
+                      {workspace.statusHistory.length === 0
+                        ? <p className="mt-2 text-xs text-slate-500">No status changes have been recorded.</p>
+                        : <ol className="mt-2 divide-y divide-slate-100">{workspace.statusHistory.map((entry, index) => (
+                          <li key={`${entry.status}-${entry.effectiveDate}-${index}`} className="py-2 text-xs">
+                            <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold capitalize text-slate-800">{entry.status.replace(/_/g, ' ')}</span><time className="text-slate-500">{new Date(entry.effectiveDate).toLocaleDateString()}</time></div>
+                            {entry.reason && <p className="mt-1 text-slate-600">Reason: {entry.reason}</p>}
+                            {entry.remarks && <p className="mt-1 text-slate-600">{entry.remarks}</p>}
+                          </li>
+                        ))}</ol>}
+                    </section>
                     <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><FileClock className="h-4 w-4 shrink-0" /><p>Prerequisite checks below are inferred from recorded subject results; no curriculum-specific prerequisite map is configured.</p></div>
-                    <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5"><span className="text-xs font-semibold text-slate-600">Overall major-subject GWA · all recorded terms</span><strong className="text-lg font-extrabold text-slate-900">{workspace.majorSubjectGwa.toFixed(2)}</strong></div>
+                    <div className="flex flex-col gap-3 rounded-md border border-slate-200 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs font-semibold text-slate-600">Latest-period GWA{latestAcademicPeriod ? ` · ${latestAcademicPeriod.academicYear} · ${latestAcademicPeriod.semester}` : ''}<small className="mt-1 block font-normal text-slate-500">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(workspace.majorSubjectGwa)}</small></span><span className="flex gap-5"><span><small className="block text-[10px] text-slate-500">Overall</small><strong className="text-lg font-extrabold text-slate-900">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</strong></span><span><small className="block text-[10px] text-slate-500">Major</small><strong className="text-lg font-extrabold text-slate-900">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</strong></span></span></div>
                     {workspace.academicRecords.length === 0 && <p className="rounded-md bg-slate-50 p-5 text-center text-xs text-slate-500">No past semester records are available.</p>}
                     {workspace.academicRecords.map((term) => (
                       <section key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-md border border-slate-200">
-                        <div className="bg-slate-50 px-3 py-2"><h3 className="text-xs font-bold text-slate-800">{term.academicYear} · {term.semester}</h3></div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2"><h3 className="text-xs font-bold text-slate-800">{term.academicYear} · {term.semester}</h3><span className="text-[10px] font-semibold text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} · Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>
                         <div className="overflow-x-auto"><table className="w-full min-w-[550px] text-left text-xs"><thead className="border-y border-slate-200 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Prerequisite check</th></tr></thead><tbody className="divide-y divide-slate-100">{term.subjects.map((subject) => {
                           const passed = subject.grade > 0 && subject.grade <= 3 && subject.status.toLowerCase() !== 'dropped';
-                          return <tr key={subject.subjectCode}><td className="px-3 py-2"><span className="font-mono font-semibold">{subject.subjectCode}</span><span className="ml-2 text-slate-700">{subject.subjectName}</span></td><td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Minor / General'}</td><td className="px-3 py-2">{subject.units}</td><td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td><td className="px-3 py-2"><span className={`rounded px-2 py-1 text-[10px] font-bold ${passed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{passed ? 'Met' : 'Outstanding'}</span></td></tr>;
+                          return <tr key={subject.subjectCode}><td className="px-3 py-2"><span className="font-mono font-semibold">{subject.subjectCode}</span><span className="ml-2 text-slate-700">{subject.subjectName}</span></td><td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td><td className="px-3 py-2">{subject.units}</td><td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td><td className="px-3 py-2"><span className={`rounded px-2 py-1 text-[10px] font-bold ${passed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{passed ? 'Met' : 'Outstanding'}</span></td></tr>;
                         })}</tbody></table></div>
                       </section>
                     ))}

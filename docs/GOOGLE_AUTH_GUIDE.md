@@ -8,7 +8,7 @@ Your SAPES system is configured to allow **only BukSU institutional Google accou
 
 The system accepts Google accounts from these domains only:
 - `@student.buksu.edu.ph` - For students
-- `@buksu.edu.ph` - For faculty and admin
+- `@faculty.buksu.edu.ph` and `@buksu.edu.ph` - For faculty and admin
 
 Any other Google account domain will be **rejected**.
 
@@ -23,14 +23,18 @@ Any other Google account domain will be **rejected**.
 2. Student selects their institutional account (e.g., `2021301234@student.buksu.edu.ph`)
 3. System validates:
    - ✅ Email domain is `student.buksu.edu.ph`
-   - ✅ Email format matches pattern: `[student-number]@student.buksu.edu.ph`
+   - ✅ Email format matches pattern: `[10-digit-student-number]@student.buksu.edu.ph`
    - ✅ Google account is verified by Google
 4. System automatically:
    - Creates a user account with role `student`
-   - Extracts student number from email (e.g., `2021301234`)
+   - Extracts the 10-digit student number from the email
+   - Uses the first and last name from the verified Google profile
    - Creates or links a Student profile with this institution ID
+   - For a new profile, assigns an initial program, year, section, and `enrolled` status
    - Generates authentication token
 5. Student is logged in and can access the student portal
+
+Existing student profiles keep their current course and enrollment details.
 
 #### Subsequent Logins
 1. System finds existing user by Google ID
@@ -107,16 +111,20 @@ GOOGLE_CLIENT_ID=431074112550-9gj2c8ahidi7lua4ioef6jp4gj4icuau.apps.googleuserco
 VITE_GOOGLE_CLIENT_ID=431074112550-9gj2c8ahidi7lua4ioef6jp4gj4icuau.apps.googleusercontent.com
 ```
 
+For local development, Vite also reads `GOOGLE_CLIENT_ID` from `server/.env` when
+`VITE_GOOGLE_CLIENT_ID` is not set. Use the same Google OAuth client ID in both
+places when configuring them separately.
+
 ### Google Cloud Console Setup
 Your Google OAuth client should be configured with:
 - **Authorized JavaScript origins**:
-  - `http://localhost:5173` (development)
-  - `http://localhost:5000` (development)
+  - `http://localhost:3000` (Vite development server)
+  - `http://127.0.0.1:3000` (if opening the app with this hostname)
   - Your production domain (e.g., `https://sapes.buksu.edu.ph`)
 
-- **Authorized redirect URIs**:
-  - `http://localhost:5173` (development)
-  - Your production domain (e.g., `https://sapes.buksu.edu.ph`)
+Google Identity Services uses the JavaScript origin for this credential flow;
+the API server (`http://127.0.0.1:5001`) does not need to be registered as an
+authorized browser origin.
 
 ---
 
@@ -183,12 +191,12 @@ Your Google OAuth client should be configured with:
 ## Troubleshooting
 
 ### "Google sign-in is not configured"
-- Check `client/.env.local` has `VITE_GOOGLE_CLIENT_ID`
-- Check `server/.env` has `GOOGLE_CLIENT_ID`
+- Check `client/.env.local` has `VITE_GOOGLE_CLIENT_ID`, or that `server/.env` has `GOOGLE_CLIENT_ID`
+- Add the exact frontend origin (normally `http://localhost:3000`) to the Google OAuth client's authorized JavaScript origins
 - Restart both frontend and backend servers
 
 ### "Google account verification failed"
-- Verify the email domain is exactly `buksu.edu.ph` or `student.buksu.edu.ph`
+- Verify the email domain is exactly `buksu.edu.ph`, `faculty.buksu.edu.ph`, or `student.buksu.edu.ph`
 - Check Google Cloud Console: ensure client ID matches
 - Check Google Cloud Console: ensure your origin URL is authorized
 

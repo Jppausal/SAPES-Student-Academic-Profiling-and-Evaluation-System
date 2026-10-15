@@ -168,7 +168,9 @@ export interface SystemAuditLog {
   userName: string;
   userRole: UserRole;
   action: string;
-  category: 'AUTH' | 'PROFILE_UPDATE' | 'FACULTY_EVALUATION' | 'ACADEMIC_RECORD' | 'USER_MANAGEMENT' | 'SYSTEM_CONFIG';
+  category: 'PROFILE_UPDATE' | 'FACULTY_EVALUATION' | 'ACADEMIC_RECORD' | 'USER_MANAGEMENT' | 'SYSTEM';
+  targetType?: string;
+  targetId?: string | null;
   details: string;
   ipAddress?: string;
 }

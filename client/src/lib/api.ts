@@ -83,6 +83,26 @@ export async function logoutRequest() {
   });
 }
 
+export async function requestPasswordReset(username: string) {
+  return request<{ success: true; message: string }>('/api/auth/password-reset/request', {
+    method: 'POST', body: JSON.stringify({ username })
+  });
+}
+export async function fetchUserSettings() { const response = await request<{ success: true; data: { notificationPreferences: { profileAndAcademicUpdates: boolean } } }>('/api/auth/settings'); return response.data; }
+export async function saveUserSettings(profileAndAcademicUpdates: boolean) { return request('/api/auth/settings', { method: 'PUT', body: JSON.stringify({ notificationPreferences: { profileAndAcademicUpdates } }) }); }
+
+export async function verifyPasswordReset(username: string, code: string) { return request<{ success: true; resetAuthorization: string }>('/api/auth/password-reset/verify', { method: 'POST', body: JSON.stringify({ username, code }) }); }
+export async function confirmPasswordReset(resetAuthorization: string, newPassword: string) {
+  return request<{ success: true; message: string }>('/api/auth/password-reset/confirm', {
+    method: 'POST', body: JSON.stringify({ resetAuthorization, newPassword })
+  });
+}
+
+export async function completePasswordReset(username: string, code: string, newPassword: string) {
+  const { resetAuthorization } = await verifyPasswordReset(username, code);
+  return confirmPasswordReset(resetAuthorization, newPassword);
+}
+
 export async function fetchUsers() {
   const response = await request<{ success: true; data: { users: ApiUser[] } }>('/api/users?limit=100');
   return response.data.users;
@@ -106,9 +126,9 @@ export async function createUser(payload: {
   return response.data.user;
 }
 
-export async function updateUserStatus(userId: string, accountStatus: ApiUser['accountStatus']) {
+export async function updateUserStatus(userId: string, role: ApiUser['role'], accountStatus: ApiUser['accountStatus']) {
   const response = await request<{ success: true; data: { user: ApiUser } }>(
-    `/api/users/${encodeURIComponent(userId)}/status`,
+    `/api/users/${encodeURIComponent(userId)}/status?role=${encodeURIComponent(role)}`,
     {
       method: 'PUT',
       body: JSON.stringify({ accountStatus }),
@@ -117,7 +137,7 @@ export async function updateUserStatus(userId: string, accountStatus: ApiUser['a
   return response.data.user;
 }
 
-export async function updateUser(userId: string, payload: {
+export async function updateUser(userId: string, role: ApiUser['role'], payload: {
   username?: string;
   password?: string;
   role?: ApiUser['role'];
@@ -130,7 +150,7 @@ export async function updateUser(userId: string, payload: {
   department?: string;
 }) {
   const response = await request<{ success: true; data: { user: ApiUser } }>(
-    `/api/users/${encodeURIComponent(userId)}`,
+    `/api/users/${encodeURIComponent(userId)}?role=${encodeURIComponent(role)}`,
     { method: 'PUT', body: JSON.stringify(payload) }
   );
   return response.data.user;
@@ -182,6 +202,8 @@ export interface AcademicTermRecord {
   academicYear: string;
   semester: string;
   subjects: AcademicSubject[];
+  overallGwa?: number | null;
+  majorSubjectGwa?: number | null;
 }
 
 export interface StudentReport {
@@ -191,18 +213,36 @@ export interface StudentReport {
       firstName?: string;
       lastName?: string;
     };
+    classification?: {
+      program?: string;
+      isIP?: boolean;
+      isPWD?: boolean;
+      isShifter?: boolean;
+      isTransferee?: boolean;
+    };
+    enrollmentInformation?: { course?: string; yearLevel?: string; level?: string };
+    religiousInformation?: { religion?: string };
     academicStatus?: {
       currentStatus?: string;
       statusRemarks?: string;
     };
+    schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   };
   academicRecords: AcademicTermRecord[];
-  majorSubjectGwa: number;
+  overallGwa?: number | null;
+  majorSubjectGwa: number | null;
+  latestAcademicPeriod?: {
+    academicYear: string;
+    semester: string;
+    overallGwa: number | null;
+    majorSubjectGwa: number | null;
+  } | null;
   facultyEvaluation?: {
     evaluationStatus: string;
     reasons: string[];
     remarks?: string;
     evaluatedAt?: string;
+    facultyId?: { username?: string; role?: string } | string | null;
   } | null;
   statusHistory: Array<{
     status: string;
@@ -311,24 +351,52 @@ export interface FacultyStudentWorkspace {
       firstName?: string;
       middleName?: string;
       lastName?: string;
-      email?: string;
-      sex?: string;
     };
     classification: {
       program?: string;
       studentType?: string;
       isIP?: boolean;
+      indigenousGroup?: string;
       isPWD?: boolean;
       isShifter?: boolean;
       isTransferee?: boolean;
     };
+    enrollmentInformation: { studentType?: string };
+    religiousInformation: {
+      religion: string;
+      shareSpiritualSchedule: boolean;
+      spiritualActivities: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
+    };
+    healthInformation: {
+      accommodationRequired: boolean;
+      accommodationNotes: string;
+    };
     academicStatus: { currentStatus: string; isOnProbation: boolean };
-    yearLevel: number | null;
+    yearLevel: number | string | null;
     section: string;
     enrollmentStatus: string;
   };
   academicRecords: AcademicTermRecord[];
+  overallGwa: number | null;
   majorSubjectGwa: number;
+  latestAcademicPeriod: {
+    academicYear: string;
+    semester: string;
+    overallGwa: number | null;
+    majorSubjectGwa: number | null;
+  } | null;
+  facultyEvaluation: {
+    evaluationStatus: string;
+    reasons: string[];
+    remarks?: string;
+    evaluatedAt: string;
+  } | null;
+  statusHistory: Array<{
+    status: string;
+    reason?: string;
+    effectiveDate: string;
+    remarks?: string;
+  }>;
   courseEvaluation: CourseEvaluationProgress;
   metrics: CourseMetrics;
   peerCount: number;
@@ -370,6 +438,7 @@ export interface InstitutionalStudentSummary {
     firstName?: string;
     middleName?: string;
     lastName?: string;
+    suffix?: string;
   };
   classification: {
     studentType?: string;
@@ -382,7 +451,14 @@ export interface InstitutionalStudentSummary {
   academicStatus: { currentStatus?: string; isOnProbation?: boolean };
   academicRecordCount: number;
   subjectCount: number;
-  majorSubjectGwa: number;
+  overallGwa: number | null;
+  majorSubjectGwa: number | null;
+  latestAcademicPeriod: {
+    academicYear: string;
+    semester: string;
+    overallGwa: number | null;
+    majorSubjectGwa: number | null;
+  } | null;
   facultyEvaluation: {
     evaluationStatus: string;
     evaluatedAt?: string;
@@ -398,6 +474,7 @@ export async function fetchInstitutionalStudentSummary(page = 1, limit = 25) {
       pagination: { page: number; limit: number; total: number; totalPages: number };
       statistics: { ip: number; pwd: number; probation: number; evaluated: number };
     };
+    schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   }>(`/api/students/reports/summary?${query.toString()}`);
   return response.data;
 }
@@ -408,7 +485,14 @@ export async function saveAcademicRecord(
 ) {
   const response = await request<{ success: true; data: AcademicTermRecord }>(
     `/api/students/${encodeURIComponent(institutionId)}/academic-records`,
-    { method: 'PUT', body: JSON.stringify(record) }
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        academicYear: record.academicYear,
+        semester: record.semester,
+        subjects: record.subjects,
+      }),
+    }
   );
   return response.data;
 }
@@ -425,7 +509,18 @@ export interface StudentIdentity {
     civilStatus?: string;
     nationality?: string;
     citizenship?: string;
+    height?: string;
+    weight?: string;
+    bloodType?: string;
+    dualCitizenship?: string;
+    minority?: string;
+    isForeigner?: boolean;
   };
+  enrollmentInformation?: Record<string, string>;
+  contactInformation?: Record<string, string>;
+  addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
+  educationalBackground?: Record<string, string>;
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
     program?: string;
     studentType?: string;
@@ -435,7 +530,7 @@ export interface StudentIdentity {
     isTransferee?: boolean;
     indigenousGroup?: string;
   };
-  religiousInformation?: { religion?: string };
+  religiousInformation?: { religion?: string; shareSpiritualSchedule?: boolean; spiritualActivities?: Array<{ dayOfWeek: string; startTime: string; endTime: string }> };
   academicStatus?: {
     currentStatus?: string;
     isOnProbation?: boolean;
@@ -455,14 +550,25 @@ export type StudentProfileUpdate = {
     firstName?: string;
     middleName?: string;
     lastName?: string;
+    suffix?: string;
     birthDate?: string;
     birthPlace?: string;
     sex?: string;
     civilStatus?: string;
     nationality?: string;
     citizenship?: string;
+    height?: string;
+    weight?: string;
+    bloodType?: string;
+    dualCitizenship?: string;
+    minority?: string;
     isForeigner?: boolean;
   };
+  enrollmentInformation?: Record<string, string>;
+  contactInformation?: Record<string, string>;
+  addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
+  educationalBackground?: Record<string, string>;
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
     program?: string;
     studentType?: string;
@@ -472,12 +578,20 @@ export type StudentProfileUpdate = {
     isTransferee?: boolean;
     indigenousGroup?: string;
   };
-  religiousInformation?: { religion?: string };
+  religiousInformation?: { religion?: string; shareSpiritualSchedule?: boolean; spiritualActivities?: Array<{ dayOfWeek: string; startTime: string; endTime: string }> };
 };
 
 export async function updateMyStudentProfile(payload: StudentProfileUpdate) {
   const response = await request<{ success: true; data: StudentIdentity }>(
     '/api/me/student/profile',
+    { method: 'PUT', body: JSON.stringify(payload) }
+  );
+  return response.data;
+}
+
+export async function updateStudentProfile(institutionId: string, payload: StudentProfileUpdate) {
+  const response = await request<{ success: true; data: StudentIdentity }>(
+    `/api/students/${encodeURIComponent(institutionId)}`,
     { method: 'PUT', body: JSON.stringify(payload) }
   );
   return response.data;
@@ -508,6 +622,11 @@ export async function updateStudentStatus(
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+}
+
+export async function checkStudentScheduleConflicts(institutionId: string, meetings: Array<{ dayOfWeek: string; startTime: string; endTime: string }>) {
+  const response = await request<{ success: true; data: { eligible: boolean; conflicts: Array<{ meeting: { dayOfWeek: string; startTime: string; endTime: string } }> } }>(`/api/students/${encodeURIComponent(institutionId)}/schedule-conflicts`, { method: 'POST', body: JSON.stringify({ meetings }) });
+  return response.data;
 }
 
 export async function checkServerHealth(): Promise<boolean> {

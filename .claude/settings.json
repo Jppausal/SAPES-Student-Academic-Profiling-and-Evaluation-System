@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "design@knowledge-work-plugins": true,
+    "agent-skills@addy-agent-skills": true
+  }
+}

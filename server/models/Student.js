@@ -2,13 +2,6 @@ const mongoose = require('mongoose');
 
 const studentSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      unique: true,
-      sparse: true
-    },
-
     institutionId: {
       type: String,
       required: true,
@@ -34,7 +27,23 @@ const studentSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       trim: true,
-      default: ''
+      default: '',
+      select: false
+    },
+
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true
+    },
+
+    passwordResetCodeHash: { type: String, select: false },
+    passwordResetExpiresAt: { type: Date, select: false },
+    passwordResetAttempts: { type: Number, default: 0, select: false },
+    passwordResetRequestedAt: { type: Date, select: false },
+    notificationPreferences: {
+      profileAndAcademicUpdates: { type: Boolean, default: true }
     },
 
     role: {
@@ -79,9 +88,7 @@ const studentSchema = new mongoose.Schema(
         trim: true
       },
 
-      middleName: {
-        type: String,
-        trim: true
+      middleName: { 
       },
 
       lastName: {
@@ -89,6 +96,8 @@ const studentSchema = new mongoose.Schema(
         required: true,
         trim: true
       },
+
+      suffix: String,
 
       birthDate: Date,
 
@@ -98,9 +107,16 @@ const studentSchema = new mongoose.Schema(
 
       civilStatus: String,
 
+      height: String,
+      weight: String,
+      bloodType: String,
+
       nationality: String,
 
       citizenship: String,
+
+      dualCitizenship: String,
+      minority: String,
 
       isForeigner: {
         type: Boolean,
@@ -139,8 +155,43 @@ const studentSchema = new mongoose.Schema(
       indigenousGroup: String
     },
 
+    enrollmentInformation: {
+      course: String, level: String, department: String, curriculum: String, yearLevel: String,
+      entryPeriod: String, entryDate: Date, studentType: String, preferredModality: String,
+      campus: String, learnerReferenceNo: String, nstpNumber: String
+    },
+
+    contactInformation: {
+      mobileNumber: String, alternateMobileNumber: String, telephoneNumber: String,
+      institutionalEmail: String, alternateEmail: String
+    },
+
+    addresses: {
+      presentAddress: { street: String, barangay: String, municipality: String, province: String, country: String, zipCode: String },
+      homeAddress: { street: String, barangay: String, municipality: String, province: String, country: String, zipCode: String }
+    },
+
+    educationalBackground: {
+      previousSchool: String, seniorHigh: String, juniorHigh: String, elementary: String
+    },
+
     religiousInformation: {
-      religion: String
+      religion: String,
+      shareSpiritualSchedule: { type: Boolean, default: false },
+      spiritualActivities: [{ dayOfWeek: String, startTime: String, endTime: String, _id: false }]
+    },
+
+    healthInformation: {
+      hasRelevantHealthConcern: { type: Boolean, default: false },
+      conditions: { type: [String], default: [] },
+      otherCondition: String,
+      allergyDetails: String,
+      conditionDescription: String,
+      accommodationRequired: { type: Boolean, default: false },
+      accommodationNotes: String,
+      emergencyContactName: String,
+      emergencyContactNumber: String,
+      lastUpdated: Date
     },
 
     academicStatus: {
@@ -160,7 +211,7 @@ const studentSchema = new mongoose.Schema(
   },
   {
   timestamps: true,
-  collection: 'students'
+  collection: 'student users'
 }
 );
 

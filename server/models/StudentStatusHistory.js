@@ -26,7 +26,13 @@ const studentStatusHistorySchema = new mongoose.Schema(
 
     recordedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      refPath: 'recordedByModel',
+      required: true
+    },
+
+    recordedByModel: {
+      type: String,
+      enum: ['AdminUser', 'FacultyUser'],
       required: true
     },
 

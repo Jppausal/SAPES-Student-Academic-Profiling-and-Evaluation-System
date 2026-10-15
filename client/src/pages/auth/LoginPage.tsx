@@ -6,16 +6,22 @@ type LoginPageProps = {
   onLogin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   onGoogleLogin: (credential: string) => Promise<{ success: boolean; message?: string }>;
   onBack?: () => void;
+  onForgotPassword?: () => void;
 };
 
-export default function LoginPage({ onLogin, onGoogleLogin, onBack }: LoginPageProps) {
+export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPassword }: LoginPageProps) {
   const [error, setError] = React.useState('');
+  const [loginIdentifier, setLoginIdentifier] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = React.useState(true);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
   const googleClientIdPresent = Boolean(googleClientId);
+  const isInstitutionalEmail = ['@student.buksu.edu.ph', '@faculty.buksu.edu.ph']
+    .some((domain) => loginIdentifier.trim().toLowerCase().endsWith(domain));
+  const shouldWarnAboutEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginIdentifier.trim())
+    && !isInstitutionalEmail;
 
   React.useEffect(() => {
     const clientId = googleClientId;
@@ -94,21 +100,30 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack }: LoginPageP
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-700">
-            Email
+            Email, username, or student number
           </label>
           <div className="mt-2 flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-100">
             <input
               id="username"
               name="username"
               type="text"
-              autoComplete="email"
+              autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="your.name@example.com"
+              placeholder="Enter your institutional email or account ID"
               maxLength={64}
+              onChange={(event) => {
+                setLoginIdentifier(event.target.value);
+                setError('');
+              }}
               className="w-full bg-transparent px-3 py-2.5 text-sm text-slate-900 outline-none"
             />
           </div>
+          {shouldWarnAboutEmail && (
+            <p role="status" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Use your institutional account: @student.buksu.edu.ph for students or @faculty.buksu.edu.ph for faculty.
+            </p>
+          )}
         </div>
 
         <div>
@@ -133,9 +148,9 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack }: LoginPageP
               {showPassword ? <EyeOff className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" /> : <Eye className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" />}
             </button>
           </div>
-          <a href="/forgot-password" className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-500">
+          <button type="button" onClick={onForgotPassword} className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-500">
             Forgot password?
-          </a>
+          </button>
         </div>
 
         {error && (

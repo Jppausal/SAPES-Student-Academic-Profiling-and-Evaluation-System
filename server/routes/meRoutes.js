@@ -1,17 +1,15 @@
 const express = require('express');
 const Student = require('../models/Student');
-const User = require('../models/User');
 const AcademicRecord = require('../models/AcademicRecord');
+const FacultyEvaluation = require('../models/FacultyEvaluation');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
-const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 
 const router = express.Router();
-const studentAccountFilter = (userId) => ({
-  $or: [{ userId }, { _id: userId }]
-});
+const studentAccountFilter = (userId) => ({ _id: userId });
 
 router.get(
   '/student',
@@ -26,8 +24,13 @@ router.get(
           _id: 0,
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
+          contactInformation: 1,
+          addresses: 1,
+          educationalBackground: 1,
           classification: 1,
           religiousInformation: 1,
+          healthInformation: 1,
           academicStatus: 1
         }
       ).lean();
@@ -44,7 +47,12 @@ router.get(
         data: {
           ...student,
           classification: student.classification || {},
-          religiousInformation: student.religiousInformation || {}
+          religiousInformation: student.religiousInformation || {},
+          enrollmentInformation: student.enrollmentInformation || {},
+          contactInformation: student.contactInformation || {},
+          addresses: student.addresses || {},
+          educationalBackground: student.educationalBackground || {},
+          healthInformation: student.healthInformation || {}
         }
       });
     } catch (error) {
@@ -88,12 +96,10 @@ router.put(
       }
 
       await student.save();
-      await User.findByIdAndUpdate(req.user.userId, {
-        firstName,
-        lastName
-      });
       await require('../models/AuditLog').create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'STUDENT_PROFILE_UPDATED',
         targetType: 'student_profile',
         targetId: student._id,
@@ -108,6 +114,11 @@ router.put(
           personalInformation: student.personalInformation,
           classification: student.classification || {},
           religiousInformation: student.religiousInformation || {},
+          enrollmentInformation: student.enrollmentInformation || {},
+          contactInformation: student.contactInformation || {},
+          addresses: student.addresses || {},
+          educationalBackground: student.educationalBackground || {},
+          healthInformation: student.healthInformation || {},
           academicStatus: student.academicStatus
         }
       });
@@ -131,6 +142,7 @@ router.get(
           _id: 1,
           institutionId: 1,
           personalInformation: 1,
+          enrollmentInformation: 1,
           classification: 1,
           religiousInformation: 1,
           academicStatus: 1
@@ -149,6 +161,12 @@ router.get(
         { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
       ).sort({ academicYear: -1, semester: -1 }).lean();
 
+      const academicRecordsWithGwa = withAcademicGwas(academicRecords);
+      const facultyEvaluation = await FacultyEvaluation.findOne({ studentId: student._id })
+        .sort({ evaluatedAt: -1 })
+        .select('-_id evaluationStatus reasons remarks evaluatedAt')
+        .lean();
+      const overallGwa = calculateOverallGwa(academicRecords);
       const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
 
       const { _id, ...safeStudent } = student;
@@ -156,8 +174,11 @@ router.get(
         success: true,
         data: {
           student: safeStudent,
-          academicRecords,
-          majorSubjectGwa
+          academicRecords: academicRecordsWithGwa,
+          facultyEvaluation,
+          overallGwa,
+          majorSubjectGwa,
+          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)
         }
       });
     } catch (error) {

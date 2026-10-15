@@ -17,6 +17,21 @@ All notable SAPES changes are recorded here.
 - Authenticated session-restoration endpoint and client startup validation.
 - Patched the backend `qs` dependency to remove known denial-of-service advisories.
 - Added administrator report pagination controls for institutional datasets larger than one page.
+- Added authenticated period selectors and period-specific major GWA to the student academic-record view.
+- Added an idempotent MongoDB seed for historical `student.test` academic records.
+- Added five idempotent BSIT test students sharing the referenced four-term curriculum.
+- Added approved SAPES v1 student profile context and restricted health-accommodation visibility.
+- Added structured student medical-history checklist and emergency-contact details.
+- Added guided Philippine address selection through country, region, province, municipality, and barangay fields.
+- Kept student profile editing available when an academic-report request cannot be loaded.
+- Fixed profile rendering after Philippine location data loads from PSGC Cloud.
+- Added a reliable religion selection with an Other field and a Prefer not to say option.
+- Added student-controlled recurring spiritual-activity scheduling restrictions for authorized faculty review.
+- Restricted student classification changes to authorized faculty and administrators; student profiles now show classification read-only.
+- Removed the staff-managed classification display from the student profile editor.
+- Added a role-aware account Settings panel with email-verified password changes.
+- Persisted account notification preferences through authenticated settings APIs.
+- Required users to confirm the new password before submitting an email-verified password change.
 - Structured shifter and transferee classification fields for student profiles.
 - Shared backend validation for student and administrator profile updates.
 - Backend regression tests using the Node.js test runner.
@@ -34,6 +49,7 @@ All notable SAPES changes are recorded here.
 - Protected requests now resolve current account status and role from MongoDB.
 - Administrator account editing now persists supported role and status changes.
 - Student provisioning compensates for profile-creation failures.
+- Personal-information forms now use consistent select controls for sex, civil status, and blood type, and support suffix, dual citizenship, height, and weight.
 - `Student.userId` now enforces a unique one-to-one account relationship.
 
 ### Security
