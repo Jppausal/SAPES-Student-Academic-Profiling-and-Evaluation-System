@@ -28,7 +28,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [studentNumber, setStudentNumber] = useState('');
   const [facultyId, setFacultyId] = useState('');
   const [department, setDepartment] = useState('College of Computer Studies');
-  const [isActive, setIsActive] = useState(true);
+  const [accountStatus, setAccountStatus] = useState<'active' | 'inactive' | 'suspended'>('active');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -43,7 +43,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       setStudentNumber(userToEdit.studentNumber || '');
       setFacultyId(userToEdit.facultyId || userToEdit.employeeId || '');
       setDepartment(userToEdit.department);
-      setIsActive(userToEdit.isActive);
+      setAccountStatus(userToEdit.accountStatus || (userToEdit.isActive ? 'active' : 'inactive'));
     } else {
       // Default new user state
       setUsername('');
@@ -54,7 +54,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       setStudentNumber('');
       setFacultyId('');
       setDepartment('College of Computer Studies');
-      setIsActive(true);
+      setAccountStatus('active');
       setPassword('');
     }
     setError('');
@@ -76,7 +76,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     setError('');
     try {
       if (!userToEdit) {
-        await createUserAccount({ username: role === 'student' ? derivedStudentId : username, password, role, accountStatus: isActive ? 'active' : 'inactive', firstName, lastName, email, studentNumber: role === 'student' ? derivedStudentId : '', employeeId: facultyId, department });
+        await createUserAccount({ username: role === 'student' ? derivedStudentId : username, password, role, accountStatus, firstName, lastName, email, studentNumber: role === 'student' ? derivedStudentId : '', employeeId: facultyId, department });
       } else {
         await saveUserAccount(userToEdit.id, {
           username: role === 'student' ? derivedStudentId : username,
@@ -87,7 +87,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           studentNumber: role === 'student' ? derivedStudentId : '',
           employeeId: facultyId,
           department,
-          accountStatus: isActive ? 'active' : 'inactive',
+          accountStatus,
           ...(password ? { password } : {}),
         });
       }
@@ -298,19 +298,54 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           </p>
         )}
 
-        {/* Account Active Toggle (Deactivation Requirement) */}
-        <div className="admin-account-toggle">
-          <label className="cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded"
-            />
-            <span>Account Active & Authorized for Login</span>
+        {/* Account Status Selection */}
+        <div>
+          <label className="admin-control-label">
+            Account Status & Access Tier <span className="text-rose-500">*</span>
           </label>
-          <p className="text-[11px] text-slate-500 pl-6 mt-0.5">
-            Unchecking will immediately deactivate user access to the system.
+          <div className="mt-1 flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+              <input
+                type="radio"
+                name="accountStatus"
+                value="active"
+                checked={accountStatus === 'active'}
+                onChange={() => setAccountStatus('active')}
+                className="w-4 h-4 text-emerald-600"
+              />
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Active
+              </span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+              <input
+                type="radio"
+                name="accountStatus"
+                value="inactive"
+                checked={accountStatus === 'inactive'}
+                onChange={() => setAccountStatus('inactive')}
+                className="w-4 h-4 text-slate-600"
+              />
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-slate-400"></span> Inactive
+              </span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+              <input
+                type="radio"
+                name="accountStatus"
+                value="suspended"
+                checked={accountStatus === 'suspended'}
+                onChange={() => setAccountStatus('suspended')}
+                className="w-4 h-4 text-amber-600"
+              />
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span> Suspended
+              </span>
+            </label>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">
+            Inactive and Suspended accounts are immediately prohibited from logging into the portal.
           </p>
         </div>
       </form>

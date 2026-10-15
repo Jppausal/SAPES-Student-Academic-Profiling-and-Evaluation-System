@@ -142,3 +142,56 @@ test('student classification edits reject restricted configuration and malformed
     assert.ok(validateAndNormalizeStudentProfile({ classification: { isShifter: true }, [field]: 'forged' }).error);
   }
 });
+
+test('T108: permits updating personal, contact, religion, and shifter/transferee flags while rejecting all protected and system-controlled fields', () => {
+  const updatePayload = {
+    personalInformation: {
+      firstName: 'Maria',
+      civilStatus: 'Single'
+    },
+    contactInformation: {
+      mobileNumber: '09181234567'
+    },
+    religiousInformation: {
+      religion: 'Protestant / Other Christian'
+    },
+    classification: {
+      isShifter: true,
+      isTransferee: false
+    }
+  };
+
+  const normalized = validateAndNormalizeStudentProfile(updatePayload);
+  assert.equal(normalized.error, undefined);
+  assert.equal(normalized.value.personalInformation.firstName, 'Maria');
+  assert.equal(normalized.value.personalInformation.civilStatus, 'Single');
+  assert.equal(normalized.value.contactInformation.mobileNumber, '09181234567');
+  assert.equal(normalized.value.religiousInformation.religion, 'Protestant / Other Christian');
+  assert.equal(normalized.value.classification.isShifter, true);
+  assert.equal(normalized.value.classification.isTransferee, false);
+
+  const protectedFields = [
+    'userId',
+    'institutionId',
+    'role',
+    'grades',
+    'academicRecord',
+    'academicRecords',
+    'GWA',
+    'academicStatus',
+    'createdAt',
+    'updatedAt',
+    'timestamps'
+  ];
+
+  for (const field of protectedFields) {
+    const rejected = validateAndNormalizeStudentProfile({ [field]: 'unauthorized' });
+    assert.ok(rejected.error, `Expected ${field} to be rejected`);
+    assert.match(rejected.error, /system-controlled or not editable/);
+  }
+
+  assert.ok(validateAndNormalizeStudentProfile({ classification: { program: 'Bachelor of Information Technology' } }).error);
+  assert.ok(validateAndNormalizeStudentProfile({ classification: { studentType: 'Regular' } }).error);
+  assert.ok(validateAndNormalizeStudentProfile({ contactInformation: { institutionalEmail: 'tampered@student.buksu.edu.ph' } }).error);
+  assert.ok(validateAndNormalizeStudentProfile({ enrollmentInformation: { course: 'BSIT' } }).error);
+});

@@ -38,14 +38,24 @@ const toSafeUser = (user) => ({
 const syncStudentIdentity = async (user) => {
   if (user.role !== 'student') return;
 
-  const student = await Student.findOne({ userId: user._id });
+  let student = await Student.findOne({ userId: user._id });
+  if (!student && (user.studentNumber || user.username)) {
+    student = await Student.findOne({ institutionId: user.studentNumber || user.username });
+  }
   if (!student) return;
 
   student.accountStatus = user.accountStatus;
-  student.personalInformation.firstName = user.firstName || student.personalInformation.firstName;
-  student.personalInformation.lastName = user.lastName || student.personalInformation.lastName;
+  if (!student.userId && user._id) {
+    student.userId = user._id;
+  }
+  student.personalInformation = student.personalInformation || {};
+  if (user.firstName) student.personalInformation.firstName = user.firstName;
+  if (user.lastName) student.personalInformation.lastName = user.lastName;
   student.contactInformation = student.contactInformation || {};
-  student.contactInformation.institutionalEmail = user.email || student.contactInformation.institutionalEmail;
+  if (user.email) {
+    student.email = user.email;
+    student.contactInformation.institutionalEmail = user.email;
+  }
   await student.save();
 };
 
@@ -559,7 +569,13 @@ router.put(
       await user.save();
 
       if (user.role === 'student') {
-        await Student.updateOne({ userId: user._id }, { $set: { accountStatus: user.accountStatus } });
+        const updateResult = await Student.updateOne({ userId: user._id }, { $set: { accountStatus: user.accountStatus } });
+        if (updateResult?.matchedCount === 0 && (user.studentNumber || user.username)) {
+          await Student.updateOne(
+            { institutionId: user.studentNumber || user.username },
+            { $set: { accountStatus: user.accountStatus, userId: user._id } }
+          );
+        }
       }
 
       if (accountStatus !== 'active') {

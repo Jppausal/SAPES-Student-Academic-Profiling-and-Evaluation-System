@@ -650,6 +650,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           employeeId: item.employeeId || local?.employeeId,
           department: item.department || local?.department || '',
           isActive: item.accountStatus === 'active',
+          accountStatus: item.accountStatus,
           createdAt: item.createdAt || local?.createdAt || new Date().toISOString(),
         };
       });

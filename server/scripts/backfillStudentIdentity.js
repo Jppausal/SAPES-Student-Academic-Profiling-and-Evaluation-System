@@ -50,8 +50,9 @@ async function backfillStudentIdentity({ apply = false } = {}) {
 if (require.main === module) {
   require('dotenv').config({ path: path.join(__dirname, '../.env'), quiet: true });
   (async () => {
-    if (!process.env.MONGO_URI) throw new Error('MONGO_URI is required');
-    await mongoose.connect(process.env.MONGO_URI);
+    const uri = process.env.ATLAS_URI || process.env.MONGO_URI;
+    if (!uri) throw new Error('Database URI is required');
+    await mongoose.connect(uri);
     console.log(JSON.stringify(await backfillStudentIdentity({ apply: process.argv.includes('--apply') })));
   })().catch(() => {
     console.error('Student identity backfill failed; no credentials or student data are logged.');

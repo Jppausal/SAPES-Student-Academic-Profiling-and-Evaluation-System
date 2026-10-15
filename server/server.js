@@ -34,21 +34,38 @@ app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
 
 const connectDB = async () => {
-  try {
-    console.log('Attempting to connect to primary MongoDB (Atlas)...');
-    // It will first try to connect using ATLAS_URI
-    await mongoose.connect(process.env.ATLAS_URI);
-    console.log('Successfully connected to MongoDB Atlas');
-  } catch (err) {
-    console.log('Atlas connection failed. Falling back to local MongoDB...');
+  const fallbackUri = process.env.LOCAL_MONGO_URI || (process.env.ATLAS_URI ? process.env.MONGO_URI : null);
+
+  if (process.env.ATLAS_URI) {
     try {
-      // If Atlas fails, it falls back to LOCAL_MONGO_URI
-      await mongoose.connect(process.env.LOCAL_MONGO_URI);
-      console.log('Successfully connected to local MongoDB');
-    } catch (localErr) {
-      console.error('Failed to connect to both Atlas and local databases:', localErr);
+      console.log('Attempting to connect to primary MongoDB (Atlas)...');
+      await mongoose.connect(process.env.ATLAS_URI, { serverSelectionTimeoutMS: 5000 });
+      console.log(`Successfully connected to MongoDB Atlas (Database: ${mongoose.connection.name})`);
+      return;
+    } catch (err) {
+      console.log(`Atlas connection failed (${err.message}). Falling back to local MongoDB...`);
     }
   }
+
+  if (fallbackUri) {
+    try {
+      await mongoose.connect(fallbackUri, { serverSelectionTimeoutMS: 5000 });
+      console.log(`Successfully connected to local MongoDB (Database: ${mongoose.connection.name})`);
+      return;
+    } catch (localErr) {
+      console.error('Failed to connect to local database:', localErr.message);
+    }
+  } else if (process.env.MONGO_URI) {
+    try {
+      await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+      console.log(`Successfully connected to MongoDB (Database: ${mongoose.connection.name})`);
+      return;
+    } catch (mongoErr) {
+      console.error('Failed to connect to MongoDB:', mongoErr.message);
+    }
+  }
+
+  console.error('No valid database connection could be established.');
 };
 connectDB();
 
