@@ -32,7 +32,7 @@ export const StudentAcademicRecordView: React.FC = () => {
   const gradeDesc = getGradeQualityDescription(a.majorSubjectGWA);
 
   const majorSubjects = a.subjects.filter((s) => s.isMajor);
-  const generalSubjects = a.subjects.filter((s) => !s.isMajor);
+  const nonMajorSubjects = a.subjects.filter((s) => !s.isMajor);
 
   return (
     <div className="space-y-6">
@@ -216,21 +216,21 @@ export const StudentAcademicRecordView: React.FC = () => {
         </div>
       </div>
 
-      {/* General Education / Non-Major Subjects Table */}
-      {generalSubjects.length > 0 && (
+      {/* Non-major subjects table */}
+      {nonMajorSubjects.length > 0 && (
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-slate-600" />
-                General Education & Institutional Electives
+                Non-major Subjects
               </h2>
               <p className="text-xs text-slate-500">
                 Included in Overall GWA calculation.
               </p>
             </div>
             <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-              {generalSubjects.length} Courses
+              {nonMajorSubjects.length} Courses
             </span>
           </div>
 
@@ -247,7 +247,7 @@ export const StudentAcademicRecordView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {generalSubjects.map((s) => (
+                {nonMajorSubjects.map((s) => (
                   <tr key={s.code} className="hover:bg-slate-50/50">
                     <td className="py-3 px-3 font-mono font-bold text-slate-900">
                       {s.code}

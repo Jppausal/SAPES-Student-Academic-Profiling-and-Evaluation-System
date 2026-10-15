@@ -18,4 +18,9 @@ const calculateMajorSubjectGwa = (academicRecords) => {
     ).toFixed(2));
 };
 
-module.exports = { calculateMajorSubjectGwa };
+const withMajorSubjectGwa = (academicRecords) => academicRecords.map((record) => ({
+  ...record,
+  majorSubjectGwa: calculateMajorSubjectGwa([record])
+}));
+
+module.exports = { calculateMajorSubjectGwa, withMajorSubjectGwa };

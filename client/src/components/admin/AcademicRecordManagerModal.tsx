@@ -361,9 +361,9 @@ export const AcademicRecordManagerModal: React.FC<AcademicRecordManagerModalProp
                             ? 'bg-indigo-600 text-white shadow-2xs'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
-                        title="Click to toggle Major vs GE subject for auto-computed GWA"
+                        title="Click to toggle Major vs Non-major subject for auto-computed GWA"
                       >
-                        {s.isMajor ? '★ Major (Factor in GWA)' : 'General Ed'}
+                        {s.isMajor ? '★ Major (Factor in GWA)' : 'Non-major'}
                       </button>
                     </td>
                     <td className="p-2.5 text-center font-mono">{s.units}</td>

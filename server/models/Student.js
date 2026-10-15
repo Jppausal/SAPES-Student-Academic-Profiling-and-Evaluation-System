@@ -79,9 +79,7 @@ const studentSchema = new mongoose.Schema(
         trim: true
       },
 
-      middleName: {
-        type: String,
-        trim: true
+      middleName: { 
       },
 
       lastName: {

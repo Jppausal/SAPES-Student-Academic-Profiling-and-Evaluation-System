@@ -6,7 +6,7 @@ const AuditLog = require('../models/AuditLog');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const authorizePermission = require('../middleware/permissionMiddleware').authorizePermission;
-const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
+const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
 const { calculateCourseMetrics, validateCourseEvaluation } = require('../utils/courseEvaluation');
 
 const router = express.Router();
@@ -154,7 +154,7 @@ router.get(
             section: student.section || 'Unassigned',
             enrollmentStatus: student.enrollmentStatus || 'not_enrolled'
           },
-          academicRecords,
+          academicRecords: withMajorSubjectGwa(academicRecords),
           majorSubjectGwa: calculateMajorSubjectGwa(academicRecords),
           courseEvaluation: progress || {
             academicYear: '2026-2027',

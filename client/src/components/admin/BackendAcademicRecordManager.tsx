@@ -121,6 +121,9 @@ export const BackendAcademicRecordManager: React.FC = () => {
       .filter(Boolean)
       .join(' ')
     : '';
+  const selectedPeriodLabel = record.academicYear && record.semester
+    ? `${record.academicYear} · ${record.semester}`
+    : 'No saved period selected';
 
   return (
     <div className="space-y-5">
@@ -151,9 +154,17 @@ export const BackendAcademicRecordManager: React.FC = () => {
               <p className="font-mono text-xs text-slate-500">{report.student.institutionId}</p>
               <p className="mt-2 text-sm text-slate-600">Current status: <strong>{report.student.academicStatus?.currentStatus || 'Not recorded'}</strong></p>
             </div>
-            <div className="rounded-xl bg-slate-900 px-5 py-3 text-white">
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">Major-subject GWA</p>
-              <p className="text-2xl font-black">{report.majorSubjectGwa.toFixed(2)}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-xl bg-indigo-700 px-5 py-3 text-white">
+                <p className="text-[10px] uppercase tracking-wider text-indigo-200">Selected-period major GWA</p>
+                <p className="text-2xl font-black">{record.majorSubjectGwa === undefined ? '—' : record.majorSubjectGwa.toFixed(2)}</p>
+                <p className="mt-1 text-[10px] text-indigo-100">{selectedPeriodLabel}</p>
+              </div>
+              <div className="rounded-xl bg-slate-900 px-5 py-3 text-white">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Cumulative major GWA</p>
+                <p className="text-2xl font-black">{report.majorSubjectGwa.toFixed(2)}</p>
+                <p className="mt-1 text-[10px] text-slate-300">All recorded periods</p>
+              </div>
             </div>
           </section>
 
