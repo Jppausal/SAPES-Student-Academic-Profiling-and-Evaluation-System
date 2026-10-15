@@ -3,6 +3,20 @@ const assert = require('node:assert/strict');
 
 const { calculateMajorSubjectGwa } = require('../utils/academicCalculations');
 const { STUDENT_TEST_RECORDS } = require('../scripts/seedStudentTestAcademicRecords');
+const { DEMO_ACADEMIC_RECORD, DEMO_INSTITUTION_ID } = require('../scripts/seedStudentAcademicDemoRecord');
+
+test('screenshot student demo record contains nine fictional BSIT subjects', () => {
+  assert.equal(DEMO_INSTITUTION_ID, '2021301234');
+  assert.equal(DEMO_ACADEMIC_RECORD.subjects.length, 9);
+  assert.equal(DEMO_ACADEMIC_RECORD.subjects.filter((subject) => !subject.isMajor).length, 2);
+  assert.equal(DEMO_ACADEMIC_RECORD.subjects.filter((subject) => subject.isMajor).length, 7);
+  assert.ok(DEMO_ACADEMIC_RECORD.subjects.some((subject) =>
+    subject.subjectCode === 'IT 301' && subject.isMajor
+  ));
+  assert.ok(DEMO_ACADEMIC_RECORD.subjects.some((subject) =>
+    subject.subjectCode === 'IT 302' && subject.isMajor
+  ));
+});
 
 test('student.test seed contains distinct required 2025-2026 periods', () => {
   const first = STUDENT_TEST_RECORDS.find((record) =>

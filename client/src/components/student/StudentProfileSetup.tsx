@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AddressSelector } from './AddressSelector';
 import {
   StudentIdentity,
@@ -25,6 +25,7 @@ const formatAddress = (addr?: {
   line1?: string;
   barangay?: string;
   cityMunicipality?: string;
+  municipality?: string;
   city?: string;
   province?: string;
   region?: string;
@@ -35,7 +36,7 @@ const formatAddress = (addr?: {
   const parts = [
     addr.line1,
     addr.barangay,
-    addr.cityMunicipality || addr.city,
+    addr.cityMunicipality || addr.municipality || addr.city,
     addr.province,
     addr.region,
     addr.postalCode,
@@ -45,9 +46,9 @@ const formatAddress = (addr?: {
 };
 
 const ReviewField: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) => (
-  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-    <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</dt>
-    <dd className="mt-1 text-sm font-semibold text-slate-800 break-words">{value || 'Not provided'}</dd>
+  <div className="student-review-field">
+    <dt>{label}</dt>
+    <dd>{value ?? 'Not provided'}</dd>
   </div>
 );
 
@@ -57,14 +58,17 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   onSaved,
 }) => {
   const [profile, setProfile] = useState<StudentProfileUpdate>(emptyProfile);
+  const [savedProfile, setSavedProfile] = useState<StudentProfileUpdate>(emptyProfile);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isOtherReligion, setIsOtherReligion] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const isDirty = JSON.stringify(profile) !== JSON.stringify(savedProfile);
 
   useEffect(() => {
-    setProfile({
+    const nextProfile: StudentProfileUpdate = {
       classification: {
         isShifter: Boolean(identity.classification?.isShifter),
         isTransferee: Boolean(identity.classification?.isTransferee),
@@ -82,10 +86,25 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       educationalBackground: { ...identity.educationalBackground },
       addresses: { presentAddress: { ...identity.addresses?.presentAddress }, homeAddress: { ...identity.addresses?.homeAddress } },
       healthInformation: { ...identity.healthInformation },
-    });
+    };
+    setProfile(nextProfile);
+    setSavedProfile(nextProfile);
     setIsOtherReligion(false);
     setIsReviewing(false);
   }, [identity]);
+
+  useEffect(() => {
+    if (!isReviewing) return;
+    cancelButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) {
+        setProfile(savedProfile);
+        setIsReviewing(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isReviewing, savedProfile, saving]);
 
   const setPersonal = (field: keyof NonNullable<StudentProfileUpdate['personalInformation']>, value: string | boolean) => {
     setProfile((current) => ({
@@ -119,7 +138,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const setActivities = (spiritualActivities: Array<{ dayOfWeek: string; startTime: string; endTime: string }>) =>
     setProfile((current) => ({ ...current, religiousInformation: { ...current.religiousInformation, spiritualActivities } }));
 
-  const handleReview = (event: React.FormEvent) => {
+  const handleReview = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage('');
     setError('');
@@ -140,6 +159,13 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleCancelChanges = () => {
+    setProfile(savedProfile);
+    setMessage('');
+    setError('');
+    setIsReviewing(false);
+  };
+
   const handleConfirmSave = async () => {
     setSaving(true);
     setMessage('');
@@ -150,6 +176,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       )) as StudentProfileUpdate;
       const updatedIdentity = await updateMyStudentProfile(payload);
       onSaved(updatedIdentity);
+      setSavedProfile(profile);
       setMessage('Your student profile was saved successfully.');
       setIsReviewing(false);
     } catch (requestError) {
@@ -161,6 +188,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
 
   const personal = profile.personalInformation || {};
   const enrollment = identity.enrollmentInformation || {};
+  const academicStatus = identity.academicStatus || {};
   const contact = profile.contactInformation || {};
   const education = profile.educationalBackground || {};
   const health = profile.healthInformation || {};
@@ -170,9 +198,22 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const assignedProgram = enrollment.course || identity.classification?.program || '';
   const assignedProgramLabel = TECHNOLOGY_PROGRAMS.find((program) => program.value === assignedProgram)?.label || assignedProgram;
   const institutionalEmail = identity.contactInformation?.institutionalEmail || '';
+  const changedSections = Object.keys(profile).filter((section) =>
+    JSON.stringify(profile[section as keyof StudentProfileUpdate])
+      !== JSON.stringify(savedProfile[section as keyof StudentProfileUpdate])
+  );
+  const sectionLabels: Record<string, string> = {
+    personalInformation: 'Personal information',
+    classification: 'Student classifications',
+    contactInformation: 'Contact information',
+    educationalBackground: 'Educational background',
+    healthInformation: 'Health information',
+    addresses: 'Addresses',
+    religiousInformation: 'Religious information',
+  };
 
   return (
-    <div className="student-profile-layout">
+    <div className={`student-profile-layout${isReviewing ? ' student-profile-layout-reviewing' : ''}`}>
       <nav className="student-profile-index" aria-label="Profile sections">
         <p>{isReviewing ? 'Review sections' : 'In your profile'}</p>
         <a href={isReviewing ? '#review-personal' : '#student-personal'}>Personal information</a>
@@ -485,10 +526,172 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
 
           <div className="student-save-row">
             <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white">
-              Review profile
+              {isDirty ? 'Confirm changes?' : 'Review'}
             </button>
           </div>
         </form>
+      )}
+      {isReviewing && (
+        <div className="student-review-overlay">
+          <section
+            aria-labelledby="student-review-dialog-title"
+            aria-modal="true"
+            className="student-review-dialog"
+            role="dialog"
+          >
+            <header className="student-review-header">
+              <h2 id="student-review-dialog-title">Review your profile</h2>
+              <p className="student-review-intro">Review all profile details before saving your changes.</p>
+            </header>
+            <div className="student-review-content">
+              {error && <p role="alert" className="student-review-error">{error}</p>}
+              <section className="student-review-section" aria-labelledby="review-changed-heading">
+                <h3 id="review-changed-heading">Sections changed</h3>
+                <p>{changedSections.length ? changedSections.map((section) => sectionLabels[section] || section).join(', ') : 'No unsaved changes'}</p>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-personal-heading">
+                <h3 id="review-personal-heading">Personal information</h3>
+                <dl>
+                  <ReviewField label="Institution ID" value={identity.institutionId} />
+                  <ReviewField label="First name" value={personal.firstName} />
+                  <ReviewField label="Middle name" value={personal.middleName} />
+                  <ReviewField label="Last name" value={personal.lastName} />
+                  <ReviewField label="Suffix" value={personal.suffix} />
+                  <ReviewField label="Birth date" value={personal.birthDate ? String(personal.birthDate).slice(0, 10) : undefined} />
+                  <ReviewField label="Birth place" value={personal.birthPlace} />
+                  <ReviewField label="Sex" value={personal.sex} />
+                  <ReviewField label="Civil status" value={personal.civilStatus} />
+                  <ReviewField label="Nationality" value={personal.nationality} />
+                  <ReviewField label="Citizenship" value={personal.citizenship} />
+                  <ReviewField label="Foreign national" value={personal.isForeigner ? 'Yes' : 'No'} />
+                  <ReviewField label="Dual citizenship" value={personal.dualCitizenship} />
+                  <ReviewField label="Blood type" value={personal.bloodType} />
+                  <ReviewField label="Height" value={personal.height} />
+                  <ReviewField label="Weight" value={personal.weight} />
+                </dl>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-classification-heading">
+                <h3 id="review-classification-heading">Student classifications</h3>
+                <dl>
+                  <ReviewField label="Shifter" value={profile.classification?.isShifter ? 'Yes' : 'No'} />
+                  <ReviewField label="Transferee" value={profile.classification?.isTransferee ? 'Yes' : 'No'} />
+                  <ReviewField label="Indigenous Peoples (IP)" value={profile.classification?.isIP ? 'Yes' : 'No'} />
+                  <ReviewField label="Person with Disability (PWD)" value={profile.classification?.isPWD ? 'Yes' : 'No'} />
+                </dl>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-enrollment-heading">
+                <h3 id="review-enrollment-heading">Enrollment and academic standing</h3>
+                <dl>
+                  <ReviewField label="Degree program" value={assignedProgramLabel} />
+                  <ReviewField label="Curriculum" value={enrollment.curriculum} />
+                  <ReviewField label="Year level" value={enrollment.yearLevel || enrollment.level} />
+                  <ReviewField label="Department" value={enrollment.department} />
+                  <ReviewField label="Academic status" value={academicStatus.currentStatus} />
+                  <ReviewField label="On probation" value={academicStatus.isOnProbation ? 'Yes' : 'No'} />
+                  <ReviewField label="Probation reason" value={academicStatus.probationReason} />
+                  <ReviewField label="Status remarks" value={academicStatus.statusRemarks} />
+                  <ReviewField label="Status effective date" value={academicStatus.effectiveDate ? String(academicStatus.effectiveDate).slice(0, 10) : undefined} />
+                </dl>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-contact-heading">
+                <h3 id="review-contact-heading">Contact information</h3>
+                <dl>
+                  <ReviewField label="Institutional email" value={institutionalEmail || 'Not linked to this account'} />
+                  <ReviewField label="Primary mobile number" value={contact.mobileNumber} />
+                  <ReviewField label="Alternate mobile number" value={contact.alternateMobileNumber} />
+                  <ReviewField label="Telephone number" value={contact.telephoneNumber} />
+                  <ReviewField label="Alternate email" value={contact.alternateEmail} />
+                </dl>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-education-heading">
+                <h3 id="review-education-heading">Educational background</h3>
+                <dl>
+                  <ReviewField label="Senior high school" value={education.seniorHigh} />
+                  <ReviewField label="Previous college or university" value={education.previousSchool} />
+                </dl>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-health-heading">
+                <h3 id="review-health-heading">Health accommodations</h3>
+                <dl>
+                  <ReviewField label="Relevant health concern" value={health.hasRelevantHealthConcern ? 'Yes' : 'No'} />
+                  <ReviewField label="Conditions" value={health.conditions?.length ? health.conditions.join(', ') : 'None'} />
+                  <ReviewField label="Other condition" value={health.otherCondition} />
+                  <ReviewField label="Allergy details" value={health.allergyDetails} />
+                  <ReviewField label="Accommodation required" value={health.accommodationRequired ? 'Yes' : 'No'} />
+                  <ReviewField label="Accommodation notes" value={health.accommodationNotes} />
+                  <ReviewField label="Private condition description" value={health.conditionDescription} />
+                  <ReviewField label="Emergency contact name" value={health.emergencyContactName} />
+                  <ReviewField label="Emergency contact number" value={health.emergencyContactNumber} />
+                </dl>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-address-heading">
+                <h3 id="review-address-heading">Addresses</h3>
+                <h4>Present address</h4>
+                <dl>
+                  <ReviewField label="Street" value={addresses.presentAddress?.street} />
+                  <ReviewField label="Barangay" value={addresses.presentAddress?.barangay} />
+                  <ReviewField label="Municipality / City" value={addresses.presentAddress?.municipality || addresses.presentAddress?.cityMunicipality || addresses.presentAddress?.city} />
+                  <ReviewField label="Province" value={addresses.presentAddress?.province} />
+                  <ReviewField label="Region" value={addresses.presentAddress?.region} />
+                  <ReviewField label="Country" value={addresses.presentAddress?.country} />
+                  <ReviewField label="ZIP code" value={addresses.presentAddress?.zipCode || addresses.presentAddress?.postalCode} />
+                </dl>
+                <h4>Home address</h4>
+                <dl>
+                  <ReviewField label="Street" value={addresses.homeAddress?.street} />
+                  <ReviewField label="Barangay" value={addresses.homeAddress?.barangay} />
+                  <ReviewField label="Municipality / City" value={addresses.homeAddress?.municipality || addresses.homeAddress?.cityMunicipality || addresses.homeAddress?.city} />
+                  <ReviewField label="Province" value={addresses.homeAddress?.province} />
+                  <ReviewField label="Region" value={addresses.homeAddress?.region} />
+                  <ReviewField label="Country" value={addresses.homeAddress?.country} />
+                  <ReviewField label="ZIP code" value={addresses.homeAddress?.zipCode || addresses.homeAddress?.postalCode} />
+                </dl>
+              </section>
+
+              <section className="student-review-section" aria-labelledby="review-religion-heading">
+                <h3 id="review-religion-heading">Religious information</h3>
+                <dl>
+                  <ReviewField label="Religion or affiliation" value={religion || 'None / Not specified'} />
+                  <ReviewField label="Share recurring unavailable times" value={profile.religiousInformation?.shareSpiritualSchedule ? 'Yes' : 'No'} />
+                  <ReviewField
+                    label="Unavailable times"
+                    value={
+                      (profile.religiousInformation?.spiritualActivities || []).length
+                        ? profile.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek}, ${activity.startTime} to ${activity.endTime}`).join('; ')
+                        : 'None scheduled'
+                    }
+                  />
+                </dl>
+              </section>
+            </div>
+            <div className="student-review-actions">
+              <button
+                ref={cancelButtonRef}
+                className="student-review-cancel"
+                disabled={saving}
+                onClick={handleCancelChanges}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="student-review-confirm"
+                disabled={!isDirty || saving}
+                onClick={() => void handleConfirmSave()}
+                type="button"
+              >
+                {saving ? 'Saving...' : 'Confirm and save'}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

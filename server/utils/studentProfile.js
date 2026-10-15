@@ -164,7 +164,7 @@ const validateAndNormalizeStudentProfile = (body, {
     for (const addressName of Object.keys(addresses)) {
       const address = addresses[addressName];
       if (!address || typeof address !== 'object' || Array.isArray(address)) return { error: `addresses.${addressName} must be an object` };
-      const allowedFields = ['street', 'barangay', 'municipality', 'province', 'country', 'zipCode'];
+      const allowedFields = ['street', 'barangay', 'municipality', 'province', 'region', 'country', 'zipCode'];
       const unsupportedField = Object.keys(address).find((field) => !allowedFields.includes(field));
       if (unsupportedField) return { error: `addresses.${addressName}.${unsupportedField} is not editable` };
       normalized.addresses[addressName] = {};

@@ -95,7 +95,7 @@ test('normalizes expanded student context while keeping identifiers protected', 
   const result = validateAndNormalizeStudentProfile({
     enrollmentInformation: { course: ' BSIT ', curriculum: '2024-2025 BSIT' },
     contactInformation: { institutionalEmail: ' student@buksu.edu.ph ' },
-    addresses: { presentAddress: { barangay: ' Malaybalay ', province: ' Bukidnon ', country: ' Philippines ', zipCode: '8700' } },
+    addresses: { presentAddress: { barangay: ' Malaybalay ', municipality: ' Malaybalay City ', province: ' Bukidnon ', region: ' Northern Mindanao ', country: ' Philippines ', zipCode: '8700' } },
     educationalBackground: { seniorHigh: ' BukSU Integrated School ' },
     healthInformation: { hasRelevantHealthConcern: true, accommodationRequired: true, accommodationNotes: 'Accessible seating' }
   }, { allowEnrollmentInformation: true, allowInstitutionalContact: true });
@@ -104,6 +104,9 @@ test('normalizes expanded student context while keeping identifiers protected', 
   assert.equal(result.value.enrollmentInformation.course, 'BSIT');
   assert.equal(result.value.contactInformation.institutionalEmail, 'student@buksu.edu.ph');
   assert.equal(result.value.addresses.presentAddress.barangay, 'Malaybalay');
+  assert.equal(result.value.addresses.presentAddress.municipality, 'Malaybalay City');
+  assert.equal(result.value.addresses.presentAddress.province, 'Bukidnon');
+  assert.equal(result.value.addresses.presentAddress.region, 'Northern Mindanao');
   assert.equal(result.value.addresses.presentAddress.country, 'Philippines');
   assert.equal(result.value.healthInformation.accommodationRequired, true);
 });

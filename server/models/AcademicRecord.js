@@ -60,6 +60,11 @@ const academicRecordSchema = new mongoose.Schema(
       trim: true
     },
 
+    isDemo: {
+      type: Boolean,
+      default: false
+    },
+
     subjects: {
       type: [subjectSchema],
       required: true,

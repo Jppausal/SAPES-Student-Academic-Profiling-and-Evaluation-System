@@ -588,7 +588,7 @@ router.put(
       const { academicYear, semester, subjects } = academicRecordUpdate.value;
       const academicRecord = await AcademicRecord.findOneAndUpdate(
         { studentId: student._id, academicYear, semester },
-        { $set: { subjects } },
+        { $set: { subjects, isDemo: false } },
         {
           returnDocument: 'after',
           runValidators: true,
@@ -681,7 +681,7 @@ router.get(
       const [academicRecords, facultyEvaluation, statusHistory] = await Promise.all([
         AcademicRecord.find(
           { studentId },
-          { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
+          { _id: 0, academicYear: 1, semester: 1, subjects: 1, isDemo: 1 }
         ).sort({ academicYear: -1, semester: -1 }).lean(),
         FacultyEvaluation.findOne({ studentId })
           .sort({ evaluatedAt: -1 })

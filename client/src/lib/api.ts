@@ -201,6 +201,7 @@ export async function fetchCurrentSession() {
 export interface AcademicTermRecord {
   academicYear: string;
   semester: string;
+  isDemo?: boolean;
   subjects: AcademicSubject[];
   overallGwa?: number | null;
   majorSubjectGwa?: number | null;

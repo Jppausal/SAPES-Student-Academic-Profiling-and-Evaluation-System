@@ -167,8 +167,8 @@ const studentSchema = new mongoose.Schema(
     },
 
     addresses: {
-      presentAddress: { street: String, barangay: String, municipality: String, province: String, country: String, zipCode: String },
-      homeAddress: { street: String, barangay: String, municipality: String, province: String, country: String, zipCode: String }
+      presentAddress: { street: String, barangay: String, municipality: String, province: String, region: String, country: String, zipCode: String },
+      homeAddress: { street: String, barangay: String, municipality: String, province: String, region: String, country: String, zipCode: String }
     },
 
     educationalBackground: {
