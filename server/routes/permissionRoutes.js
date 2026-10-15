@@ -4,6 +4,7 @@ const AuditLog = require('../models/AuditLog');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { DEFAULT_PERMISSIONS } = require('../middleware/permissionMiddleware');
+const { getAccountModelName } = require('../utils/accountCollections');
 
 const router = express.Router();
 const roles = ['student', 'faculty', 'admin'];
@@ -63,6 +64,8 @@ router.put('/:role', ...requireAdmin, async (req, res) => {
 
     await AuditLog.create({
       userId: req.user.userId,
+      userRole: req.user.role,
+      userModel: getAccountModelName(req.user.role),
       action: 'ROLE_PERMISSIONS_UPDATED',
       targetType: 'role',
       details: { role, permissions: rolePermission.permissions }

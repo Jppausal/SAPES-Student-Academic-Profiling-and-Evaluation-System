@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-const User = require('../models/User');
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
@@ -103,29 +102,15 @@ const seedBsitCurriculumStudents = async () => {
     const results = [];
 
     for (const [studentIndex, fixture] of BSIT_TEST_STUDENTS.entries()) {
-      let user = await User.findOne({ username: fixture.username });
-      let userCreated = false;
-      if (!user) {
-        user = await User.create({
-          username: fixture.username,
-          passwordHash,
-          role: 'student',
-          accountStatus: 'active',
-          firstName: fixture.firstName,
-          lastName: fixture.lastName,
-          email: `${fixture.username}@example.test`,
-          studentNumber: fixture.institutionId
-        });
-        userCreated = true;
-      }
-      if (user.role !== 'student') throw new Error(`${fixture.username} exists with a non-student role`);
-
-      let student = await Student.findOne({ userId: user._id });
-      try {
-        if (!student) {
-          student = await Student.create({
-            userId: user._id,
+      let student = await Student.findOne({ institutionId: fixture.institutionId });
+      if (!student) {
+        student = await Student.create({
+            username: fixture.username,
             institutionId: fixture.institutionId,
+            passwordHash,
+            role: 'student',
+            accountStatus: 'active',
+            email: `${fixture.username}@student.buksu.edu.ph`,
             personalInformation: {
               firstName: fixture.firstName,
               lastName: fixture.lastName,
@@ -136,11 +121,7 @@ const seedBsitCurriculumStudents = async () => {
             classification: { studentType: 'regular' },
             religiousInformation: { religion: 'Not specified' },
             academicStatus: { currentStatus: 'regular', isOnProbation: false }
-          });
-        }
-      } catch (error) {
-        if (userCreated) await User.deleteOne({ _id: user._id });
-        throw error;
+        });
       }
       if (student.institutionId !== fixture.institutionId) {
         throw new Error(`${fixture.username} is linked to unexpected institution ID ${student.institutionId}`);

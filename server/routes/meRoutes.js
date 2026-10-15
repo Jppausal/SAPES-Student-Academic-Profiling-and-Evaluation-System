@@ -1,12 +1,12 @@
 const express = require('express');
 const Student = require('../models/Student');
-const User = require('../models/User');
 const AcademicRecord = require('../models/AcademicRecord');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
+const { getAccountModelName } = require('../utils/accountCollections');
 
 const router = express.Router();
 const studentAccountFilter = (userId) => ({
@@ -98,12 +98,10 @@ router.put(
       }
 
       await student.save();
-      await User.findByIdAndUpdate(req.user.userId, {
-        firstName,
-        lastName
-      });
       await require('../models/AuditLog').create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'STUDENT_PROFILE_UPDATED',
         targetType: 'student_profile',
         targetId: student._id,

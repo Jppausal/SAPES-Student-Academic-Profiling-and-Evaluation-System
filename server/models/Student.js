@@ -34,7 +34,23 @@ const studentSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       trim: true,
-      default: ''
+      default: '',
+      select: false
+    },
+
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true
+    },
+
+    passwordResetCodeHash: { type: String, select: false },
+    passwordResetExpiresAt: { type: Date, select: false },
+    passwordResetAttempts: { type: Number, default: 0, select: false },
+    passwordResetRequestedAt: { type: Date, select: false },
+    notificationPreferences: {
+      profileAndAcademicUpdates: { type: Boolean, default: true }
     },
 
     role: {
@@ -202,7 +218,7 @@ const studentSchema = new mongoose.Schema(
   },
   {
   timestamps: true,
-  collection: 'students'
+  collection: 'student users'
 }
 );
 

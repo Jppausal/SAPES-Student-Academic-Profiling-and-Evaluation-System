@@ -70,7 +70,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       if (!userToEdit) {
         await createUserAccount({ username: role === 'student' ? studentNumber : username, password, role, firstName, lastName, email, studentNumber, employeeId: facultyId, department });
       } else {
-        await saveUserAccount(userToEdit.id, {
+        await saveUserAccount(userToEdit.id, userToEdit.role, {
           username: role === 'student' ? studentNumber : username,
           role,
           firstName,
@@ -130,11 +130,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               <button
                 type="button"
                 key={r}
-                disabled={Boolean(
-                  userToEdit &&
-                  r !== userToEdit.role &&
-                  (r === 'student' || userToEdit.role === 'student')
-                )}
+                disabled={Boolean(userToEdit && r !== userToEdit.role)}
                 onClick={() => {
                   setRole(r);
                   if (r === 'student') setUsername(studentNumber);
@@ -214,7 +210,11 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
-              placeholder="user@university.edu.ph"
+              placeholder={role === 'student'
+                ? 'student@student.buksu.edu.ph'
+                : role === 'faculty'
+                  ? 'faculty@faculty.buksu.edu.ph'
+                  : 'admin@buksu.edu.ph'}
             />
           </div>
 

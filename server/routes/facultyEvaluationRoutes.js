@@ -2,12 +2,15 @@ const express = require('express');
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
 const CourseEvaluation = require('../models/CourseEvaluation');
+const FacultyEvaluation = require('../models/FacultyEvaluation');
+const StudentStatusHistory = require('../models/StudentStatusHistory');
 const AuditLog = require('../models/AuditLog');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const authorizePermission = require('../middleware/permissionMiddleware').authorizePermission;
 const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
 const { calculateCourseMetrics, validateCourseEvaluation } = require('../utils/courseEvaluation');
+const { getAccountModelName } = require('../utils/accountCollections');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -130,12 +133,20 @@ router.get(
       }).lean();
       if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
-      const [academicRecords, progress] = await Promise.all([
+      const [academicRecords, progress, facultyEvaluation, statusHistory] = await Promise.all([
         AcademicRecord.find({ studentId: student._id })
           .select('-_id academicYear semester subjects')
           .sort({ academicYear: -1, semester: -1 })
           .lean(),
-        CourseEvaluation.findOne({ studentId: student._id }).lean()
+        CourseEvaluation.findOne({ studentId: student._id }).lean(),
+        FacultyEvaluation.findOne({ studentId: student._id })
+          .sort({ evaluatedAt: -1 })
+          .select('-_id evaluationStatus reasons remarks evaluatedAt')
+          .lean(),
+        StudentStatusHistory.find({ studentId: student._id })
+          .select('-_id status reason effectiveDate remarks')
+          .sort({ effectiveDate: -1 })
+          .lean()
       ]);
       const { peerIds, progressRecords } = await getPeerProgress(student);
       const peerGrades = progressRecords.map((record) => calculateCourseMetrics(record).runningGrade);
@@ -147,15 +158,43 @@ router.get(
           student: {
             institutionId: student.institutionId,
             username: student.username || '',
-            personalInformation: student.personalInformation || {},
-            classification: student.classification || {},
+            personalInformation: {
+              firstName: student.personalInformation?.firstName || '',
+              middleName: student.personalInformation?.middleName || '',
+              lastName: student.personalInformation?.lastName || ''
+            },
+            classification: {
+              program: student.classification?.program || '',
+              studentType: student.classification?.studentType || '',
+              isIP: Boolean(student.classification?.isIP),
+              indigenousGroup: student.classification?.indigenousGroup || '',
+              isPWD: Boolean(student.classification?.isPWD),
+              isShifter: Boolean(student.classification?.isShifter),
+              isTransferee: Boolean(student.classification?.isTransferee)
+            },
+            enrollmentInformation: {
+              studentType: student.enrollmentInformation?.studentType || ''
+            },
+            religiousInformation: {
+              religion: student.religiousInformation?.religion || '',
+              shareSpiritualSchedule: Boolean(student.religiousInformation?.shareSpiritualSchedule),
+              spiritualActivities: student.religiousInformation?.shareSpiritualSchedule
+                ? student.religiousInformation.spiritualActivities || []
+                : []
+            },
+            healthInformation: {
+              accommodationRequired: Boolean(student.healthInformation?.accommodationRequired),
+              accommodationNotes: student.healthInformation?.accommodationNotes || ''
+            },
             academicStatus: getAcademicStatus(student),
-            yearLevel: student.yearLevel || null,
+            yearLevel: student.yearLevel || student.enrollmentInformation?.yearLevel || null,
             section: student.section || 'Unassigned',
             enrollmentStatus: student.enrollmentStatus || 'not_enrolled'
           },
           academicRecords: withMajorSubjectGwa(academicRecords),
           majorSubjectGwa: calculateMajorSubjectGwa(academicRecords),
+          facultyEvaluation,
+          statusHistory,
           courseEvaluation: progress || {
             academicYear: '2026-2027',
             semester: '1st Semester',
@@ -200,6 +239,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'COURSE_EVALUATION_UPDATED',
         targetType: 'course_evaluation',
         targetId: progress._id,

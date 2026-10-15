@@ -98,6 +98,11 @@ export async function confirmPasswordReset(resetAuthorization: string, newPasswo
   });
 }
 
+export async function completePasswordReset(username: string, code: string, newPassword: string) {
+  const { resetAuthorization } = await verifyPasswordReset(username, code);
+  return confirmPasswordReset(resetAuthorization, newPassword);
+}
+
 export async function fetchUsers() {
   const response = await request<{ success: true; data: { users: ApiUser[] } }>('/api/users?limit=100');
   return response.data.users;
@@ -121,9 +126,9 @@ export async function createUser(payload: {
   return response.data.user;
 }
 
-export async function updateUserStatus(userId: string, accountStatus: ApiUser['accountStatus']) {
+export async function updateUserStatus(userId: string, role: ApiUser['role'], accountStatus: ApiUser['accountStatus']) {
   const response = await request<{ success: true; data: { user: ApiUser } }>(
-    `/api/users/${encodeURIComponent(userId)}/status`,
+    `/api/users/${encodeURIComponent(userId)}/status?role=${encodeURIComponent(role)}`,
     {
       method: 'PUT',
       body: JSON.stringify({ accountStatus }),
@@ -132,7 +137,7 @@ export async function updateUserStatus(userId: string, accountStatus: ApiUser['a
   return response.data.user;
 }
 
-export async function updateUser(userId: string, payload: {
+export async function updateUser(userId: string, role: ApiUser['role'], payload: {
   username?: string;
   password?: string;
   role?: ApiUser['role'];
@@ -145,7 +150,7 @@ export async function updateUser(userId: string, payload: {
   department?: string;
 }) {
   const response = await request<{ success: true; data: { user: ApiUser } }>(
-    `/api/users/${encodeURIComponent(userId)}`,
+    `/api/users/${encodeURIComponent(userId)}?role=${encodeURIComponent(role)}`,
     { method: 'PUT', body: JSON.stringify(payload) }
   );
   return response.data.user;
@@ -328,24 +333,45 @@ export interface FacultyStudentWorkspace {
       firstName?: string;
       middleName?: string;
       lastName?: string;
-      email?: string;
-      sex?: string;
     };
     classification: {
       program?: string;
       studentType?: string;
       isIP?: boolean;
+      indigenousGroup?: string;
       isPWD?: boolean;
       isShifter?: boolean;
       isTransferee?: boolean;
     };
+    enrollmentInformation: { studentType?: string };
+    religiousInformation: {
+      religion: string;
+      shareSpiritualSchedule: boolean;
+      spiritualActivities: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
+    };
+    healthInformation: {
+      accommodationRequired: boolean;
+      accommodationNotes: string;
+    };
     academicStatus: { currentStatus: string; isOnProbation: boolean };
-    yearLevel: number | null;
+    yearLevel: number | string | null;
     section: string;
     enrollmentStatus: string;
   };
   academicRecords: AcademicTermRecord[];
   majorSubjectGwa: number;
+  facultyEvaluation: {
+    evaluationStatus: string;
+    reasons: string[];
+    remarks?: string;
+    evaluatedAt: string;
+  } | null;
+  statusHistory: Array<{
+    status: string;
+    reason?: string;
+    effectiveDate: string;
+    remarks?: string;
+  }>;
   courseEvaluation: CourseEvaluationProgress;
   metrics: CourseMetrics;
   peerCount: number;

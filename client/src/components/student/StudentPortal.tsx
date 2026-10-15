@@ -71,7 +71,7 @@ export const StudentPortal: React.FC = () => {
 
   const name = [identity.personalInformation?.firstName, identity.personalInformation?.middleName, identity.personalInformation?.lastName].filter(Boolean).join(' ');
   const program = identity.enrollmentInformation?.course || identity.classification?.program || 'Bachelor of Science in Information Technology';
-  const yearLevel = identity.classification?.yearLevel || '2nd Year';
+  const yearLevel = identity.enrollmentInformation?.yearLevel || '2nd Year';
 
   return (
     <div className="student-workspace">

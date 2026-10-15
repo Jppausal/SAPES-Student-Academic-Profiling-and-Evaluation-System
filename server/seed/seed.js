@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-const User = require('../models/User');
+const AdminUser = require('../models/AdminUser');
+const FacultyUser = require('../models/FacultyUser');
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
 const FacultyEvaluation = require('../models/FacultyEvaluation');
@@ -21,10 +22,11 @@ const seedDatabase = async () => {
 
     const passwordHash = await bcrypt.hash('Test1234!', 10);
 
-const admin = await User.findOneAndUpdate(
+const admin = await AdminUser.findOneAndUpdate(
   { username: 'admin.test' },
   {
     username: 'admin.test',
+    email: 'admin.test@buksu.edu.ph',
     passwordHash,
     role: 'admin',
     accountStatus: 'active'
@@ -36,10 +38,14 @@ const admin = await User.findOneAndUpdate(
   }
 );
 
-    const faculty = await User.findOneAndUpdate(
+    const faculty = await FacultyUser.findOneAndUpdate(
       { username: 'faculty.test' },
       {
         username: 'faculty.test',
+        email: 'faculty.test@faculty.buksu.edu.ph',
+        firstName: 'Kurt',
+        lastName: 'Santos',
+        employeeId: 'TEST-FACULTY-0001',
         passwordHash,
         role: 'faculty',
         accountStatus: 'active'
@@ -51,31 +57,19 @@ const admin = await User.findOneAndUpdate(
 }
     );
 
-    const studentUser = await User.findOneAndUpdate(
-      { username: 'student.test' },
-      {
-        username: 'student.test',
-        passwordHash,
-        role: 'student',
-        accountStatus: 'active'
-      },
-{
-  returnDocument: 'after',
-  upsert: true,
-  setDefaultsOnInsert: true
-}
-    );
-
     // --------------------------------------------------
-    // 2. Create test student
+    // 2. Create test student account and profile
     // --------------------------------------------------
 
     const student = await Student.findOneAndUpdate(
       { institutionId: 'TEST-0001' },
       {
-        userId: studentUser._id,
-
         institutionId: 'TEST-0001',
+        username: 'student.test',
+        email: 'student.test@student.buksu.edu.ph',
+        passwordHash,
+        role: 'student',
+        accountStatus: 'active',
 
         personalInformation: {
           firstName: 'Juan',
@@ -200,6 +194,7 @@ const admin = await User.findOneAndUpdate(
         reason: 'Initial development test status.',
         effectiveDate: new Date(),
         recordedBy: admin._id,
+        recordedByModel: 'AdminUser',
         remarks: 'Development test record.'
       });
     }
@@ -210,6 +205,8 @@ const admin = await User.findOneAndUpdate(
 
     await AuditLog.create({
       userId: admin._id,
+      userRole: 'admin',
+      userModel: 'AdminUser',
       action: 'SEED_TEST_DATA',
       targetType: 'system',
       targetId: null,

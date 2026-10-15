@@ -1,7 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
+const path = require('node:path');
+const dns = require('node:dns');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const studentRoutes = require('./routes/studentRoutes');
 const facultyEvaluationRoutes = require('./routes/facultyEvaluationRoutes');
@@ -33,12 +35,28 @@ app.use('/api/users', userRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error(err));
-
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`)
-);
+const startServer = async () => {
+  const mongoUri = process.env.MONGO_URI?.trim();
+  if (!mongoUri) {
+    throw new Error('MONGO_URI is required. Copy server/.env.example to server/.env and configure a MongoDB connection.');
+  }
+
+  const dnsServers = (process.env.MONGO_DNS_SERVERS || '')
+    .split(',')
+    .map((server) => server.trim())
+    .filter(Boolean);
+  if (dnsServers.length > 0) {
+    dns.setServers(dnsServers);
+  }
+
+  await mongoose.connect(mongoUri);
+  console.log('MongoDB connected');
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+};
+
+startServer().catch((error) => {
+  console.error(`Server startup failed: ${error.message}`);
+  process.exitCode = 1;
+});

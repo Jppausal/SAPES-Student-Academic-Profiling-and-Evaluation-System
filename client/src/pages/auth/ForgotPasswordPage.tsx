@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { confirmPasswordReset, requestPasswordReset } from '../../lib/api';
+import { completePasswordReset, requestPasswordReset } from '../../lib/api';
 
 export const ForgotPasswordPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [username, setUsername] = useState('');
@@ -11,7 +11,7 @@ export const ForgotPasswordPage: React.FC<{ onBack: () => void }> = ({ onBack })
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setError('');
     try {
-      const result = sent ? await confirmPasswordReset(username, code, password) : await requestPasswordReset(username);
+      const result = sent ? await completePasswordReset(username, code, password) : await requestPasswordReset(username);
       setMessage(result.message); setSent(true);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to process password reset'); }
   };

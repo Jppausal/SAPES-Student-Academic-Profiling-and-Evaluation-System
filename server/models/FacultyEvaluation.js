@@ -10,7 +10,7 @@ const facultyEvaluationSchema = new mongoose.Schema(
 
     facultyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'FacultyUser',
       required: true
     },
 

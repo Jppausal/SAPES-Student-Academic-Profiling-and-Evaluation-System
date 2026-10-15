@@ -1,0 +1,136 @@
+{
+  "planHash": "299a569c9f3c7970270b2f09b63c1745026794fd7eb3f508fb7880951e439713",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-10-15T08:27:22.9717091Z",
+  "retryCount": 1,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 0,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "client-build",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E sapes-student-academic-profiling-and-evaluation-system@1.0.0 build\r\n\u003E npm --prefix client run build\r\n\r\n\r\n\u003E seasms-client@0.0.0 build\r\n\u003E vite build\r\n\r\n\u001B[36mvite v6.4.3 \u001B[32mbuilding for production...\u001B[36m\u001B[39m\r\ntransforming...\r\n\u001B[32m\u2713\u001B[39m 1704 modules transformed.\r\nrendering chunks...\r\ncomputing gzip size...\r\n\u001B[2mdist/\u001B[22m\u001B[32mindex.html                       \u001B[39m\u001B[1m\u001B[2m    1.48 kB\u001B[22m\u001B[1m\u001B[22m\u001B[2m \u2502 gzip:   0.65 kB\u001B[22m\r\n\u001B[2mdist/\u001B[22m\u001B[32massets/coloredlogo-G_FQn1Lp.png  \u001B[39m\u001B[1m\u001B[2m   21.77 kB\u001B[22m\u001B[1m\u001B[22m\r\n\u001B[2mdist/\u001B[22m\u001B[32massets/logo-CUvbJVWl.png         \u001B[39m\u001B[1m\u001B[2m  517.11 kB\u001B[22m\u001B[1m\u001B[22m\r\n\u001B[2mdist/\u001B[22m\u001B[32massets/landingpage-utofanFL.png  \u001B[39m\u001B[1m\u001B[2m1,336.39 kB\u001B[22m\u001B[1m\u001B[22m\r\n\u001B[2mdist/\u001B[22m\u001B[35massets/index-DqDY7hFa.css        \u001B[39m\u001B[1m\u001B[2m   76.01 kB\u001B[22m\u001B[1m\u001B[22m\u001B[2m \u2502 gzip:  13.65 kB\u001B[22m\r\n\u001B[2mdist/\u001B[22m\u001B[36massets/index-DV04U5ky.js         \u001B[39m\u001B[1m\u001B[2m  412.42 kB\u001B[22m\u001B[1m\u001B[22m\u001B[2m \u2502 gzip: 109.87 kB\u001B[22m\r\n\u001B[32m\u2713 built in 4.17s\u001B[39m\r\n",
+        "durationMs": 6240
+      },
+      {
+        "name": "home-page-serves",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n\u003C!doctype html\u003E\r\n\u003Chtml lang=\u0022en\u0022\u003E\r\n  \u003Chead\u003E\n    \u003Cscript type=\u0022module\u0022\u003Eimport { injectIntoGlobalHook } from \u0022/@react-refresh\u0022;\ninjectIntoGlobalHook(window);\nwindow.$RefreshReg$ = () =\u003E {};\nwindow.$RefreshSig$ = () =\u003E (type) =\u003E type;\u003C/script\u003E\n\n    \u003Cscript type=\u0022module\u0022 src=\u0022/@vite/client\u0022\u003E\u003C/script\u003E\n\r\n    \u003Cmeta charset=\u0022UTF-8\u0022 /\u003E\r\n    \u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1.0\u0022 /\u003E\r\n    \u003Ctitle\u003EStudent Enrollment \u0026 Academic Status Management System (SAPES)\u003C/title\u003E\r\n    \u003Cmeta name=\u0022description\u0022 content=\u0022A student profiling and enrollment management system with role-based portals for Students, Faculty evaluators, and Registrar Administrators.\u0022 /\u003E\r\n    \u003Cmeta property=\u0022og:title\u0022 content=\u0022Student Enrollment \u0026 Academic Status Management System (SAPES)\u0022 /\u003E\r\n    \u003Cmeta property=\u0022og:description\u0022 content=\u0022A student profiling and enrollment management system with role-based portals for Students, Faculty evaluators, and Registrar Administrators.\u0022 /\u003E\r\n    \u003Cmeta property=\u0022og:type\u0022 content=\u0022website\u0022 /\u003E\r\n    \u003Cmeta name=\u0022twitter:card\u0022 content=\u0022summary_large_image\u0022 /\u003E\r\n    \u003Clink rel=\u0022preconnect\u0022 href=\u0022https://fonts.googleapis.com\u0022\u003E\r\n    \u003Clink rel=\u0022preconnect\u0022 href=\u0022https://fonts.gstatic.com\u0022 crossorigin\u003E\r\n    \u003Clink href=\u0022https://fonts.googleapis.com/css2?family=Plus\u002BJakarta\u002BSans:wght@300;400;500;600;700;800\u0026family=JetBrains\u002BMono:wght@400;500;600\u0026display=swap\u0022 rel=\u0022stylesheet\u0022\u003E\r\n  \u003C/head\u003E\r\n  \u003Cbody class=\u0022bg-slate-50 text-slate-900 antialiased font-sans selection:bg-indigo-500 selection:text-white\u0022\u003E\r\n    \u003Cdiv id=\u0022root\u0022\u003E\u003C/div\u003E\r\n    \u003Cscript type=\u0022module\u0022 src=\u0022/src/main.tsx\u0022\u003E\u003C/script\u003E\r\n  \u003C/body\u003E\r\n\u003C/html\u003E\r\n\r\n",
+        "durationMs": 28
+      },
+      {
+        "name": "api-health",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n{\u0022status\u0022:\u0022ok\u0022,\u0022database\u0022:\u0022connected\u0022}",
+        "durationMs": 21
+      },
+      {
+        "name": "tests-pass",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E server@1.0.0 test\r\n\u003E node --test --test-reporter=tap\r\n\r\nTAP version 13\r\n# Subtest: calculates a unit-weighted major-subject GWA\r\nok 1 - calculates a unit-weighted major-subject GWA\r\n  ---\r\n  duration_ms: 3.0926\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: excludes dropped, ungraded, and zero-unit subjects\r\nok 2 - excludes dropped, ungraded, and zero-unit subjects\r\n  ---\r\n  duration_ms: 0.594\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: keeps selected-period and cumulative GWA scopes explicit\r\nok 3 - keeps selected-period and cumulative GWA scopes explicit\r\n  ---\r\n  duration_ms: 0.5548\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: normalizes a valid academic record\r\nok 4 - normalizes a valid academic record\r\n  ---\r\n  duration_ms: 5.0035\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: rejects unsupported fields and malformed subject values\r\nok 5 - rejects unsupported fields and malformed subject values\r\n  ---\r\n  duration_ms: 0.5997\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: rejects duplicate subject codes within a term\r\nok 6 - rejects duplicate subject codes within a term\r\n  ---\r\n  duration_ms: 0.4993\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: student login authenticates from the Student collection\r\nok 7 - student login authenticates from the Student collection\r\n  ---\r\n  duration_ms: 98.1119\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: login accepts legacy plain-text password hashes for existing local accounts\r\nok 8 - login accepts legacy plain-text password hashes for existing local accounts\r\n  ---\r\n  duration_ms: 357.9651\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: admin login resolves accounts from the admin users collection\r\nok 9 - admin login resolves accounts from the admin users collection\r\n  ---\r\n  duration_ms: 9.963\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: login authenticates faculty by email and keeps legacy username fallback\r\nok 10 - login authenticates faculty by email and keeps legacy username fallback\r\n  ---\r\n  duration_ms: 32.912\r\n  type: \u0027test\u0027\r\n  ...\r\n# [Google] Payload checks: {\r\n#   hasSub: true,\r\n#   hasEmail: true,\r\n#   emailVerified: true,\r\n#   validIssuer: true,\r\n#   validAudience: true,\r\n#   notExpired: true,\r\n#   correctDomain: true\r\n# } | email: 2401110681@student.buksu.edu.ph | hd: student.buksu.edu.ph\r\n# [Google] Payload checks: {\r\n#   hasSub: true,\r\n#   hasEmail: true,\r\n#   emailVerified: true,\r\n#   validIssuer: true,\r\n#   validAudience: true,\r\n#   notExpired: true,\r\n#   correctDomain: true\r\n# } | email: 240111068@student.buksu.edu.ph | hd: student.buksu.edu.ph\r\n# Subtest: Google student sign-in creates a linked enrolled profile from the verified identity\r\nok 11 - Google student sign-in creates a linked enrolled profile from the verified identity\r\n  ---\r\n  duration_ms: 410.3729\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: allows an active role-matched account and refreshes mutable identity claims\r\nok 12 - allows an active role-matched account and refreshes mutable identity claims\r\n  ---\r\n  duration_ms: 11.4559\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: rejects an existing session after the account is suspended\r\nok 13 - rejects an existing session after the account is suspended\r\n  ---\r\n  duration_ms: 4.3676\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: rejects a session when its account no longer exists\r\nok 14 - rejects a session when its account no longer exists\r\n  ---\r\n  duration_ms: 1.8377\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: authenticates a student account stored only in the Student collection\r\nok 15 - authenticates a student account stored only in the Student collection\r\n  ---\r\n  duration_ms: 1.8214\r\n  type: \u0027test\u0027\r\n  ...\r\n# \u25C7 injected env (5) from .env // tip: \u2318 custom filepath { path: \u0027/custom/path/.env\u0027 }\r\n# Subtest: defines five distinct BSIT test students\r\nok 16 - defines five distinct BSIT test students\r\n  ---\r\n  duration_ms: 1.4351\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: assigns every BSIT test student the same four-term curriculum\r\nok 17 - assigns every BSIT test student the same four-term curriculum\r\n  ---\r\n  duration_ms: 3.2249\r\n  type: \u0027test\u0027\r\n  ...\r\n# Subtest: uses fictional grade variation without changing curriculum subjects\r\nok 18 - uses fictional grade variation without changing curriculum\n\u2026[truncated]",
+        "durationMs": 3585,
+        "testResults": {
+          "testFramework": "unknown",
+          "runnerDetectedFrom": "none",
+          "testsTotal": 0,
+          "testsPassed": 0,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": true
+        }
+      }
+    ],
+    "executions": [
+      {
+        "source": "client-build",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "build"
+        ],
+        "cwd": "c:\\Users\\User\\OneDrive\\Desktop\\Programming\\SAPES\\SAPES-Student-Academic-Profiling-and-Evaluation-System",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "home-page-serves",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "--prefix",
+          "client",
+          "run",
+          "dev",
+          "--",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "3002",
+          "--strictPort"
+        ],
+        "cwd": "c:\\Users\\User\\OneDrive\\Desktop\\Programming\\SAPES\\SAPES-Student-Academic-Profiling-and-Evaluation-System",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "api-health",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "--prefix",
+          "server",
+          "run",
+          "start"
+        ],
+        "cwd": "c:\\Users\\User\\OneDrive\\Desktop\\Programming\\SAPES\\SAPES-Student-Academic-Profiling-and-Evaluation-System",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "tests-pass",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "--prefix",
+          "server",
+          "run",
+          "test",
+          "--",
+          "--test-reporter=tap"
+        ],
+        "cwd": "c:\\Users\\User\\OneDrive\\Desktop\\Programming\\SAPES\\SAPES-Student-Academic-Profiling-and-Evaluation-System",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}

@@ -1,2 +1,51 @@
 # SEASMS
 A secure web-based student enrollment system for the College of Technologies developed by EnTech-T
+
+## Local development
+
+### Prerequisites
+
+- Node.js 20 or later and npm
+- A reachable MongoDB database (local or MongoDB Atlas)
+
+### Setup
+
+From the repository root, install the root, client, and server dependencies:
+
+```bash
+npm install
+npm --prefix client install
+npm --prefix server install
+```
+
+Create the server environment file by copying `server/.env.example` to `server/.env`, then set `MONGO_URI` to a database you can access and replace `JWT_SECRET` with a random development secret. Do not commit `.env` files or share database credentials. If a MongoDB URI contains reserved characters in its username or password, URL-encode them (for example, `@` as `%40`).
+
+If your network's DNS resolver cannot resolve MongoDB Atlas SRV records, set `MONGO_DNS_SERVERS` in your local `server/.env` to a comma-separated resolver list. The server otherwise uses the operating system's default DNS.
+
+Google sign-in is optional. To use it locally, set `GOOGLE_CLIENT_ID` in `server/.env` and add the exact client origin you open (normally `http://localhost:3000`) to the OAuth client's **Authorized JavaScript origins** in Google Cloud Console. If this origin is not authorized, email/password sign-in still works, but Google sign-in reports an origin error.
+
+Start the client and API together:
+
+```bash
+npm run dev
+```
+
+Open the **Local** URL printed by Vite (normally `http://localhost:3000`). If port `3000` is already in use, Vite selects another available port; use that printed URL or stop the other server and restart. The API listens on port `5001`; `http://localhost:5001/api/health` reports whether the database connection is ready. The API exits with a startup error if MongoDB cannot be reached or its credentials are rejected.
+
+To create local demo accounts for all three roles and sample student records, run:
+
+```bash
+npm --prefix server run seed:demo
+```
+
+Use these development-only credentials after seeding:
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Admin | `admin.test` | `Test1234!` |
+| Faculty | `faculty.test` | `Test1234!` |
+| Student | `student.test` | `Test1234!` |
+
+Run the demo seeder only against a development database. It creates sample users and academic data; do not use it on production data.
+
+Account authentication uses the role-specific Atlas collections `admin users`, `faculty users`, and `student users`. A student profile and login account share one document in `student users`; this app does not fall back to the legacy `users` or `students` collections or copy records between collections automatically.

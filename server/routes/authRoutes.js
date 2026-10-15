@@ -3,11 +3,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
-const User = require('../models/User');
 const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const { sendPasswordResetCode } = require('../utils/email');
+const {
+  findAccountByGoogleId,
+  findAccountByIdentifier,
+  getAccountModel
+} = require('../utils/accountCollections');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -91,7 +95,12 @@ const createApplicationToken = async (user) => {
     { expiresIn: '1h' }
   );
 
-  await SessionToken.create({ jti, userId: user._id, expiresAt });
+  await SessionToken.create({
+    jti,
+    userId: user._id,
+    accountRole: user.role,
+    expiresAt
+  });
   return token;
 };
 
@@ -99,12 +108,14 @@ const safeUser = (user, studentNumber) => ({
   id: user._id,
   username: user.username,
   role: user.role,
-  firstName: user.firstName || '',
-  lastName: user.lastName || '',
+  firstName: user.firstName || user.personalInformation?.firstName || '',
+  lastName: user.lastName || user.personalInformation?.lastName || '',
   email: user.email || '',
   employeeId: user.employeeId || '',
   department: user.department || '',
-  ...(studentNumber ? { studentNumber } : {})
+  ...((studentNumber || user.studentNumber || user.institutionId)
+    ? { studentNumber: studentNumber || user.studentNumber || user.institutionId }
+    : {})
 });
 
 // POST /api/auth/login
@@ -123,45 +134,18 @@ router.post('/login', async (req, res) => {
     // Prefer an email match, with username fallback for existing accounts.
     const loginIdentifier = username.trim();
     const normalizedEmail = loginIdentifier.toLowerCase();
-    const emailLocalPart = loginIdentifier.includes('@')
-      ? loginIdentifier.slice(0, loginIdentifier.indexOf('@'))
-      : loginIdentifier;
+    const { account, role, ambiguous } = await findAccountByIdentifier(
+      loginIdentifier,
+      ['email', 'username', 'institutionId', 'studentNumber'],
+      '+passwordHash'
+    );
 
-    const user = await User.findOne({ email: normalizedEmail })
-      || await User.findOne({ username: loginIdentifier })
-      || (emailLocalPart !== loginIdentifier
-        ? await User.findOne({ username: emailLocalPart })
-        : null);
-
-    const student = !user ? await Student.findOne({
-      $or: [
-        { email: normalizedEmail },
-        { username: loginIdentifier },
-        { username: loginIdentifier.toLowerCase() },
-        { institutionId: loginIdentifier },
-        ...(emailLocalPart !== loginIdentifier ? [
-          { username: emailLocalPart },
-          { username: emailLocalPart.toLowerCase() }
-        ] : [])
-      ]
-    }) : null;
-
-    const account = user || (student ? {
-      _id: student._id,
-      username: student.username || student.institutionId,
-      role: student.role || 'student',
-      firstName: student.personalInformation?.firstName || student.firstName || '',
-      lastName: student.personalInformation?.lastName || student.lastName || '',
-      email: student.email || '',
-      studentNumber: student.institutionId || '',
-      employeeId: '',
-      department: '',
-      accountStatus: student.accountStatus || 'active',
-      passwordHash: student.passwordHash || '',
-      save: async () => {
-        await student.save();
-      }
-    } : null);
+    if (ambiguous) {
+      return res.status(409).json({
+        success: false,
+        message: 'This login identifier matches multiple accounts. Contact an administrator.'
+      });
+    }
 
     if (!account) {
       return res.status(401).json({
@@ -169,6 +153,13 @@ router.post('/login', async (req, res) => {
         message: 'Invalid username or password'
       });
     }
+    if (account.role && account.role !== role) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account role does not match its role-specific collection'
+      });
+    }
+    if (!account.role) account.role = role;
 
     if (
       !emailMatchesRoleDomain(account.email, account.role)
@@ -251,7 +242,11 @@ router.post('/password-reset/request', async (req, res) => {
   try {
     const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
     if (!username) return res.status(400).json({ success: false, message: 'Username or institution ID is required' });
-    const user = await User.findOne({ username }).select('+passwordResetRequestedAt');
+    const { account: user } = await findAccountByIdentifier(
+      username,
+      ['username', 'institutionId', 'studentNumber'],
+      '+passwordResetRequestedAt'
+    );
     if (!user || user.accountStatus !== 'active' || !user.email) return res.json(genericResponse);
     if (user.passwordResetRequestedAt && Date.now() - user.passwordResetRequestedAt.getTime() < RESET_REQUEST_INTERVAL_MS) return res.json(genericResponse);
     const code = crypto.randomInt(100000, 1000000).toString();
@@ -269,14 +264,16 @@ router.post('/password-reset/request', async (req, res) => {
 });
 
 router.get('/settings', authenticateToken, async (req, res) => {
-  const user = await User.findById(req.user.userId).select('notificationPreferences').lean();
+  const AccountModel = getAccountModel(req.user.role);
+  const user = await AccountModel.findById(req.user.userId).select('notificationPreferences').lean();
   return res.json({ success: true, data: { notificationPreferences: user?.notificationPreferences || { profileAndAcademicUpdates: true } } });
 });
 
 router.put('/settings', authenticateToken, async (req, res) => {
   const value = req.body?.notificationPreferences?.profileAndAcademicUpdates;
   if (typeof value !== 'boolean') return res.status(400).json({ success: false, message: 'notification preference must be a boolean' });
-  await User.findByIdAndUpdate(req.user.userId, { 'notificationPreferences.profileAndAcademicUpdates': value });
+  const AccountModel = getAccountModel(req.user.role);
+  await AccountModel.findByIdAndUpdate(req.user.userId, { 'notificationPreferences.profileAndAcademicUpdates': value });
   return res.json({ success: true, data: { notificationPreferences: { profileAndAcademicUpdates: value } } });
 });
 
@@ -287,12 +284,16 @@ router.post('/password-reset/confirm', async (req, res) => {
     let authorization;
     try { authorization = jwt.verify(resetAuthorization, process.env.JWT_SECRET); } catch { return res.status(400).json({ success: false, message: 'Password-reset verification has expired. Request a new code.' }); }
     if (authorization.purpose !== 'password_reset' || !authorization.userId) return res.status(400).json({ success: false, message: 'Invalid password-reset verification' });
-    const user = await User.findById(authorization.userId);
+    const AccountModel = getAccountModel(authorization.role);
+    const user = AccountModel ? await AccountModel.findById(authorization.userId) : null;
     if (!user || user.accountStatus !== 'active') return res.status(400).json({ success: false, message: 'Password-reset verification is no longer valid' });
     user.passwordHash = await bcrypt.hash(newPassword, 12);
     user.passwordResetCodeHash = undefined; user.passwordResetExpiresAt = undefined; user.passwordResetAttempts = 0;
     await user.save();
-    await SessionToken.updateMany({ userId: user._id, revokedAt: null }, { revokedAt: new Date() });
+    await SessionToken.updateMany(
+      { userId: user._id, accountRole: user.role, revokedAt: null },
+      { revokedAt: new Date() }
+    );
     return res.json({ success: true, message: 'Password updated. Please log in with your new password.' });
   } catch (error) {
     console.error('Password reset confirmation error:', error);
@@ -303,34 +304,25 @@ router.post('/password-reset/confirm', async (req, res) => {
 router.post('/password-reset/verify', async (req, res) => {
   const { username, code } = req.body || {};
   if (typeof username !== 'string' || typeof code !== 'string') return res.status(400).json({ success: false, message: 'Username and verification code are required' });
-  const user = await User.findOne({ username: username.trim() }).select('+passwordResetCodeHash +passwordResetExpiresAt +passwordResetAttempts');
+  const { account: user, role, ambiguous } = await findAccountByIdentifier(
+    username.trim(),
+    ['username', 'institutionId', 'studentNumber'],
+    '+passwordResetCodeHash +passwordResetExpiresAt +passwordResetAttempts'
+  );
+  if (ambiguous) return res.json({ success: true, message: 'If the account is eligible, the code is valid.' });
   const matches = user?.passwordResetCodeHash && crypto.timingSafeEqual(Buffer.from(user.passwordResetCodeHash), Buffer.from(resetCodeHash(code)));
   if (!user || !matches || !user.passwordResetExpiresAt || user.passwordResetExpiresAt <= new Date() || user.passwordResetAttempts >= 5) { if (user) { user.passwordResetAttempts = (user.passwordResetAttempts || 0) + 1; await user.save(); } return res.status(400).json({ success: false, message: 'The verification code is invalid or expired' }); }
   user.passwordResetCodeHash = undefined; user.passwordResetExpiresAt = undefined; user.passwordResetAttempts = 0; await user.save();
-  return res.json({ success: true, resetAuthorization: jwt.sign({ purpose: 'password_reset', userId: user._id }, process.env.JWT_SECRET, { expiresIn: '10m' }) });
+  return res.json({ success: true, resetAuthorization: jwt.sign({ purpose: 'password_reset', userId: user._id, role }, process.env.JWT_SECRET, { expiresIn: '10m' }) });
 });
 
 // GET /api/auth/session
 router.get('/session', authenticateToken, async (req, res) => {
   try {
-    let user = await User.findById(req.user.userId)
-      .select('username role firstName lastName email studentNumber employeeId department')
+    const AccountModel = getAccountModel(req.user.role);
+    const user = await AccountModel.findById(req.user.userId)
+      .select('username role firstName lastName email studentNumber institutionId personalInformation employeeId department')
       .lean();
-    if (!user && req.user.role === 'student') {
-      const student = await Student.findById(req.user.userId)
-        .select('username role email institutionId personalInformation')
-        .lean();
-      if (student) {
-        user = {
-          ...student,
-          firstName: student.personalInformation?.firstName || '',
-          lastName: student.personalInformation?.lastName || '',
-          studentNumber: student.institutionId,
-          employeeId: '',
-          department: ''
-        };
-      }
-    }
     if (!user) {
       return res.status(401).json({ success: false, message: 'Account no longer exists' });
     }
@@ -418,7 +410,15 @@ router.post('/google', async (req, res) => {
 
     const email = payload.email.toLowerCase();
     const studentEmailMatch = email.match(/^([0-9]{10})@student\.buksu\.edu\.ph$/);
-    let user = await User.findOne({ googleId: payload.sub });
+    const googleAccountLookup = await findAccountByGoogleId(payload.sub);
+    if (googleAccountLookup.ambiguous) {
+      return res.status(409).json({
+        success: false,
+        message: 'This Google account is linked to multiple SAPES accounts. Contact an administrator.'
+      });
+    }
+    let user = googleAccountLookup.account;
+    let userRole = googleAccountLookup.role;
 
     if (email.endsWith('@student.buksu.edu.ph') && !studentEmailMatch) {
       return res.status(403).json({
@@ -438,29 +438,37 @@ router.post('/google', async (req, res) => {
       }
 
       const student = await Student.findOne({ institutionId });
-      const googleLinkedUser = user;
-      if (googleLinkedUser && googleLinkedUser.role !== 'student') {
+      if (user && userRole !== 'student') {
         return res.status(403).json({
           success: false,
           message: 'Student Google accounts cannot use a non-student SAPES role'
         });
       }
-
-      if (!user && student?.userId) {
-        user = await User.findById(student.userId);
+      if (!user && student) {
+        user = student;
+        userRole = 'student';
       }
       if (!user) {
-        user = await User.findOne({ studentNumber: institutionId })
-          || await User.findOne({ email })
-          || await User.findOne({ username: institutionId });
+        const lookup = await findAccountByIdentifier(
+          institutionId,
+          ['institutionId', 'studentNumber', 'username', 'email']
+        );
+        if (lookup.ambiguous) {
+          return res.status(409).json({
+            success: false,
+            message: 'The student identifier matches multiple SAPES accounts. Contact an administrator.'
+          });
+        }
+        user = lookup.account;
+        userRole = lookup.role;
       }
-      if (student?.userId && (!user || String(student.userId) !== String(user._id))) {
+      if (student && user && String(student._id) !== String(user._id)) {
         return res.status(403).json({
           success: false,
           message: 'Student record is already linked to a different SAPES account'
         });
       }
-      if (user && user.role !== 'student') {
+      if (user && userRole !== 'student') {
         return res.status(403).json({
           success: false,
           message: 'The linked SAPES account is not a student account'
@@ -472,7 +480,8 @@ router.post('/google', async (req, res) => {
           message: 'Account is not active'
         });
       }
-      if (user?.studentNumber && user.studentNumber !== institutionId) {
+      if ((user?.studentNumber || user?.institutionId) &&
+          (user.studentNumber || user.institutionId) !== institutionId) {
         return res.status(403).json({
           success: false,
           message: 'Google account does not match the linked student ID'
@@ -481,55 +490,48 @@ router.post('/google', async (req, res) => {
 
       let createdUser = false;
       if (!user) {
-        user = await User.create({
+        user = await Student.create({
           username: institutionId,
+          institutionId,
           email,
           studentNumber: institutionId,
-          firstName,
-          lastName,
           passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
           googleId: payload.sub,
           role: 'student',
-          accountStatus: 'active'
+          accountStatus: 'active',
+          enrollmentStatus: 'enrolled',
+          personalInformation: { firstName, lastName },
+          classification: { studentType: 'regular' }
         });
+        userRole = 'student';
         createdUser = true;
       }
 
       try {
-        if (student) {
-          student.userId = user._id;
-          student.username = institutionId;
-          student.email = email;
-          student.personalInformation = student.personalInformation || {};
-          student.personalInformation.firstName = firstName;
-          student.personalInformation.lastName = lastName;
-          await student.save();
-        } else {
+        if (!student) {
           const enrollment = getDefaultStudentEnrollment();
-          await Student.create({
-            userId: user._id,
-            institutionId,
-            username: institutionId,
-            email,
-            yearLevel: enrollment.yearLevel,
-            section: enrollment.section,
-            enrollmentStatus: 'enrolled',
-            personalInformation: { firstName, lastName },
-            classification: {
-              program: enrollment.program,
-              studentType: 'regular'
-            },
-            enrollmentInformation: {
-              course: enrollment.course,
-              level: String(enrollment.yearLevel),
-              yearLevel: String(enrollment.yearLevel)
-            },
-            academicStatus: { currentStatus: 'regular' }
-          });
+          user.yearLevel = enrollment.yearLevel;
+          user.section = enrollment.section;
+          user.enrollmentStatus = 'enrolled';
+          user.classification.program = enrollment.program;
+          user.classification.studentType = user.classification.studentType || 'regular';
+          user.enrollmentInformation.course = enrollment.course;
+          user.enrollmentInformation.level = String(enrollment.yearLevel);
+          user.enrollmentInformation.yearLevel = String(enrollment.yearLevel);
+          user.academicStatus.currentStatus = 'regular';
         }
+        user.username = institutionId;
+        user.institutionId = institutionId;
+        user.studentNumber = institutionId;
+        user.email = email;
+        user.googleId = payload.sub;
+        user.personalInformation = user.personalInformation || {};
+        user.personalInformation.firstName = firstName;
+        user.personalInformation.lastName = lastName;
+        await user.save();
       } catch (profileError) {
         if (createdUser) {
-          await User.deleteOne({ _id: user._id });
+          await Student.deleteOne({ _id: user._id });
         }
         throw profileError;
       }
@@ -538,17 +540,25 @@ router.post('/google', async (req, res) => {
       user.username = institutionId;
       user.studentNumber = institutionId;
       user.email = email;
-      user.firstName = firstName;
-      user.lastName = lastName;
     } else {
-      if (user?.role === 'student') {
+      if (userRole === 'student') {
         return res.status(403).json({
           success: false,
           message: 'Student Google account must use the institutional student email format'
         });
       }
-      user = user || await User.findOne({ username: email });
-      if (!user || user.role === 'student') {
+      if (!user) {
+        const lookup = await findAccountByIdentifier(email, ['email', 'username']);
+        if (lookup.ambiguous) {
+          return res.status(409).json({
+            success: false,
+            message: 'This email matches multiple SAPES accounts. Contact an administrator.'
+          });
+        }
+        user = lookup.account;
+        userRole = lookup.role;
+      }
+      if (!user || userRole === 'student') {
         return res.status(403).json({
           success: false,
           message: 'Google account must be provisioned by an administrator before sign-in'
@@ -561,9 +571,9 @@ router.post('/google', async (req, res) => {
         });
       }
       user.googleId = payload.sub;
-      await user.save();
     }
 
+    user.role = userRole;
     if (!emailMatchesRoleDomain(email, user.role)) {
       return res.status(403).json({
         success: false,

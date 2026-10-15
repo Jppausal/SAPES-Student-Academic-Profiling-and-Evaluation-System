@@ -12,6 +12,7 @@ const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord'
 const { calculateMajorSubjectGwa, withMajorSubjectGwa } = require('../utils/academicCalculations');
 const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
+const { getAccountModelName } = require('../utils/accountCollections');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -30,7 +31,7 @@ router.put('/:institutionId/classification', authenticateToken, authorizeRoles('
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
     Object.assign(student.classification, profileUpdate.value.classification);
     await student.save();
-    await AuditLog.create({ userId: req.user.userId, action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
+    await AuditLog.create({ userId: req.user.userId, userRole: req.user.role, userModel: getAccountModelName(req.user.role), action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
     return res.json({ success: true, data: student.classification });
   } catch (error) { console.error('Classification update failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
 });
@@ -123,11 +124,14 @@ router.put(
         reason,
         effectiveDate: parsedEffectiveDate,
         recordedBy: req.user.userId,
+        recordedByModel: getAccountModelName(req.user.role),
         remarks
       });
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_STUDENT_STATUS',
         targetType: 'student_status_history',
         targetId: history._id,
@@ -241,6 +245,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_FACULTY_EVALUATION',
         targetType: 'faculty_evaluation',
         targetId: evaluation._id,
@@ -593,6 +599,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'ACADEMIC_RECORD_SAVED',
         targetType: 'academic_record',
         targetId: academicRecord._id,
@@ -782,6 +790,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_STUDENT_PROFILE',
         targetType: 'student',
         targetId: student._id,

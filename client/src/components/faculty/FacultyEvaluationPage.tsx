@@ -273,6 +273,48 @@ export const FacultyEvaluationPage: React.FC = () => {
                 </div>
               </section>
 
+              <section aria-label="Student profile and latest evaluation" className="grid gap-3 lg:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Student profile for evaluation</h3>
+                  <dl className="mt-3 grid gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
+                    <div><dt className="text-slate-500">Declared religion</dt><dd className="mt-0.5 font-semibold text-slate-900">{workspaceStudent.religiousInformation.religion || 'Not provided'}</dd></div>
+                    <div><dt className="text-slate-500">Enrollment status</dt><dd className="mt-0.5 font-semibold capitalize text-slate-900">{workspaceStudent.enrollmentStatus.replace(/_/g, ' ')}</dd></div>
+                    <div><dt className="text-slate-500">Student classification</dt><dd className="mt-0.5 font-semibold text-slate-900">{[
+                      workspaceStudent.classification.isIP && (workspaceStudent.classification.indigenousGroup ? `IP · ${workspaceStudent.classification.indigenousGroup}` : 'IP'),
+                      workspaceStudent.classification.isPWD && 'PWD',
+                      workspaceStudent.classification.isShifter && 'Shifter',
+                      workspaceStudent.classification.isTransferee && 'Transferee',
+                    ].filter(Boolean).join(' · ') || 'No special classification recorded'}</dd></div>
+                    <div><dt className="text-slate-500">Student type</dt><dd className="mt-0.5 font-semibold capitalize text-slate-900">{workspaceStudent.enrollmentInformation.studentType || workspaceStudent.classification.studentType || 'Not recorded'}</dd></div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-slate-500">Faculty-relevant accommodation</dt>
+                      <dd className="mt-0.5 font-semibold text-slate-900">
+                        {workspaceStudent.healthInformation.accommodationRequired
+                          ? workspaceStudent.healthInformation.accommodationNotes || 'Accommodation requested; details not provided'
+                          : 'None recorded'}
+                      </dd>
+                    </div>
+                    {workspaceStudent.religiousInformation.shareSpiritualSchedule && workspaceStudent.religiousInformation.spiritualActivities.length > 0 && (
+                      <div className="sm:col-span-2">
+                        <dt className="text-slate-500">Shared unavailable times</dt>
+                        <dd className="mt-0.5 font-semibold text-slate-900">{workspaceStudent.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(' · ')}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Latest faculty evaluation</h3>
+                  {workspace.facultyEvaluation ? (
+                    <>
+                      <p className="mt-3 text-sm font-bold capitalize text-slate-900">{workspace.facultyEvaluation.evaluationStatus.replace(/_/g, ' ')}</p>
+                      <p className="mt-1 text-xs text-slate-500">Evaluated {new Date(workspace.facultyEvaluation.evaluatedAt).toLocaleDateString()}</p>
+                      {workspace.facultyEvaluation.remarks && <p className="mt-3 whitespace-pre-wrap text-xs text-slate-700">{workspace.facultyEvaluation.remarks}</p>}
+                      {workspace.facultyEvaluation.reasons.length > 0 && <ul className="mt-2 list-inside list-disc text-xs text-slate-700">{workspace.facultyEvaluation.reasons.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul>}
+                    </>
+                  ) : <p className="mt-3 text-xs text-slate-500">No prior faculty evaluation is recorded.</p>}
+                </div>
+              </section>
+
               <section aria-label="Key performance indicators" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                 {[
                   { label: 'Attendance rate', value: formatPercent(workspace.metrics.attendanceRate), icon: CalendarCheck2, color: 'text-sky-700' },
@@ -363,6 +405,18 @@ export const FacultyEvaluationPage: React.FC = () => {
 
                 {activeTab === 'history' && (
                   <div className="space-y-5 p-4 sm:p-5">
+                    <section className="rounded-md border border-slate-200 p-3">
+                      <h3 className="text-xs font-bold text-slate-800">Student status history</h3>
+                      {workspace.statusHistory.length === 0
+                        ? <p className="mt-2 text-xs text-slate-500">No status changes have been recorded.</p>
+                        : <ol className="mt-2 divide-y divide-slate-100">{workspace.statusHistory.map((entry, index) => (
+                          <li key={`${entry.status}-${entry.effectiveDate}-${index}`} className="py-2 text-xs">
+                            <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold capitalize text-slate-800">{entry.status.replace(/_/g, ' ')}</span><time className="text-slate-500">{new Date(entry.effectiveDate).toLocaleDateString()}</time></div>
+                            {entry.reason && <p className="mt-1 text-slate-600">Reason: {entry.reason}</p>}
+                            {entry.remarks && <p className="mt-1 text-slate-600">{entry.remarks}</p>}
+                          </li>
+                        ))}</ol>}
+                    </section>
                     <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><FileClock className="h-4 w-4 shrink-0" /><p>Prerequisite checks below are inferred from recorded subject results; no curriculum-specific prerequisite map is configured.</p></div>
                     <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2.5"><span className="text-xs font-semibold text-slate-600">Overall major-subject GWA · all recorded terms</span><strong className="text-lg font-extrabold text-slate-900">{workspace.majorSubjectGwa.toFixed(2)}</strong></div>
                     {workspace.academicRecords.length === 0 && <p className="rounded-md bg-slate-50 p-5 text-center text-xs text-slate-500">No past semester records are available.</p>}

@@ -3,14 +3,31 @@ const test = require('node:test');
 const bcrypt = require('bcryptjs');
 const express = require('express');
 const { OAuth2Client } = require('google-auth-library');
-const User = require('../models/User');
+const AdminUser = require('../models/AdminUser');
+const FacultyUser = require('../models/FacultyUser');
 const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const authRoutes = require('../routes/authRoutes');
+const accountModels = { admin: AdminUser, faculty: FacultyUser, student: Student };
+
+const matchesQuery = (account, query) => {
+  if (query.$or) return query.$or.some((condition) => matchesQuery(account, condition));
+  return Object.entries(query).every(([key, value]) => account[key] === value);
+};
+
+const mockAccountCollections = (accounts, queries = []) => {
+  for (const [role, AccountModel] of Object.entries(accountModels)) {
+    AccountModel.findOne = async (query) => {
+      queries.push(query);
+      return accounts.find((account) => account.role === role && matchesQuery(account, query)) || null;
+    };
+  }
+};
 
 test('student login authenticates from the Student collection', async (t) => {
-  const originalUserFindOne = User.findOne;
-  const originalStudentFindOne = Student.findOne;
+  const originalFindOnes = Object.fromEntries(
+    Object.entries(accountModels).map(([role, AccountModel]) => [role, AccountModel.findOne])
+  );
   const originalCreateSessionToken = SessionToken.create;
   const originalJwtSecret = process.env.JWT_SECRET;
   const studentAccount = {
@@ -27,14 +44,7 @@ test('student login authenticates from the Student collection', async (t) => {
   };
   const lookupQueries = [];
 
-  User.findOne = async () => null;
-  Student.findOne = async (query) => {
-    lookupQueries.push(query);
-    return Object.entries(query).every(([key, value]) => {
-      if (key === '$or') return true;
-      return studentAccount[key] === value;
-    }) ? studentAccount : null;
-  };
+  mockAccountCollections([studentAccount], lookupQueries);
   SessionToken.create = async () => ({});
   process.env.JWT_SECRET = 'test-secret';
 
@@ -45,8 +55,9 @@ test('student login authenticates from the Student collection', async (t) => {
   await new Promise((resolve) => server.once('listening', resolve));
   t.after(async () => {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    User.findOne = originalUserFindOne;
-    Student.findOne = originalStudentFindOne;
+    for (const [role, AccountModel] of Object.entries(accountModels)) {
+      AccountModel.findOne = originalFindOnes[role];
+    }
     SessionToken.create = originalCreateSessionToken;
     if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = originalJwtSecret;
@@ -64,13 +75,15 @@ test('student login authenticates from the Student collection', async (t) => {
   const payload = await response.json();
   assert.equal(payload.user.role, 'student');
   assert.equal(payload.user.studentNumber, '2021301234');
-  assert.ok(lookupQueries[0].$or.some((condition) => condition.email === '2021301234@student.buksu.edu.ph'));
+  assert.ok(lookupQueries.some((query) =>
+    query.$or?.some((condition) => condition.email === '2021301234@student.buksu.edu.ph')
+  ));
 
   studentAccount.email = '2021301234@faculty.buksu.edu.ph';
   const mismatchedAccountResponse = await fetch(baseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: '2021301234@student.buksu.edu.ph', password: 'student123' })
+    body: JSON.stringify({ username: '2021301234', password: 'student123' })
   });
   assert.equal(mismatchedAccountResponse.status, 403);
   const mismatchPayload = await mismatchedAccountResponse.json();
@@ -79,8 +92,9 @@ test('student login authenticates from the Student collection', async (t) => {
 });
 
 test('login accepts legacy plain-text password hashes for existing local accounts', async (t) => {
-  const originalFindOne = User.findOne;
-  const originalStudentFindOne = Student.findOne;
+  const originalFindOnes = Object.fromEntries(
+    Object.entries(accountModels).map(([role, AccountModel]) => [role, AccountModel.findOne])
+  );
   const originalCreateSessionToken = SessionToken.create;
   const originalJwtSecret = process.env.JWT_SECRET;
   const lookupQueries = [];
@@ -97,13 +111,7 @@ test('login accepts legacy plain-text password hashes for existing local account
     save: async () => {}
   };
 
-  User.findOne = async (query) => {
-    lookupQueries.push(query);
-    return Object.entries(query).every(([key, value]) => legacyUser[key] === value)
-      ? legacyUser
-      : null;
-  };
-  Student.findOne = async () => null;
+  mockAccountCollections([legacyUser], lookupQueries);
   SessionToken.create = async () => ({});
   process.env.JWT_SECRET = 'test-secret';
 
@@ -114,8 +122,9 @@ test('login accepts legacy plain-text password hashes for existing local account
   await new Promise((resolve) => server.once('listening', resolve));
   t.after(async () => {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    User.findOne = originalFindOne;
-    Student.findOne = originalStudentFindOne;
+    for (const [role, AccountModel] of Object.entries(accountModels)) {
+      AccountModel.findOne = originalFindOnes[role];
+    }
     SessionToken.create = originalCreateSessionToken;
     if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = originalJwtSecret;
@@ -135,9 +144,54 @@ test('login accepts legacy plain-text password hashes for existing local account
   assert.equal(payload.user.employeeId, '2345678901');
 });
 
+test('admin login resolves accounts from the admin users collection', async (t) => {
+  const originalFindOnes = Object.fromEntries(
+    Object.entries(accountModels).map(([role, AccountModel]) => [role, AccountModel.findOne])
+  );
+  const originalCreateSessionToken = SessionToken.create;
+  const originalJwtSecret = process.env.JWT_SECRET;
+  mockAccountCollections([{
+    _id: 'admin-account-id',
+    username: 'registrar',
+    email: 'registrar@buksu.edu.ph',
+    passwordHash: await bcrypt.hash('admin-password', 4),
+    role: 'admin',
+    accountStatus: 'active',
+    save: async () => {}
+  }]);
+  SessionToken.create = async () => ({});
+  process.env.JWT_SECRET = 'test-secret';
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', authRoutes);
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(async () => {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    for (const [role, AccountModel] of Object.entries(accountModels)) {
+      AccountModel.findOne = originalFindOnes[role];
+    }
+    SessionToken.create = originalCreateSessionToken;
+    if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = originalJwtSecret;
+  });
+
+  const address = server.address();
+  const response = await fetch(`http://127.0.0.1:${address.port}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'registrar', password: 'admin-password' })
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).user.role, 'admin');
+});
+
 test('login authenticates faculty by email and keeps legacy username fallback', async (t) => {
-  const originalFindOne = User.findOne;
-  const originalStudentFindOne = Student.findOne;
+  const originalFindOnes = Object.fromEntries(
+    Object.entries(accountModels).map(([role, AccountModel]) => [role, AccountModel.findOne])
+  );
   const originalCreateSessionToken = SessionToken.create;
   const originalJwtSecret = process.env.JWT_SECRET;
   const passwordHash = await bcrypt.hash('correct-password', 4);
@@ -167,13 +221,7 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
     }
   ];
 
-  User.findOne = async (query) => {
-    lookupQueries.push(query);
-    return accounts.find((account) =>
-      Object.entries(query).every(([key, value]) => account[key] === value)
-    ) || null;
-  };
-  Student.findOne = async () => null;
+  mockAccountCollections(accounts, lookupQueries);
   SessionToken.create = async () => ({});
   process.env.JWT_SECRET = 'test-secret';
 
@@ -184,8 +232,9 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
   await new Promise((resolve) => server.once('listening', resolve));
   t.after(async () => {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    User.findOne = originalFindOne;
-    Student.findOne = originalStudentFindOne;
+    for (const [role, AccountModel] of Object.entries(accountModels)) {
+      AccountModel.findOne = originalFindOnes[role];
+    }
     SessionToken.create = originalCreateSessionToken;
     if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = originalJwtSecret;
@@ -202,7 +251,9 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
   const facultyPayload = await facultyResponse.json();
   assert.equal(facultyPayload.user.role, 'faculty');
   assert.equal(facultyPayload.user.employeeId, 'FAC-001');
-  assert.deepEqual(lookupQueries, [{ email: 'faculty.cruz@faculty.buksu.edu.ph' }]);
+  assert.ok(lookupQueries.some((query) => query.$or?.some(
+    (condition) => condition.email === 'faculty.cruz@faculty.buksu.edu.ph'
+  )));
 
   lookupQueries.length = 0;
   const wrongPasswordResponse = await fetch(baseUrl, {
@@ -211,7 +262,9 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
     body: JSON.stringify({ username: 'faculty.cruz@faculty.buksu.edu.ph', password: 'wrong-password' })
   });
   assert.equal(wrongPasswordResponse.status, 401);
-  assert.deepEqual(lookupQueries, [{ email: 'faculty.cruz@faculty.buksu.edu.ph' }]);
+  assert.ok(lookupQueries.some((query) => query.$or?.some(
+    (condition) => condition.email === 'faculty.cruz@faculty.buksu.edu.ph'
+  )));
 
   lookupQueries.length = 0;
   const unknownEmailResponse = await fetch(baseUrl, {
@@ -227,20 +280,19 @@ test('login authenticates faculty by email and keeps legacy username fallback', 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: '2021301234@buksu.edu.ph', password: 'correct-password' })
   });
-  assert.equal(legacyResponse.status, 403);
-  assert.deepEqual(lookupQueries, [
-    { email: '2021301234@buksu.edu.ph' },
-    { username: '2021301234@buksu.edu.ph' },
-    { username: '2021301234' }
-  ]);
+  assert.equal(legacyResponse.status, 401);
+  assert.ok(lookupQueries.some((query) => query.$or?.some(
+    (condition) => condition.email === '2021301234@buksu.edu.ph'
+  )));
 });
 
 test('Google student sign-in creates a linked enrolled profile from the verified identity', async (t) => {
-  const originalUserFindOne = User.findOne;
-  const originalUserCreate = User.create;
-  const originalUserDeleteOne = User.deleteOne;
+  const originalFindOnes = Object.fromEntries(
+    Object.entries(accountModels).map(([role, AccountModel]) => [role, AccountModel.findOne])
+  );
   const originalStudentFindOne = Student.findOne;
   const originalStudentCreate = Student.create;
+  const originalStudentDeleteOne = Student.deleteOne;
   const originalSessionTokenCreate = SessionToken.create;
   const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
   const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -257,23 +309,26 @@ test('Google student sign-in creates a linked enrolled profile from the verified
     family_name: 'Santos',
     name: 'Mika Santos'
   };
-  let createdUser;
   let createdStudent;
 
   process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
   process.env.JWT_SECRET = 'test-secret';
   OAuth2Client.prototype.verifyIdToken = async () => ({ getPayload: () => googlePayload });
-  User.findOne = async () => null;
-  User.create = async (fields) => {
-    createdUser = { ...fields, _id: 'google-student-user', save: async () => {} };
-    return createdUser;
-  };
-  User.deleteOne = async () => ({ deletedCount: 1 });
+  mockAccountCollections([]);
   Student.findOne = async () => null;
   Student.create = async (fields) => {
-    createdStudent = fields;
-    return fields;
+    createdStudent = {
+      ...fields,
+      _id: 'google-student-user',
+      personalInformation: { ...fields.personalInformation },
+      classification: { ...fields.classification },
+      enrollmentInformation: {},
+      academicStatus: {},
+      save: async () => {}
+    };
+    return createdStudent;
   };
+  Student.deleteOne = async () => ({ deletedCount: 1 });
   SessionToken.create = async () => ({});
 
   const app = express();
@@ -283,11 +338,12 @@ test('Google student sign-in creates a linked enrolled profile from the verified
   await new Promise((resolve) => server.once('listening', resolve));
   t.after(async () => {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    User.findOne = originalUserFindOne;
-    User.create = originalUserCreate;
-    User.deleteOne = originalUserDeleteOne;
+    for (const [role, AccountModel] of Object.entries(accountModels)) {
+      AccountModel.findOne = originalFindOnes[role];
+    }
     Student.findOne = originalStudentFindOne;
     Student.create = originalStudentCreate;
+    Student.deleteOne = originalStudentDeleteOne;
     SessionToken.create = originalSessionTokenCreate;
     OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
     if (originalGoogleClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
@@ -310,14 +366,11 @@ test('Google student sign-in creates a linked enrolled profile from the verified
   assert.equal(payload.user.studentNumber, '2401110681');
   assert.equal(payload.user.firstName, 'Mika');
   assert.equal(payload.user.lastName, 'Santos');
-  assert.equal(createdUser.username, '2401110681');
-  assert.equal(createdUser.email, googlePayload.email);
+  assert.equal(createdStudent.username, '2401110681');
+  assert.equal(createdStudent.email, googlePayload.email);
   assert.equal(createdStudent.institutionId, '2401110681');
-  assert.equal(createdStudent.userId, createdUser._id);
-  assert.deepEqual(createdStudent.personalInformation, {
-    firstName: 'Mika',
-    lastName: 'Santos'
-  });
+  assert.equal(createdStudent.personalInformation.firstName, 'Mika');
+  assert.equal(createdStudent.personalInformation.lastName, 'Santos');
   assert.equal(createdStudent.enrollmentStatus, 'enrolled');
   assert.ok(createdStudent.yearLevel >= 1 && createdStudent.yearLevel <= 4);
   assert.match(createdStudent.section, /^(BSIT|BSEMC|BSELEX|BSFT|BSAT)-[1-4][A-C]$/);

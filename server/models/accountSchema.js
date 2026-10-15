@@ -1,0 +1,63 @@
+const mongoose = require('mongoose');
+
+module.exports = new mongoose.Schema(
+  {
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true
+    },
+
+    firstName: { type: String, trim: true, default: '' },
+
+    lastName: { type: String, trim: true, default: '' },
+
+    email: { type: String, trim: true, lowercase: true, default: '' },
+
+    studentNumber: { type: String, trim: true, default: '' },
+
+    employeeId: { type: String, trim: true, default: '' },
+
+    department: { type: String, trim: true, default: '' },
+
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true
+    },
+
+    passwordHash: {
+      type: String,
+      required: true,
+      select: false
+    },
+
+    role: {
+      type: String,
+      enum: ['student', 'faculty', 'admin'],
+      required: true
+    },
+
+    accountStatus: {
+      type: String,
+      enum: ['active', 'inactive', 'suspended'],
+      default: 'active'
+    },
+
+    lastLoginAt: {
+      type: Date,
+      default: null
+    },
+    passwordResetCodeHash: { type: String, select: false },
+    passwordResetExpiresAt: { type: Date, select: false },
+    passwordResetAttempts: { type: Number, default: 0, select: false },
+    passwordResetRequestedAt: { type: Date, select: false },
+    notificationPreferences: { profileAndAcademicUpdates: { type: Boolean, default: true } }
+  },
+  {
+    timestamps: true,
+    collection: 'users'
+  }
+);
