@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-require('dotenv').config();
-
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
@@ -105,22 +103,22 @@ const seedBsitCurriculumStudents = async () => {
       let student = await Student.findOne({ institutionId: fixture.institutionId });
       if (!student) {
         student = await Student.create({
-            username: fixture.username,
-            institutionId: fixture.institutionId,
-            passwordHash,
-            role: 'student',
-            accountStatus: 'active',
-            email: `${fixture.username}@student.buksu.edu.ph`,
-            personalInformation: {
-              firstName: fixture.firstName,
-              lastName: fixture.lastName,
-              nationality: 'Filipino',
-              citizenship: 'Filipino',
-              civilStatus: 'Single'
-            },
-            classification: { studentType: 'regular' },
-            religiousInformation: { religion: 'Not specified' },
-            academicStatus: { currentStatus: 'regular', isOnProbation: false }
+          username: fixture.username,
+          passwordHash,
+          role: 'student',
+          accountStatus: 'active',
+          email: `${fixture.username}@student.buksu.edu.ph`,
+          institutionId: fixture.institutionId,
+          personalInformation: {
+            firstName: fixture.firstName,
+            lastName: fixture.lastName,
+            nationality: 'Filipino',
+            citizenship: 'Filipino',
+            civilStatus: 'Single'
+          },
+          classification: { studentType: 'regular' },
+          religiousInformation: { religion: 'Not specified' },
+          academicStatus: { currentStatus: 'regular', isOnProbation: false }
         });
       }
       if (student.institutionId !== fixture.institutionId) {

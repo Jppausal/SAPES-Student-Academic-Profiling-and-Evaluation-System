@@ -7,6 +7,7 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
+const { getAccountModelName } = require('../utils/accountCollections');
 
 const router = express.Router();
 const studentAccountFilter = (userId) => ({ _id: userId });

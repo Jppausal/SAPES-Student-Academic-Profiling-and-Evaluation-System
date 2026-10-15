@@ -8,6 +8,7 @@ const FacultyUser = require('../models/FacultyUser');
 const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const RolePermission = require('../models/RolePermission');
+const AuditLog = require('../models/AuditLog');
 const StudentStatusHistory = require('../models/StudentStatusHistory');
 const AcademicRecord = require('../models/AcademicRecord');
 const FacultyEvaluation = require('../models/FacultyEvaluation');
@@ -23,24 +24,27 @@ async function serve(t, path, router) {
 }
 
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
-const chain = value => {
+const query = value => {
   const result = Promise.resolve(value);
   result.select = () => result;
   result.lean = async () => value;
   return result;
 };
-const accountModels = [AdminUser, FacultyUser, Student];
+const accountModels = { admin: AdminUser, faculty: FacultyUser, student: Student };
 
-function mockIdentifierLookup(t, targetModel, value) {
-  for (const AccountModel of accountModels) {
-    t.mock.method(AccountModel, 'findOne', () => chain(AccountModel === targetModel ? value : null));
+function mockIdentifierLookup(t, role, value) {
+  for (const [accountRole, Model] of Object.entries(accountModels)) {
+    t.mock.method(Model, 'findOne', () => query(accountRole === role ? value : null));
   }
 }
 
-test('verified password reset is single use, including concurrent confirmations', async t => {
-  const oldSecret = process.env.JWT_SECRET;
+test('verified password reset is single-use, including concurrent confirmations', async t => {
+  const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = 'task7-regression-only';
-  t.after(() => { if (oldSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = oldSecret; });
+  t.after(() => {
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
+  });
   const state = {
     _id: '507f1f77bcf86cd799439011',
     username: 'test.admin',
@@ -51,7 +55,7 @@ test('verified password reset is single use, including concurrent confirmations'
     passwordResetAttempts: 0,
     save: async () => {}
   };
-  mockIdentifierLookup(t, AdminUser, state);
+  mockIdentifierLookup(t, 'admin', state);
   t.mock.method(AdminUser, 'findOneAndUpdate', async (filter, update) => {
     if (filter.accountStatus !== state.accountStatus
       || filter.passwordResetCodeHash !== state.passwordResetCodeHash
@@ -67,19 +71,23 @@ test('verified password reset is single use, including concurrent confirmations'
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  const verification = await post('/password-reset/verify', { username: 'test.admin', code: '123456' });
+
+  const verification = await post('/password-reset/verify', { username: state.username, code: '123456' });
   assert.equal(verification.status, 200);
   const { resetAuthorization } = await verification.json();
-  assert.equal((await post('/password-reset/verify', { username: 'test.admin', code: '123456' })).status, 400);
+  assert.equal((await post('/password-reset/verify', { username: state.username, code: '123456' })).status, 400);
   const body = { resetAuthorization, newPassword: 'Fictional-test-password' };
-  const responses = await Promise.all([post('/password-reset/confirm', body), post('/password-reset/confirm', body)]);
+  const responses = await Promise.all([
+    post('/password-reset/confirm', body),
+    post('/password-reset/confirm', body)
+  ]);
   assert.deepEqual(responses.map(response => response.status).sort(), [200, 400]);
   assert.equal((await post('/password-reset/confirm', body)).status, 400);
   assert.equal(revocations.mock.callCount(), 1);
   assert.equal(state.passwordResetCodeHash, undefined);
 });
 
-test('inactive accounts cannot verify password reset codes', async t => {
+test('inactive accounts cannot verify password-reset codes', async t => {
   const inactive = {
     _id: '507f1f77bcf86cd799439011',
     username: 'inactive.admin',
@@ -90,32 +98,41 @@ test('inactive accounts cannot verify password reset codes', async t => {
     passwordResetAttempts: 0,
     save: async () => {}
   };
-  mockIdentifierLookup(t, AdminUser, inactive);
+  mockIdentifierLookup(t, 'admin', inactive);
   const base = await serve(t, '/auth', require('../routes/authRoutes'));
   const response = await fetch(base + '/password-reset/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'inactive.admin', code: '123456' })
+    body: JSON.stringify({ username: inactive.username, code: '123456' })
   });
   assert.equal(response.status, 400);
 });
 
-test('authorized academic status updates set and clear the probation reporting flag', async t => {
-  const oldSecret = process.env.JWT_SECRET;
+test('authorized academic status updates correctly set the probation flag', async t => {
+  const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = 'task7-regression-only';
-  t.after(() => { if (oldSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = oldSecret; });
+  t.after(() => {
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
+  });
   const admin = { _id: 'admin', role: 'admin', username: 'admin', accountStatus: 'active' };
   const student = { _id: 'student', institutionId: 'test-id', academicStatus: {}, save: async () => {} };
-  t.mock.method(AdminUser, 'findById', () => chain(admin));
-  t.mock.method(Student, 'findById', () => chain(null));
-  t.mock.method(SessionToken, 'findOne', () => chain({ _id: 'session' }));
-  t.mock.method(RolePermission, 'findOne', () => chain(null));
-  t.mock.method(Student, 'findOne', () => chain(student));
+  t.mock.method(AdminUser, 'findById', () => query(admin));
+  t.mock.method(Student, 'findById', () => query(null));
+  t.mock.method(Student, 'findOne', () => query(student));
+  t.mock.method(SessionToken, 'findOne', () => query({ _id: 'session' }));
+  t.mock.method(RolePermission, 'findOne', () => query(null));
   t.mock.method(StudentStatusHistory, 'create', async data => ({ _id: 'history', ...data }));
-  t.mock.method(require('../models/AuditLog'), 'create', async () => ({}));
+  t.mock.method(AuditLog, 'create', async () => ({}));
   const base = await serve(t, '/students', require('../routes/studentRoutes'));
   const token = jwt.sign({ jti: 'test-session', userId: 'admin', role: 'admin' }, process.env.JWT_SECRET);
-  for (const [status, expected] of [['probationary', true], ['regular', false], ['Probation', true], ['irregular', false]]) {
+
+  for (const [status, expected] of [
+    ['probationary', true],
+    ['regular', false],
+    ['Probation', true],
+    ['irregular', false]
+  ]) {
     const response = await fetch(base + '/test-id/status', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -127,10 +144,13 @@ test('authorized academic status updates set and clear the probation reporting f
   }
 });
 
-test('student report resolves the profile from the authenticated Student document', async t => {
-  const oldSecret = process.env.JWT_SECRET;
+test('student report uses the authenticated student account document', async t => {
+  const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = 'task7-regression-only';
-  t.after(() => { if (oldSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = oldSecret; });
+  t.after(() => {
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
+  });
   const student = {
     _id: 'account',
     role: 'student',
@@ -138,20 +158,30 @@ test('student report resolves the profile from the authenticated Student documen
     accountStatus: 'active',
     institutionId: 'own-id'
   };
-  t.mock.method(Student, 'findById', () => chain(student));
+  t.mock.method(Student, 'findById', () => query(student));
+  t.mock.method(SessionToken, 'findOne', () => query({ _id: 'session' }));
+  t.mock.method(RolePermission, 'findOne', () => query(null));
   t.mock.method(Student, 'findOne', filter => {
     assert.deepEqual(filter, { _id: 'account' });
-    return chain(student);
+    return query(student);
   });
-  t.mock.method(SessionToken, 'findOne', () => chain({ _id: 'session' }));
-  t.mock.method(RolePermission, 'findOne', () => chain(null));
-  t.mock.method(AcademicRecord, 'find', () => ({ sort() { return this; }, lean: async () => [] }));
-  const evaluation = { evaluationStatus: 'eligible', reasons: ['Requirements met'], remarks: 'Ready for enrollment' };
+  t.mock.method(AcademicRecord, 'find', () => ({
+    sort() { return this; },
+    lean: async () => []
+  }));
+  const evaluation = {
+    evaluationStatus: 'eligible',
+    reasons: ['Requirements met'],
+    remarks: 'Ready for enrollment'
+  };
   t.mock.method(FacultyEvaluation, 'findOne', filter => {
     assert.equal(filter.studentId, 'account');
     return {
       sort() { return this; },
-      select(fields) { assert.equal(fields, '-_id evaluationStatus reasons remarks evaluatedAt'); return this; },
+      select(fields) {
+        assert.equal(fields, '-_id evaluationStatus reasons remarks evaluatedAt');
+        return this;
+      },
       lean: async () => evaluation
     };
   });

@@ -346,7 +346,6 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               <label className="text-xs font-semibold">Weight<input value={personal.weight || ''} onChange={(event) => setPersonal('weight', event.target.value)} placeholder="e.g. 60 kg" className="mt-1 w-full px-3 py-2" /></label>
             </div>
           </section>
-
           <section id="student-classifications" className="student-form-section" aria-labelledby="student-classifications-heading">
             <h3 id="student-classifications-heading">Student Classifications</h3>
             <p className="mt-1 text-sm">Select all that apply. These flags do not change your academic standing or assigned program.</p>

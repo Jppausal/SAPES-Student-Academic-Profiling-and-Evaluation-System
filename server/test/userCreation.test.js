@@ -18,7 +18,7 @@ const query = value => {
   return result;
 };
 
-async function fixture(t, role = 'admin') {
+async function fixture(t, actorRole = 'admin') {
   const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = 'role-account-creation-test-secret';
   t.after(() => {
@@ -26,36 +26,23 @@ async function fixture(t, role = 'admin') {
     else process.env.JWT_SECRET = previousSecret;
   });
 
-  const admin = {
-    _id: '507f1f77bcf86cd799439010',
-    username: 'authorized.admin',
-    role: 'admin',
-    accountStatus: 'active'
+  const actors = {
+    admin: { _id: '507f1f77bcf86cd799439010', username: 'authorized.admin', role: 'admin', accountStatus: 'active' },
+    faculty: { _id: '507f1f77bcf86cd799439020', username: 'authorized.faculty', role: 'faculty', accountStatus: 'active' }
   };
-  const faculty = {
-    _id: '507f1f77bcf86cd799439020',
-    username: 'authorized.faculty',
-    role: 'faculty',
-    accountStatus: 'active'
-  };
-  const accounts = { admin, faculty };
-  for (const [accountRole, Model] of Object.entries(accountModels)) {
-    t.mock.method(Model, 'findById', id => query(
-      accountRole === role && accounts[accountRole]?._id === String(id)
-        ? accounts[accountRole]
-        : null
-    ));
-    t.mock.method(Model, 'findOne', async () => null);
-  }
   const created = { admin: [], faculty: [], student: [] };
-  for (const [accountRole, Model] of Object.entries(accountModels)) {
+  for (const [role, Model] of Object.entries(accountModels)) {
+    t.mock.method(Model, 'findById', id => query(
+      role === actorRole && actors[actorRole]?._id === String(id) ? actors[actorRole] : null
+    ));
+    t.mock.method(Model, 'findOne', () => query(null));
     t.mock.method(Model, 'create', async data => {
       const account = {
-        _id: `created-${accountRole}-${created[accountRole].length + 1}`,
+        _id: `created-${role}-${created[role].length + 1}`,
         createdAt: new Date(),
         ...data
       };
-      created[accountRole].push(account);
+      created[role].push(account);
       return account;
     });
     t.mock.method(Model, 'deleteOne', async () => ({ deletedCount: 1 }));
@@ -72,11 +59,12 @@ async function fixture(t, role = 'admin') {
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
 
+  const actor = actors[actorRole];
   const token = jwt.sign({
     jti: 'session-jti',
-    userId: accounts[role]._id,
-    role,
-    username: accounts[role].username
+    userId: actor._id,
+    role: actorRole,
+    username: actor.username
   }, process.env.JWT_SECRET);
   const endpoint = `http://127.0.0.1:${server.address().port}/api/users`;
   const createAccount = body => fetch(endpoint, {
@@ -87,7 +75,7 @@ async function fixture(t, role = 'admin') {
   return { created, auditLogs, endpoint, createAccount };
 }
 
-test('authorized admins create accounts only in each role-specific collection', async t => {
+test('admins create accounts in their role-specific collections', async t => {
   const { created, auditLogs, createAccount } = await fixture(t);
 
   const studentResponse = await createAccount({
@@ -103,8 +91,8 @@ test('authorized admins create accounts only in each role-specific collection', 
   assert.equal(created.student[0].institutionId, '2401105814');
   assert.equal(created.student[0].email, '2401105814@student.buksu.edu.ph');
   assert.equal(created.student[0].accountStatus, 'inactive');
-  assert.deepEqual(created.student[0].personalInformation, { firstName: 'Alex', lastName: 'Rivera' });
   assert.equal(created.student[0].contactInformation.institutionalEmail, created.student[0].email);
+  assert.deepEqual(created.student[0].personalInformation, { firstName: 'Alex', lastName: 'Rivera' });
   assert.equal(Object.hasOwn(created.student[0], 'userId'), false);
 
   const facultyResponse = await createAccount({
@@ -129,26 +117,24 @@ test('authorized admins create accounts only in each role-specific collection', 
     email: 'registrar.test@buksu.edu.ph'
   });
   assert.equal(adminResponse.status, 201);
-
   assert.deepEqual(
-    Object.fromEntries(Object.entries(created).map(([role, users]) => [role, users.length])),
+    Object.fromEntries(Object.entries(created).map(([role, accounts]) => [role, accounts.length])),
     { admin: 1, faculty: 1, student: 1 }
   );
   assert.equal(auditLogs.length, 3);
   assert.ok(auditLogs.every(event => event.action === 'USER_CREATED'));
 });
 
-test('account creation rejects missing authorization, mismatched student identity, and non-admin roles', async t => {
+test('account creation rejects anonymous callers, mismatched student IDs, and faculty callers', async t => {
   const adminFixture = await fixture(t);
-  const unauthenticated = await fetch(adminFixture.endpoint, {
+  const anonymousResponse = await fetch(adminFixture.endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({})
   });
-  assert.equal(unauthenticated.status, 401);
+  assert.equal(anonymousResponse.status, 401);
 
-  const mismatch = await adminFixture.createAccount({
-    username: '2401109999',
+  const mismatchResponse = await adminFixture.createAccount({
     password: 'temporary-password',
     role: 'student',
     firstName: 'Test',
@@ -156,11 +142,11 @@ test('account creation rejects missing authorization, mismatched student identit
     studentNumber: '2401109999',
     email: '2401105814@student.buksu.edu.ph'
   });
-  assert.equal(mismatch.status, 400);
-  assert.match((await mismatch.json()).message, /must match/);
+  assert.equal(mismatchResponse.status, 400);
+  assert.match((await mismatchResponse.json()).message, /must match/);
 
   const facultyFixture = await fixture(t, 'faculty');
-  const forbidden = await facultyFixture.createAccount({
+  const forbiddenResponse = await facultyFixture.createAccount({
     username: 'unauthorized.creator',
     password: 'temporary-password',
     role: 'faculty',
@@ -168,5 +154,5 @@ test('account creation rejects missing authorization, mismatched student identit
     lastName: 'Creator',
     email: 'unauthorized.creator@faculty.buksu.edu.ph'
   });
-  assert.equal(forbidden.status, 403);
+  assert.equal(forbiddenResponse.status, 403);
 });

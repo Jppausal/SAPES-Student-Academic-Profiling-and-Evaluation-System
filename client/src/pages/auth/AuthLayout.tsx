@@ -27,6 +27,9 @@ export function AuthLayout({
         <div className="grid md:grid-cols-2">
           <div className="hidden md:flex items-center justify-center bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-600 p-10">
             <div className="w-full max-w-md space-y-6 text-white">
+              <div className="inline-flex items-center gap-3">
+                <span className="text-xl font-semibold tracking-[0.2em] uppercase">SAPES</span>
+              </div>
               <img src={plainLogo} alt="Bukidnon State University logo" className="h-64 w-full object-contain" />
 
               <div>

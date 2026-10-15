@@ -48,10 +48,14 @@ async function fixture(t) {
     save: async () => {}
   };
   const accounts = [admin, faculty, student];
-  for (const [Model, role] of [[AdminUser, 'admin'], [FacultyUser, 'faculty'], [Student, 'student']]) {
-    t.mock.method(Model, 'findById', id => query(accounts.find(account => account.role === role && account._id === String(id)) || null));
+  for (const [role, Model] of Object.entries({ admin: AdminUser, faculty: FacultyUser, student: Student })) {
+    t.mock.method(Model, 'findById', id => query(
+      accounts.find(account => account.role === role && account._id === String(id)) || null
+    ));
   }
-  t.mock.method(Student, 'findOne', filter => query(filter.institutionId === student.institutionId ? student : null));
+  t.mock.method(Student, 'findOne', filter => query(
+    filter.institutionId === student.institutionId ? student : null
+  ));
   t.mock.method(SessionToken, 'findOne', () => query({ _id: 'session' }));
   const revokedSessions = t.mock.method(SessionToken, 'updateMany', async () => ({}));
   t.mock.method(RolePermission, 'findOne', () => query(null));
@@ -74,7 +78,7 @@ async function fixture(t) {
   return { admin, faculty, student, put, revokedSessions, audits };
 }
 
-test('account status changes update only the selected role collection', async t => {
+test('account status changes target the selected role collection only', async t => {
   const { admin, faculty, student, put, revokedSessions } = await fixture(t);
   const profileBefore = JSON.stringify(student.personalInformation);
 
@@ -91,7 +95,7 @@ test('account status changes update only the selected role collection', async t 
   assert.equal(revokedSessions.mock.callCount(), 2);
 });
 
-test('admin student profile edits write directly to the Student collection document', async t => {
+test('admin student profile changes update the account/profile document in student users', async t => {
   const { student, put, audits } = await fixture(t);
   const response = await put(`/students/${student.institutionId}`, {
     personalInformation: { firstName: 'Renamed', middleName: 'Middle', suffix: 'III' }

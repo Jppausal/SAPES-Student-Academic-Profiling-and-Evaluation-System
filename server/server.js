@@ -1,10 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('node:path');
 const dns = require('node:dns');
-require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
-
 const { connectCloudDatabase } = require('./utils/database');
 const studentRoutes = require('./routes/studentRoutes');
 const facultyEvaluationRoutes = require('./routes/facultyEvaluationRoutes');
@@ -36,8 +33,7 @@ app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
 
 const startServer = async () => {
-  const jwtSecret = process.env.JWT_SECRET?.trim();
-  if (!jwtSecret) {
+  if (!process.env.JWT_SECRET?.trim()) {
     throw new Error('JWT_SECRET is required. Set a unique secret in server/.env before starting the API.');
   }
 
@@ -52,8 +48,12 @@ const startServer = async () => {
   await connectCloudDatabase({ serverSelectionTimeoutMS: 10000 });
   console.log(`Connected to the cloud database: ${mongoose.connection.name}`);
 
-  const port = process.env.PORT || 5001;
-  app.listen(port, () => console.log(`Server running on port ${port}`));
+  const port = Number(process.env.PORT || 5001);
+  const server = app.listen(port, () => console.log(`Server running on port ${port}`));
+  server.on('error', (error) => {
+    console.error(`Server listen failed: ${error.message}`);
+    process.exitCode = 1;
+  });
 };
 
 startServer().catch((error) => {

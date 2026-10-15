@@ -1,6 +1,4 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
-
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
 const { connectCloudDatabase } = require('../utils/database');
@@ -41,7 +39,7 @@ const seedStudentTestAcademicRecords = async () => {
 
   try {
     const student = await Student.findOne({ username: 'student.test' }).select('_id institutionId');
-    if (!student) throw new Error('student.test has no linked Student profile');
+    if (!student) throw new Error('student.test does not exist in the student users collection');
 
     const results = [];
     for (const candidate of STUDENT_TEST_RECORDS) {

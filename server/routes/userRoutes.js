@@ -313,7 +313,7 @@ router.post(
       if (createdUser) {
         const cleanupResult = await createdAccountModel.deleteOne({ _id: createdUser._id });
         if (cleanupResult.deletedCount !== 1) {
-          console.error('Unable to fully roll back failed user creation');
+          console.error('Unable to fully roll back failed account creation');
         }
       }
 
@@ -413,6 +413,13 @@ router.put(
           if (identity.error) {
             return res.status(400).json({ success: false, message: identity.error });
           }
+        }
+        const duplicateEmail = await findAccountByIdentifier(normalizedEmail, ['email']);
+        if (duplicateEmail.ambiguous || (
+          duplicateEmail.account &&
+          String(duplicateEmail.account._id) !== String(existingUser._id)
+        )) {
+          return res.status(409).json({ success: false, message: 'Institutional email already exists' });
         }
         updates.email = normalizedEmail;
       }

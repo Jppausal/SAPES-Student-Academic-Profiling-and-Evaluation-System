@@ -174,27 +174,17 @@ router.post('/logout', authenticateToken, async (req, res) => {
 });
 
 router.post('/password-reset/request', async (req, res) => {
-  const genericResponse = {
-    success: true,
-    message: 'If the account is eligible, a verification code has been sent to its registered institutional email.'
-  };
+  const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
     const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
     if (!username) return res.status(400).json({ success: false, message: 'Username or institution ID is required' });
-
     const { account } = await findAccountByIdentifier(
       username,
       ['email', 'username', 'institutionId', 'studentNumber'],
       '+passwordResetRequestedAt'
     );
     if (!account || account.accountStatus !== 'active' || !account.email) return res.json(genericResponse);
-    if (
-      account.passwordResetRequestedAt
-      && Date.now() - account.passwordResetRequestedAt.getTime() < RESET_REQUEST_INTERVAL_MS
-    ) {
-      return res.json(genericResponse);
-    }
-
+    if (account.passwordResetRequestedAt && Date.now() - account.passwordResetRequestedAt.getTime() < RESET_REQUEST_INTERVAL_MS) return res.json(genericResponse);
     const code = crypto.randomInt(100000, 1000000).toString();
     account.passwordResetCodeHash = resetCodeHash(code);
     account.passwordResetExpiresAt = new Date(Date.now() + RESET_WINDOW_MS);
@@ -520,8 +510,13 @@ router.post('/google', async (req, res) => {
       account.googleId = payload.sub;
     }
 
+    if (role === 'student') {
+      account.contactInformation = account.contactInformation || {};
+      account.contactInformation.institutionalEmail = email;
+    }
     account.lastLoginAt = new Date();
     await account.save();
+
     return res.json({
       success: true,
       message: 'Google login successful',
