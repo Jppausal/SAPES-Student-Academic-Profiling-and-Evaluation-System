@@ -17,6 +17,7 @@ developed by EnTech-T.
 8. [Seeding Development Data](#seeding-development-data)
 9. [Building for Production](#building-for-production)
 10. [Environment Variables Reference](#environment-variables-reference)
+11. [Troubleshooting login](#troubleshooting-login)
 
 ---
 
@@ -236,3 +237,13 @@ Serve `client/dist/` as static files, or configure your server to serve it.
 |----------|----------|-------------|
 | `VITE_GOOGLE_CLIENT_ID` | Yes | Google OAuth 2.0 client ID (same as server) |
 | `VITE_API_URL` | No | Backend base URL; leave blank to use same-origin default |
+
+## Troubleshooting login
+
+- Keep environment files in their own folders: use `server/.env` for `MONGO_URI`, `PORT`, `JWT_SECRET`, and `GOOGLE_CLIENT_ID`; use `client/.env` for `VITE_GOOGLE_CLIENT_ID` and optional `VITE_API_URL`. Never put server secrets in `client/.env`.
+- After changing any `VITE_*` value, stop and restart the Vite development server. Vite reads client environment variables at startup.
+- For local Google sign-in, add the exact browser origin as an authorized JavaScript origin in Google Cloud Console, for example `http://localhost:3002` when Vite is running on port 3002. The Google client ID must be present in both `server/.env` and `client/.env` under their respective variable names.
+- Google sign-in accepts only the institutional domains `buksu.edu.ph` and `student.buksu.edu.ph`.
+- Start the backend on port `5001`. The Vite proxy in `client/vite.config.ts` forwards `/api` requests to `http://127.0.0.1:5001`.
+- The seeded password-login account uses the username `faculty.test` and the seed password from `server/seed/seed.js`. Existing database accounts may have a different password if the seed was not run against that database.
+- Check `http://localhost:5001/api/health`. A working database connection returns `{ "status": "ok", "database": "connected" }`.

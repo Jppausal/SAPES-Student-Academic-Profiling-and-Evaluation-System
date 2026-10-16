@@ -808,38 +808,82 @@
 ---------------------------------------------------- */
 .student-profile-layout {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 36px;
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 32px;
   align-items: start;
 }
 
 .student-profile-index {
   position: sticky;
   top: 88px;
+  counter-reset: profile-section;
+  padding: 18px 14px 16px;
+  border: 1px solid var(--student-line);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.72);
+  box-shadow: 0 8px 24px -18px rgba(15, 23, 42, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .student-profile-index p {
-  margin-bottom: 8px;
+  margin: 0 6px 10px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--student-line);
+  font-size: 12px;
+  letter-spacing: 0.02em;
   font-weight: 700;
   color: var(--student-navy);
 }
 
 .student-profile-index a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 10px 8px 30px;
+  border-radius: 9px;
   color: var(--student-muted);
-  padding: 8px 0;
-  font-size: 13px;
-  text-decoration: underline;
-  text-decoration-color: #cbd5e1;
-  text-underline-offset: 4px;
-  transition: color 0.15s;
+  font-size: 12.5px;
+  line-height: 1.25;
+  text-decoration: none;
+  transition: color 0.15s, background-color 0.15s, transform 0.15s;
 }
 
-.student-profile-index a:hover {
+.student-profile-index a::before {
+  position: absolute;
+  left: 10px;
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  color: #64748b;
+  content: counter(profile-section);
+  counter-increment: profile-section;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.student-profile-index a:hover,
+.student-profile-index a:focus-visible {
+  background: #eef2ff;
   color: var(--student-primary);
-  text-decoration-color: var(--student-primary);
+  outline: none;
+  transform: translateX(2px);
+}
+
+.student-profile-index a:hover::before,
+.student-profile-index a:focus-visible::before {
+  border-color: var(--student-primary);
+  background: var(--student-primary);
+  color: white;
+}
+
+.student-profile-index a:focus-visible {
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
 }
 
 .student-profile-form {
@@ -1022,6 +1066,10 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     column-gap: 16px;
+    padding: 16px 12px 12px;
+  }
+  .student-profile-index p {
+    grid-column: 1 / -1;
   }
   .student-profile-form {
     padding: 20px 16px;

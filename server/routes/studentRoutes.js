@@ -13,6 +13,7 @@ const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord'
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
+const { getAcademicStatus } = require('../utils/academicStatus');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -426,6 +427,8 @@ router.get(
           personalInformation: 1,
           enrollmentInformation: 1,
           classification: 1,
+          yearLevel: 1,
+          section: 1,
           religiousInformation: 1,
           healthInformation: 1,
           academicStatus: 1
@@ -666,6 +669,10 @@ router.get(
         };
       }
       if (req.user.role === 'faculty') {
+        student.academicStatus = {
+          ...student.academicStatus,
+          ...getAcademicStatus(student)
+        };
         const activities = student.religiousInformation?.shareSpiritualSchedule ? student.religiousInformation.spiritualActivities || [] : [];
         delete student.religiousInformation;
         student.schedulingRestrictions = activities;

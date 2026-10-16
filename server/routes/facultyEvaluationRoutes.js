@@ -8,6 +8,7 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const authorizePermission = require('../middleware/permissionMiddleware').authorizePermission;
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { calculateCourseMetrics, validateCourseEvaluation } = require('../utils/courseEvaluation');
+const { getAcademicStatus } = require('../utils/academicStatus');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -17,14 +18,6 @@ const TECHNOLOGY_PROGRAMS = [
   'Food Technology',
   'Automotive Technology'
 ];
-
-const getAcademicStatus = (student) => {
-  const currentStatus = student.academicStatus?.currentStatus || 'Not recorded';
-  const isOnProbation = Boolean(
-    student.academicStatus?.isOnProbation || /probation/i.test(currentStatus)
-  );
-  return { currentStatus, isOnProbation };
-};
 
 const getPeerProgress = async (student) => {
   const peers = await Student.find({

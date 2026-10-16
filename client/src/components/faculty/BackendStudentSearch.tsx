@@ -14,6 +14,12 @@ interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
 }
 
+const dateLabel = (value?: string) => {
+  if (!value) return 'Not recorded';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleDateString();
+};
+
 export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated' }) => {
   const [institutionId, setInstitutionId] = useState('');
   const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
@@ -71,13 +77,35 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
     setError('');
     setMessage('');
     try {
+      const normalizedQuery = query.trim();
+      if (!normalizedQuery) {
+        setReport(null);
+        setError('Enter a student number or name.');
+        return;
+      }
+
       let match = selectedSuggestion;
       if (!match) {
-        const matches = await fetchStudentSuggestions(query.trim());
-        const normalizedQuery = query.trim().toLowerCase();
-        const idMatch = matches.find((student) => student.institutionId.toLowerCase() === normalizedQuery);
-        const usernameMatch = matches.find((student) => student.username.toLowerCase() === normalizedQuery);
-        const fullNameMatches = matches.filter((student) => `${student.firstName} ${student.lastName}`.trim().toLowerCase() === normalizedQuery);
+        try {
+          const exactReport = await fetchStudentReport(normalizedQuery);
+          setInstitutionId(exactReport.student.institutionId);
+          setSuggestions([]);
+          setSuggestionsOpen(false);
+          setReport(exactReport);
+          setEvaluationStatus(exactReport.facultyEvaluation?.evaluationStatus || 'for_review');
+          setReasons(exactReport.facultyEvaluation?.reasons?.join(', ') || '');
+          setRemarks(exactReport.facultyEvaluation?.remarks || '');
+          setStudentStatus(exactReport.student.academicStatus?.currentStatus || '');
+          return;
+        } catch (reportError) {
+          if (!(reportError instanceof Error) || reportError.message !== 'Student not found') throw reportError;
+        }
+
+        const matches = await fetchStudentSuggestions(normalizedQuery);
+        const normalizedQueryLower = normalizedQuery.toLowerCase();
+        const idMatch = matches.find((student) => student.institutionId.toLowerCase() === normalizedQueryLower);
+        const usernameMatch = matches.find((student) => student.username.toLowerCase() === normalizedQueryLower);
+        const fullNameMatches = matches.filter((student) => `${student.firstName} ${student.lastName}`.trim().toLowerCase() === normalizedQueryLower);
         match = idMatch || usernameMatch || (fullNameMatches.length === 1 ? fullNameMatches[0] : undefined);
         if (!match && matches.length === 1) match = matches[0];
         if (!match && matches.length) {
@@ -85,7 +113,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
         }
         if (!match) {
           try {
-            const result = await fetchStudentReport(query.trim());
+            const result = await fetchStudentReport(normalizedQuery);
             setInstitutionId(result.student.institutionId);
             setSuggestions([]);
             setSuggestionsOpen(false);
@@ -178,6 +206,10 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   } : null;
   const historicalFallbackGwas = resolveAcademicGwas(report?.academicRecords || []);
   const historicalOverallGwa = report?.overallGwa ?? historicalFallbackGwas.overallGwa;
+  const academicStatus = report?.student.academicStatus;
+  const isOnProbation = academicStatus?.isOnProbation === true
+    || /probation/i.test(academicStatus?.currentStatus || '');
+  const healthInformation = report?.student.healthInformation;
 
   return (
     <section className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm sm:p-6">
@@ -262,6 +294,13 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             <div>
               <p className="text-lg font-extrabold text-slate-900">{studentName || 'Student record'}</p>
               <p className="font-mono text-xs text-slate-500">{report.student.institutionId}</p>
+              <p className="mt-1 text-xs text-slate-600">
+                {report.student.enrollmentInformation?.course || report.student.classification?.program || 'Program not recorded'}
+                {' · '}
+                Year {report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level || 'Not recorded'}
+                {' · '}
+                Section {report.student.section || 'Not recorded'}
+              </p>
             </div>
             <div className="min-w-64 rounded-xl bg-slate-900 px-4 py-3 text-white">
               <p className="text-[10px] uppercase tracking-wider text-slate-400">Latest-period GWA</p>
@@ -278,6 +317,33 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             <div className="rounded-xl bg-slate-50 p-3"><span className="text-xs text-slate-500">Current status</span><strong className="mt-1 block text-slate-900">{report.student.academicStatus?.currentStatus || 'Not recorded'}</strong></div>
             <div className="rounded-xl bg-slate-50 p-3"><span className="text-xs text-slate-500">Academic records</span><strong className="mt-1 block text-slate-900">{report.academicRecords.length}</strong></div>
             <div className="rounded-xl bg-slate-50 p-3"><span className="text-xs text-slate-500">Latest evaluation</span><strong className="mt-1 block text-slate-900">{report.facultyEvaluation?.evaluationStatus || 'For review'}</strong></div>
+          </div>
+
+          <div className={`rounded-xl border p-4 ${isOnProbation ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50'}`}>
+            <p className={`text-sm font-extrabold ${isOnProbation ? 'text-rose-800' : 'text-emerald-800'}`}>
+              {isOnProbation ? 'Under academic probation' : 'Not under academic probation'}
+            </p>
+            {isOnProbation && <dl className="mt-2 grid gap-2 text-xs text-slate-700 sm:grid-cols-3">
+              <div><dt className="font-semibold">Reason</dt><dd>{academicStatus?.probationReason || 'Not recorded'}</dd></div>
+              <div><dt className="font-semibold">Remarks</dt><dd>{academicStatus?.statusRemarks || 'Not recorded'}</dd></div>
+              <div><dt className="font-semibold">Effective date</dt><dd>{dateLabel(academicStatus?.effectiveDate)}</dd></div>
+            </dl>}
+          </div>
+
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-sky-950">Health &amp; Medical (authorized for faculty evaluation)</h3>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Confidential – for academic evaluation use only</span>
+            </div>
+            {!healthInformation ? <p className="mt-2 text-sm text-slate-600">Not provided</p> : !healthInformation.hasRelevantHealthConcern ? (
+              <p className="mt-2 text-sm text-slate-700">No relevant health concern reported</p>
+            ) : (
+              <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+                <div><dt className="text-xs font-semibold text-slate-500">Relevant health concern</dt><dd>Concern flagged</dd></div>
+                <div><dt className="text-xs font-semibold text-slate-500">Accommodation required</dt><dd>{healthInformation.accommodationRequired ? 'Yes' : 'No'}</dd></div>
+                <div className="sm:col-span-2"><dt className="text-xs font-semibold text-slate-500">Accommodation notes</dt><dd>{healthInformation.accommodationNotes || 'Not provided'}</dd></div>
+              </dl>
+            )}
           </div>
 
           {displayMode === 'consolidated' && <div className="grid gap-4 lg:grid-cols-2">
@@ -330,6 +396,31 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-900">Status history</h3>
+            {report.statusHistory.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No status history recorded.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+                    <tr><th className="px-3 py-2">Effective date</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Reason</th><th className="px-3 py-2">Remarks</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {report.statusHistory.map((entry, index) => (
+                      <tr key={`${entry.effectiveDate}-${index}`}>
+                        <td className="px-3 py-2">{dateLabel(entry.effectiveDate)}</td>
+                        <td className="px-3 py-2">{entry.status || 'Not recorded'}</td>
+                        <td className="px-3 py-2">{entry.reason || 'Not recorded'}</td>
+                        <td className="px-3 py-2">{entry.remarks || 'Not recorded'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

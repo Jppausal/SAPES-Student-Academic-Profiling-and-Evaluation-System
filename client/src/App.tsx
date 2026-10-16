@@ -19,12 +19,35 @@ import { FacultyPage } from './types';
 
 type AuthView = 'landing' | 'login' | 'forgot-password' | 'dashboard';
 
+const UI_SESSION_KEYS = {
+  AUTH_VIEW: 'sapes_auth_view_v1',
+  ACTIVE_PAGE: 'sapes_active_page_v1',
+} as const;
+
+const isAuthView = (value: string | null): value is AuthView =>
+  value === 'landing' || value === 'login' || value === 'forgot-password' || value === 'dashboard';
+
+const isFacultyPage = (value: string | null): value is FacultyPage =>
+  value === 'dashboard' || value === 'student-search' || value === 'evaluations' || value === 'student-records';
+
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus, sessionReady, login, loginWithGoogle } = useApp();
-  const [authView, setAuthView] = useState<AuthView>(() => (
-    currentUser ? 'dashboard' : 'landing'
-  ));
-  const [activePage, setActivePage] = useState<FacultyPage>('dashboard');
+  const [authView, setAuthView] = useState<AuthView>(() => {
+    const savedView = sessionStorage.getItem(UI_SESSION_KEYS.AUTH_VIEW);
+    return currentUser ? 'dashboard' : (isAuthView(savedView) ? savedView : 'landing');
+  });
+  const [activePage, setActivePage] = useState<FacultyPage>(() => {
+    const savedPage = sessionStorage.getItem(UI_SESSION_KEYS.ACTIVE_PAGE);
+    return isFacultyPage(savedPage) ? savedPage : 'dashboard';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem(UI_SESSION_KEYS.AUTH_VIEW, authView);
+  }, [authView]);
+
+  useEffect(() => {
+    sessionStorage.setItem(UI_SESSION_KEYS.ACTIVE_PAGE, activePage);
+  }, [activePage]);
 
   useEffect(() => {
     if (!sessionReady) return;
