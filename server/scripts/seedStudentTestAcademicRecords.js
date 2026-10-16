@@ -1,9 +1,7 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
-
-const User = require('../models/User');
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
+const { connectCloudDatabase } = require('../utils/database');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
 
 const STUDENT_TEST_RECORDS = [
@@ -37,15 +35,11 @@ const STUDENT_TEST_RECORDS = [
 ];
 
 const seedStudentTestAcademicRecords = async () => {
-  if (!process.env.MONGO_URI) throw new Error('MONGO_URI is required');
-  await mongoose.connect(process.env.MONGO_URI);
+  await connectCloudDatabase();
 
   try {
-    const user = await User.findOne({ username: 'student.test', role: 'student' }).select('_id');
-    if (!user) throw new Error('student.test student account was not found');
-
-    const student = await Student.findOne({ userId: user._id }).select('_id institutionId');
-    if (!student) throw new Error('student.test has no linked Student profile');
+    const student = await Student.findOne({ username: 'student.test' }).select('_id institutionId');
+    if (!student) throw new Error('student.test does not exist in the student users collection');
 
     const results = [];
     for (const candidate of STUDENT_TEST_RECORDS) {

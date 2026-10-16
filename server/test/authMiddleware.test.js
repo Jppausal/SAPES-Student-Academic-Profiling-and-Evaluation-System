@@ -3,12 +3,10 @@ const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 
 const SessionToken = require('../models/SessionToken');
-const User = require('../models/User');
 const Student = require('../models/Student');
 const authenticateToken = require('../middleware/authMiddleware');
 
 const originalFindSession = SessionToken.findOne;
-const originalFindUser = User.findById;
 const originalFindStudent = Student.findById;
 const originalJwtSecret = process.env.JWT_SECRET;
 
@@ -57,7 +55,6 @@ test.beforeEach(() => {
 
 test.afterEach(() => {
   SessionToken.findOne = originalFindSession;
-  User.findById = originalFindUser;
   Student.findById = originalFindStudent;
 });
 
@@ -69,10 +66,10 @@ test.after(() => {
   }
 });
 
-test('allows an active account and refreshes mutable identity claims', async () => {
-  User.findById = () => queryReturning({
+test('allows an active role-matched account and refreshes mutable identity claims', async () => {
+  Student.findById = () => queryReturning({
     username: 'current-username',
-    role: 'faculty',
+    role: 'student',
     accountStatus: 'active'
   });
   const req = makeRequest();
@@ -84,12 +81,12 @@ test('allows an active account and refreshes mutable identity claims', async () 
   });
 
   assert.equal(nextCalled, true);
-  assert.equal(req.user.role, 'faculty');
+  assert.equal(req.user.role, 'student');
   assert.equal(req.user.username, 'current-username');
 });
 
 test('rejects an existing session after the account is suspended', async () => {
-  User.findById = () => queryReturning({
+  Student.findById = () => queryReturning({
     username: 'student-account',
     role: 'student',
     accountStatus: 'suspended'
@@ -108,7 +105,7 @@ test('rejects an existing session after the account is suspended', async () => {
 });
 
 test('rejects a session when its account no longer exists', async () => {
-  User.findById = () => queryReturning(null);
+  Student.findById = () => queryReturning(null);
   const req = makeRequest();
   const res = makeResponse();
 
@@ -119,7 +116,6 @@ test('rejects a session when its account no longer exists', async () => {
 });
 
 test('authenticates a student account stored only in the Student collection', async () => {
-  User.findById = () => queryReturning(null);
   Student.findById = () => queryReturning({
     username: 'student-account',
     role: 'student',

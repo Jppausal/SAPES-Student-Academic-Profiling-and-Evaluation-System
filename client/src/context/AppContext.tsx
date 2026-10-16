@@ -65,10 +65,10 @@ interface AppContextType {
   createUserAccount: (accountData: { username: string; password: string; role: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
   updateUserAccount: (userId: string, updates: Partial<UserAccount>) => void;
   toggleUserActiveStatus: (userId: string) => void;
-  deactivateUserAccount: (userId: string) => Promise<void>;
-  reactivateUserAccount: (userId: string) => Promise<void>;
-  updateUserAccountStatus: (userId: string, status: 'active' | 'inactive' | 'suspended') => Promise<void>;
-  saveUserAccount: (userId: string, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
+  deactivateUserAccount: (userId: string, role: UserRole) => Promise<void>;
+  reactivateUserAccount: (userId: string, role: UserRole) => Promise<void>;
+  updateUserAccountStatus: (userId: string, role: UserRole, status: 'active' | 'inactive' | 'suspended') => Promise<void>;
+  saveUserAccount: (userId: string, role: UserRole, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => Promise<void>;
   addAuditLog: (action: string, category: SystemAuditLog['category'], details: string) => void;
   resetAllData: () => void;
   currentStudentProfile: StudentProfile | null;
@@ -701,26 +701,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const deactivateUserAccount = async (userId: string) => {
-    await updateUserStatus(userId, 'inactive');
+  const deactivateUserAccount = async (userId: string, role: UserRole) => {
+    await updateUserStatus(userId, role, 'inactive');
     await refreshUsersFromBackend();
   };
 
-  const reactivateUserAccount = async (userId: string) => {
-    await updateUserStatus(userId, 'active');
+  const reactivateUserAccount = async (userId: string, role: UserRole) => {
+    await updateUserStatus(userId, role, 'active');
     await refreshUsersFromBackend();
   };
 
   const updateUserAccountStatus = async (
     userId: string,
+    role: UserRole,
     status: 'active' | 'inactive' | 'suspended'
   ) => {
-    await updateUserStatus(userId, status);
+    await updateUserStatus(userId, role, status);
     await refreshUsersFromBackend();
   };
 
-  const saveUserAccount = async (userId: string, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => {
-    await updateUser(userId, updates);
+  const saveUserAccount = async (userId: string, role: UserRole, updates: { username?: string; password?: string; role?: UserRole; accountStatus?: 'active' | 'inactive' | 'suspended'; firstName?: string; lastName?: string; email?: string; studentNumber?: string; employeeId?: string; department?: string }) => {
+    await updateUser(userId, role, updates);
     await refreshUsersFromBackend();
   };
 

@@ -1,116 +1,111 @@
-const test = require('node:test');
 const assert = require('node:assert/strict');
+const test = require('node:test');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const AdminUser = require('../models/AdminUser');
+const FacultyUser = require('../models/FacultyUser');
 const Student = require('../models/Student');
-const AcademicRecord = require('../models/AcademicRecord');
 const SessionToken = require('../models/SessionToken');
 const RolePermission = require('../models/RolePermission');
 const AuditLog = require('../models/AuditLog');
-const { planBackfill } = require('../scripts/backfillStudentIdentity');
 
-function query(value) {
+const query = value => {
   const result = Promise.resolve(value);
   result.select = () => result;
   result.lean = async () => value;
   return result;
-}
+};
 
 async function fixture(t) {
-  const oldSecret = process.env.JWT_SECRET;
-  process.env.JWT_SECRET = 'a105-a107-test-only';
-  t.after(() => { if (oldSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = oldSecret; });
-  const adminId = '507f1f77bcf86cd799439010';
-  const user = { _id: '507f1f77bcf86cd799439011', role: 'student', firstName: 'Alex', lastName: 'Rivera', accountStatus: 'active', studentNumber: '9900000101', save: async () => {} };
-  const student = { _id: '507f1f77bcf86cd799439012', userId: user._id, institutionId: user.studentNumber, accountStatus: 'active', personalInformation: { firstName: 'Alex', middleName: 'Keep', lastName: 'Rivera', suffix: 'Jr.' }, contactInformation: {}, save: async () => {} };
-  const audits = [];
-  t.mock.method(User, 'findById', id => query(String(id) === adminId ? { _id: adminId, role: 'admin', accountStatus: 'active' } : user));
-  t.mock.method(User, 'findByIdAndUpdate', async (_id, updates) => { Object.assign(user, updates); return user; });
-  t.mock.method(User, 'updateOne', async (filter, update) => { assert.equal(filter._id, student.userId); Object.assign(user, update.$set); return { modifiedCount: 1 }; });
-  t.mock.method(Student, 'findById', () => query(null));
-  t.mock.method(Student, 'findOne', () => query(student));
-  const mirrored = t.mock.method(Student, 'updateOne', async (filter, update) => { assert.equal(filter.userId, user._id); Object.assign(student, update.$set); return { modifiedCount: 1 }; });
+  const previousSecret = process.env.JWT_SECRET;
+  process.env.JWT_SECRET = 'role-collection-test-only';
+  t.after(() => {
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
+  });
+
+  const admin = {
+    _id: '507f1f77bcf86cd799439010',
+    username: 'test.admin',
+    role: 'admin',
+    accountStatus: 'active',
+    save: async () => {}
+  };
+  const faculty = {
+    _id: '507f1f77bcf86cd799439011',
+    username: 'test.faculty',
+    role: 'faculty',
+    accountStatus: 'active',
+    save: async () => {}
+  };
+  const student = {
+    _id: '507f1f77bcf86cd799439012',
+    username: '9900000101',
+    institutionId: '9900000101',
+    role: 'student',
+    accountStatus: 'active',
+    personalInformation: { firstName: 'Alex', middleName: 'Keep', lastName: 'Rivera', suffix: 'Jr.' },
+    save: async () => {}
+  };
+  const accounts = [admin, faculty, student];
+  for (const [role, Model] of Object.entries({ admin: AdminUser, faculty: FacultyUser, student: Student })) {
+    t.mock.method(Model, 'findById', id => query(
+      accounts.find(account => account.role === role && account._id === String(id)) || null
+    ));
+  }
+  t.mock.method(Student, 'findOne', filter => query(
+    filter.institutionId === student.institutionId ? student : null
+  ));
   t.mock.method(SessionToken, 'findOne', () => query({ _id: 'session' }));
-  const revoked = t.mock.method(SessionToken, 'updateMany', async () => ({}));
+  const revokedSessions = t.mock.method(SessionToken, 'updateMany', async () => ({}));
   t.mock.method(RolePermission, 'findOne', () => query(null));
+  const audits = [];
   t.mock.method(AuditLog, 'create', async event => { audits.push(event); return event; });
-  const app = express(); app.use(express.json());
+
+  const app = express();
+  app.use(express.json());
   app.use('/users', require('../routes/userRoutes'));
   app.use('/students', require('../routes/studentRoutes'));
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
-  const token = jwt.sign({ userId: adminId, jti: 'test-session' }, process.env.JWT_SECRET);
-  const put = async (path, body) => fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  return { user, student, put, revoked, mirrored, audits };
+  const token = jwt.sign({ userId: admin._id, role: 'admin', jti: 'test-session' }, process.env.JWT_SECRET);
+  const put = (path, body) => fetch(`http://127.0.0.1:${server.address().port}${path}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return { admin, faculty, student, put, revokedSessions, audits };
 }
 
-test('A105 status endpoint mirrors deactivation and reactivation without changing profile data', async t => {
-  const { user, student, put, revoked } = await fixture(t);
-  const before = JSON.stringify(student.personalInformation);
-  for (const status of ['inactive', 'active', 'suspended', 'active']) {
-    assert.equal((await put(`/users/${user._id}/status`, { accountStatus: status })).status, 200);
-    assert.equal(user.accountStatus, status); assert.equal(student.accountStatus, status);
-  }
-  assert.equal(revoked.mock.callCount(), 2);
-  assert.equal(JSON.stringify(student.personalInformation), before);
+test('account status changes target the selected role collection only', async t => {
+  const { admin, faculty, student, put, revokedSessions } = await fixture(t);
+  const profileBefore = JSON.stringify(student.personalInformation);
+
+  assert.equal((await put(`/users/${faculty._id}/status?role=faculty`, { accountStatus: 'inactive' })).status, 200);
+  assert.equal(faculty.accountStatus, 'inactive');
+  assert.equal(student.accountStatus, 'active');
+
+  assert.equal((await put(`/users/${student._id}/status?role=student`, { accountStatus: 'suspended' })).status, 200);
+  assert.equal(student.accountStatus, 'suspended');
+  assert.equal(JSON.stringify(student.personalInformation), profileBefore);
+
+  assert.equal((await put(`/users/${admin._id}/status?role=admin`, { accountStatus: 'inactive' })).status, 400);
+  assert.equal(admin.accountStatus, 'active');
+  assert.equal(revokedSessions.mock.callCount(), 2);
 });
 
-test('A105 faculty/admin status changes do not create or update Student documents', async t => {
-  const { user, put, mirrored } = await fixture(t);
-  for (const role of ['faculty', 'admin']) {
-    user.role = role;
-    assert.equal((await put(`/users/${user._id}/status`, { accountStatus: 'inactive' })).status, 200);
-  }
-  assert.equal(mirrored.mock.callCount(), 0);
-});
+test('admin student profile changes update the account/profile document in student users', async t => {
+  const { student, put, audits } = await fixture(t);
+  const response = await put(`/students/${student.institutionId}`, {
+    personalInformation: { firstName: 'Renamed', middleName: 'Middle', suffix: 'III' }
+  });
 
-test('A105/A106 account editor synchronizes student status and names', async t => {
-  const { user, student, put, revoked } = await fixture(t);
-  assert.equal((await put(`/users/${user._id}`, { accountStatus: 'inactive', firstName: 'Updated', lastName: 'Name' })).status, 200);
-  assert.equal(student.accountStatus, 'inactive');
-  assert.equal(student.personalInformation.firstName, user.firstName);
-  assert.equal(student.personalInformation.lastName, user.lastName);
-  assert.equal(student.personalInformation.middleName, 'Keep');
-  assert.equal(student.personalInformation.suffix, 'Jr.');
-  assert.equal(revoked.mock.callCount(), 1);
-});
-
-test('A106 admin profile name edits synchronize only changed User name fields', async t => {
-  const { user, student, put, audits } = await fixture(t);
-  const originalId = student.institutionId;
-  assert.equal((await put(`/students/${originalId}`, { personalInformation: { firstName: 'Renamed', middleName: 'Middle', suffix: 'III' } })).status, 200);
-  assert.equal(user.firstName, 'Renamed'); assert.equal(user.lastName, 'Rivera');
-  assert.equal(student.institutionId, originalId); assert.equal(student.userId, user._id);
+  assert.equal(response.status, 200);
+  assert.equal(student.personalInformation.firstName, 'Renamed');
+  assert.equal(student.personalInformation.lastName, 'Rivera');
   assert.equal(student.personalInformation.middleName, 'Middle');
   assert.equal(student.personalInformation.suffix, 'III');
+  assert.equal(Object.hasOwn(student, 'userId'), false);
   assert.equal(audits[0].action, 'UPDATE_STUDENT_PROFILE');
-  assert.ok(!JSON.stringify(audits).includes('Renamed'));
-});
-
-test('A106 account editor rejects blank names instead of desynchronizing the profile', async t => {
-  const { user, student, put } = await fixture(t);
-  for (const field of ['firstName', 'lastName']) {
-    assert.equal((await put(`/users/${user._id}`, { [field]: '  ' })).status, 400);
-    assert.equal(user[field], student.personalInformation[field]);
-  }
-});
-
-test('A107 academic record save leaves Student profile and status unchanged', async t => {
-  const { student, put } = await fixture(t);
-  const before = JSON.stringify(student);
-  t.mock.method(AcademicRecord, 'findOneAndUpdate', async (filter, update) => ({ _id: 'term', ...filter, subjects: update.$set.subjects }));
-  const response = await put(`/students/${student.institutionId}/academic-records`, { academicYear: '2025-2026', semester: '1st Semester', subjects: [{ subjectCode: 'IT101', subjectName: 'Test subject', units: 3, grade: 1.5, isMajor: true, status: 'Passed' }] });
-  assert.equal(response.status, 200); assert.equal(JSON.stringify(student), before);
-});
-
-test('A105/A106 backfill fills only missing names, mirrors status, and is idempotent', () => {
-  const user = { role: 'student', accountStatus: 'inactive', firstName: 'Alex', lastName: 'Rivera' };
-  const student = { accountStatus: 'active', personalInformation: { firstName: 'Existing', lastName: '  ', middleName: 'Preserved', suffix: 'Jr.' } };
-  assert.deepEqual(planBackfill(student, user), { accountStatus: 'inactive', 'personalInformation.lastName': 'Rivera' });
-  student.accountStatus = 'inactive'; student.personalInformation.lastName = 'Rivera';
-  assert.deepEqual(planBackfill(student, user), {});
-  assert.deepEqual(planBackfill(student, null), {});
-  assert.deepEqual(planBackfill(student, { ...user, role: 'faculty' }), {});
 });

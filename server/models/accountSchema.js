@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const userSchema = new mongoose.Schema(
+module.exports = new mongoose.Schema(
   {
     username: {
       type: String,
@@ -30,7 +30,8 @@ const userSchema = new mongoose.Schema(
 
     passwordHash: {
       type: String,
-      required: true
+      required: true,
+      select: false
     },
 
     role: {
@@ -55,10 +56,5 @@ const userSchema = new mongoose.Schema(
     passwordResetRequestedAt: { type: Date, select: false },
     notificationPreferences: { profileAndAcademicUpdates: { type: Boolean, default: true } }
   },
-  {
-  timestamps: true,
-  collection: 'users'
-  }
+  { timestamps: true }
 );
-
-module.exports = mongoose.model('User', userSchema);

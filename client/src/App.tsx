@@ -32,6 +32,7 @@ const isFacultyPage = (value: string | null): value is FacultyPage =>
 
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus, sessionReady, login, loginWithGoogle } = useApp();
+<<<<<<< HEAD
   const [authView, setAuthView] = useState<AuthView>(() => {
     const savedView = sessionStorage.getItem(UI_SESSION_KEYS.AUTH_VIEW);
     return currentUser ? 'dashboard' : (isAuthView(savedView) ? savedView : 'landing');
@@ -48,6 +49,13 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     sessionStorage.setItem(UI_SESSION_KEYS.ACTIVE_PAGE, activePage);
   }, [activePage]);
+=======
+  const [authView, setAuthView] = useState<AuthView>(() => (
+    currentUser ? 'dashboard' : 'landing'
+  ));
+  const [activePage, setActivePage] = useState<FacultyPage>('dashboard');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+>>>>>>> 8bd900418572bf0dab24dad66bfbc834ddba70d7
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -94,17 +102,20 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen text-slate-900 flex flex-col font-sans ${
-      currentUser?.role === 'student'
-        ? 'bg-gradient-to-b from-[#e8f2fe] via-[#f1f6fd] to-[#f8fafc] selection:bg-blue-600 selection:text-white'
-        : 'bg-slate-100/70 selection:bg-indigo-500 selection:text-white'
-    }`}>
-      <Navbar activePage={activePage} onNavigate={setActivePage} />
+    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      <Navbar
+        activePage={activePage}
+        onNavigate={setActivePage}
+        onStudentSearch={(query) => {
+          setStudentSearchQuery(query);
+          setActivePage('student-search');
+        }}
+      />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {currentUser?.role === 'student' && <StudentPortal />}
         {currentUser?.role === 'faculty' && (
-          activePage === 'student-search' ? <StudentSearchPage />
+          activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
             : activePage === 'student-records' ? <FacultyAcademicRecordsPage />
               : activePage === 'evaluations' ? <FacultyEvaluationPage />
                 : <FacultyPortal />

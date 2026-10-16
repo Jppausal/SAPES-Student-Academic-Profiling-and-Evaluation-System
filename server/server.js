@@ -1,8 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
-
+const dns = require('node:dns');
+const { connectCloudDatabase } = require('./utils/database');
 const studentRoutes = require('./routes/studentRoutes');
 const facultyEvaluationRoutes = require('./routes/facultyEvaluationRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -16,12 +16,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 app.get('/api/health', (req, res) => {
   const databaseConnected = mongoose.connection.readyState === 1;
   return res.status(databaseConnected ? 200 : 503).json({
     status: databaseConnected ? 'ok' : 'degraded',
-    database: databaseConnected ? 'connected' : 'disconnected'
+    database: databaseConnected ? mongoose.connection.name : 'disconnected'
   });
 });
 
@@ -33,44 +32,31 @@ app.use('/api/users', userRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
 
-const connectDB = async () => {
-  const fallbackUri = process.env.LOCAL_MONGO_URI || (process.env.ATLAS_URI ? process.env.MONGO_URI : null);
-
-  if (process.env.ATLAS_URI) {
-    try {
-      console.log('Attempting to connect to primary MongoDB (Atlas)...');
-      await mongoose.connect(process.env.ATLAS_URI, { serverSelectionTimeoutMS: 5000 });
-      console.log(`Successfully connected to MongoDB Atlas (Database: ${mongoose.connection.name})`);
-      return;
-    } catch (err) {
-      console.log(`Atlas connection failed (${err.message}). Falling back to local MongoDB...`);
-    }
+const startServer = async () => {
+  if (!process.env.JWT_SECRET?.trim()) {
+    throw new Error('JWT_SECRET is required. Set a unique secret in server/.env before starting the API.');
   }
 
-  if (fallbackUri) {
-    try {
-      await mongoose.connect(fallbackUri, { serverSelectionTimeoutMS: 5000 });
-      console.log(`Successfully connected to local MongoDB (Database: ${mongoose.connection.name})`);
-      return;
-    } catch (localErr) {
-      console.error('Failed to connect to local database:', localErr.message);
-    }
-  } else if (process.env.MONGO_URI) {
-    try {
-      await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
-      console.log(`Successfully connected to MongoDB (Database: ${mongoose.connection.name})`);
-      return;
-    } catch (mongoErr) {
-      console.error('Failed to connect to MongoDB:', mongoErr.message);
-    }
+  const dnsServers = (process.env.MONGO_DNS_SERVERS || '')
+    .split(',')
+    .map((server) => server.trim())
+    .filter(Boolean);
+  if (dnsServers.length > 0) {
+    dns.setServers(dnsServers);
   }
 
-  console.error('No valid database connection could be established.');
+  await connectCloudDatabase({ serverSelectionTimeoutMS: 10000 });
+  console.log(`Connected to the cloud database: ${mongoose.connection.name}`);
+
+  const port = Number(process.env.PORT || 5001);
+  const server = app.listen(port, () => console.log(`Server running on port ${port}`));
+  server.on('error', (error) => {
+    console.error(`Server listen failed: ${error.message}`);
+    process.exitCode = 1;
+  });
 };
-connectDB();
 
-const PORT = process.env.PORT || 5001;
-
-app.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`)
-);
+startServer().catch((error) => {
+  console.error(`Server startup failed: ${error.message}`);
+  process.exitCode = 1;
+});

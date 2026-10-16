@@ -12,8 +12,10 @@ import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../..
 
 interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
+  initialQuery?: string;
 }
 
+<<<<<<< HEAD
 const dateLabel = (value?: string) => {
   if (!value) return 'Not recorded';
   const date = new Date(value);
@@ -22,6 +24,10 @@ const dateLabel = (value?: string) => {
 
 export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated' }) => {
   const [institutionId, setInstitutionId] = useState('');
+=======
+export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated', initialQuery = '' }) => {
+  const [institutionId, setInstitutionId] = useState(initialQuery);
+>>>>>>> 8bd900418572bf0dab24dad66bfbc834ddba70d7
   const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -39,7 +45,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
   useEffect(() => {
     const query = institutionId.trim();
-    if (!query || report) {
+    if (!query || report || initialQuery.trim()) {
       setSuggestions([]);
       setSuggestionsOpen(false);
       setSuggestionsLoading(false);
@@ -148,6 +154,10 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (initialQuery.trim()) void findStudent(initialQuery);
+  }, [initialQuery]);
 
   const searchStudent = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -10,9 +10,13 @@ const sessionTokenSchema = new mongoose.Schema(
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
       required: true,
       index: true
+    },
+    accountRole: {
+      type: String,
+      enum: ['admin', 'faculty', 'student'],
+      required: true
     },
     expiresAt: {
       type: Date,

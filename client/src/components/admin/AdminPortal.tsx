@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { UserAccount } from '../../types';
+import { UserAccount, UserRole } from '../../types';
 import { UserManagementModal } from './UserManagementModal';
 import { BackendAcademicRecordManager } from './BackendAcademicRecordManager';
 import { AdminReportsView } from './AdminReportsView';
@@ -53,14 +53,14 @@ export const AdminPortal: React.FC = () => {
     );
   });
 
-  const handleUserStatus = async (userId: string, active: boolean) => {
+  const handleUserStatus = async (userId: string, role: UserRole, active: boolean) => {
     setStatusLoadingId(userId);
     setUserActionError('');
     try {
       if (active) {
-        await deactivateUserAccount(userId);
+        await deactivateUserAccount(userId, role);
       } else {
-        await reactivateUserAccount(userId);
+        await reactivateUserAccount(userId, role);
       }
     } catch (error) {
       setUserActionError(error instanceof Error ? error.message : 'Unable to update user status.');
@@ -71,12 +71,13 @@ export const AdminPortal: React.FC = () => {
 
   const handleStatusSelect = async (
     userId: string,
+    role: UserRole,
     status: 'active' | 'inactive' | 'suspended'
   ) => {
     setStatusLoadingId(userId);
     setUserActionError('');
     try {
-      await updateUserAccountStatus(userId, status);
+      await updateUserAccountStatus(userId, role, status);
     } catch (error) {
       setUserActionError(error instanceof Error ? error.message : 'Unable to update user status.');
     } finally {
@@ -269,6 +270,7 @@ export const AdminPortal: React.FC = () => {
                             value={u.accountStatus || (u.isActive ? 'active' : 'inactive')}
                             onChange={(event) => handleStatusSelect(
                               u.id,
+                              u.role,
                               event.target.value as 'active' | 'inactive' | 'suspended'
                             )}
                             disabled={statusLoadingId === u.id}
@@ -293,7 +295,7 @@ export const AdminPortal: React.FC = () => {
 
                           {u.isActive ? (
                             <button
-                              onClick={() => handleUserStatus(u.id, true)}
+                              onClick={() => handleUserStatus(u.id, u.role, true)}
                               disabled={statusLoadingId === u.id}
                               className="admin-danger-button min-h-0 px-2.5 py-1.5 text-[11px]"
                               title="Deactivate Account"
@@ -302,7 +304,7 @@ export const AdminPortal: React.FC = () => {
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleUserStatus(u.id, false)}
+                              onClick={() => handleUserStatus(u.id, u.role, false)}
                               disabled={statusLoadingId === u.id}
                               className="admin-success-button min-h-0 px-2.5 py-1.5 text-[11px]"
                               title="Reactivate Account"

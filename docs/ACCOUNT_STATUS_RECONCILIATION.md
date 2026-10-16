@@ -1,12 +1,7 @@
-# Account status reconciliation — 2026-10-14
+# Historical account status reconciliation
 
-Investigated a reported suspended account whose linked Student document still displayed active.
+This report describes an incident from the former shared-`users`-collection design and is not an operational runbook. The old status-mirroring logic and database references described below have been retired.
 
-- Confirmed the affected record in the database selected by `ATLAS_URI`, database `test`. It was absent from the separate `MONGO_URI` local development database.
-- The authoritative User document was suspended, with an October 8 update timestamp. The linked Student mirror was still active.
-- Current user status routes already synchronize the mirror. No route or permission changes were needed; the exact historical write path that left the mismatch was not established.
-- Repaired only the reported Student document's accountStatus, after confirming its linked User was suspended. Used a conditional filter on document ID, user linkage, and previous active status.
-- Read back and compared the complete document: accountStatus now matches suspended, and every other field is unchanged.
-- Ran `node --test server/test/adminStudentSync.test.js server/test/authMiddleware.test.js`: 11 passed, 0 failed. These cover synchronization and rejection of suspended sessions.
+The current application uses the Atlas database `sapes_dev`, validated by [server/utils/database.js](../server/utils/database.js). Accounts authenticate directly from their role-specific collections: `admin users`, `faculty users`, and `student users`. A student login and profile are the same document in `student users`; there is no linked `User` document or status mirror.
 
-Operational note: `server/server.js` currently connects using ATLAS_URI (with LOCAL_MONGO_URI fallback), while several scripts use MONGO_URI. Verify the running server's configured database before inspecting or repairing data; local-script results do not establish the Atlas state.
+Do not use the historical `test` database, local database, or the old repair procedure as evidence of current production state. The active connection URI is configured in `server/.env` and is intentionally not recorded here.

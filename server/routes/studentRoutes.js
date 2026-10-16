@@ -1,6 +1,5 @@
 const express = require('express');
 const Student = require('../models/Student');
-const User = require('../models/User');
 const AcademicRecord = require('../models/AcademicRecord');
 const FacultyEvaluation = require('../models/FacultyEvaluation');
 const StudentStatusHistory = require('../models/StudentStatusHistory');
@@ -13,7 +12,11 @@ const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord'
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
+<<<<<<< HEAD
 const { getAcademicStatus } = require('../utils/academicStatus');
+=======
+const { getAccountModelName } = require('../utils/accountCollections');
+>>>>>>> 8bd900418572bf0dab24dad66bfbc834ddba70d7
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -32,7 +35,7 @@ router.put('/:institutionId/classification', authenticateToken, authorizeRoles('
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
     Object.assign(student.classification, profileUpdate.value.classification);
     await student.save();
-    await AuditLog.create({ userId: req.user.userId, action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
+    await AuditLog.create({ userId: req.user.userId, userRole: req.user.role, userModel: getAccountModelName(req.user.role), action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
     return res.json({ success: true, data: student.classification });
   } catch (error) { console.error('Classification update failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
 });
@@ -126,11 +129,14 @@ router.put(
         reason,
         effectiveDate: parsedEffectiveDate,
         recordedBy: req.user.userId,
+        recordedByModel: getAccountModelName(req.user.role),
         remarks
       });
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_STUDENT_STATUS',
         targetType: 'student_status_history',
         targetId: history._id,
@@ -244,6 +250,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_FACULTY_EVALUATION',
         targetType: 'faculty_evaluation',
         targetId: evaluation._id,
@@ -586,7 +594,7 @@ router.put(
       const { academicYear, semester, subjects } = academicRecordUpdate.value;
       const academicRecord = await AcademicRecord.findOneAndUpdate(
         { studentId: student._id, academicYear, semester },
-        { $set: { subjects } },
+        { $set: { subjects, isDemo: false } },
         {
           returnDocument: 'after',
           runValidators: true,
@@ -597,6 +605,8 @@ router.put(
 
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'ACADEMIC_RECORD_SAVED',
         targetType: 'academic_record',
         targetId: academicRecord._id,
@@ -681,7 +691,7 @@ router.get(
       const [academicRecords, facultyEvaluation, statusHistory] = await Promise.all([
         AcademicRecord.find(
           { studentId },
-          { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
+          { _id: 0, academicYear: 1, semester: 1, subjects: 1, isDemo: 1 }
         ).sort({ academicYear: -1, semester: -1 }).lean(),
         FacultyEvaluation.findOne({ studentId })
           .sort({ evaluatedAt: -1 })
@@ -795,18 +805,10 @@ router.put(
 
       await student.save();
 
-      const accountNames = {};
-      for (const field of ['firstName', 'lastName']) {
-        if (profileUpdate.value.personalInformation?.[field] !== undefined) {
-          accountNames[field] = student.personalInformation[field];
-        }
-      }
-      if (student.userId && Object.keys(accountNames).length) {
-        await User.updateOne({ _id: student.userId, role: 'student' }, { $set: accountNames });
-      }
-
       await AuditLog.create({
         userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_STUDENT_PROFILE',
         targetType: 'student',
         targetId: student._id,

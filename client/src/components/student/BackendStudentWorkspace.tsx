@@ -19,7 +19,7 @@ interface BackendStudentWorkspaceProps {
 
 // Color follows recorded text only. Grades and GWA never determine status.
 const statusLabel = (status?: string) => typeof status === 'string' && status.trim()
-  ? status.trim().replace(/_/g, ' ')
+  ? status.trim().replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
   : 'Not recorded';
 
 const statusTone = (status?: string) => {
@@ -91,6 +91,12 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
             <p>Review your subjects and grades by academic period.</p>
           </div>
         </div>
+
+        {validRecords.some((record) => record.isDemo) && (
+          <p className="student-demo-note">
+            Demo data for testing only. These subjects and grades are fictional, not official academic records.
+          </p>
+        )}
 
         {(invalidRecordCount > 0 || !Array.isArray(report.academicRecords)) && (
           <p role="alert" className="student-notice">
@@ -250,13 +256,13 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
               <span className="student-standing-indicator" />
               <span>{identity.academicStatus?.currentStatus ? statusLabel(identity.academicStatus.currentStatus) : 'Not recorded'}</span>
             </div>
+            <p className="student-standing-attribution">Recorded by authorized faculty or administrators.</p>
             {identity.academicStatus?.statusRemarks && (
               <p className="student-standing-remarks">{identity.academicStatus.statusRemarks}</p>
             )}
             {identity.academicStatus?.effectiveDate && !Number.isNaN(Date.parse(identity.academicStatus.effectiveDate)) && (
               <p className="student-standing-remarks">Effective: {new Date(identity.academicStatus.effectiveDate).toLocaleDateString()}</p>
             )}
-            <p className="student-muted">Recorded by authorized faculty or administrators. Read-only.</p>
             {identity.academicStatus?.isOnProbation && (
               <div className="student-probation">
                 <strong>At-risk: on probation</strong>

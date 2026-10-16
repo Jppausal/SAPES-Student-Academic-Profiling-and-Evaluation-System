@@ -8,15 +8,28 @@ the sibling `server` directory.
 
 **Prerequisites:** Node.js 20 or newer
 
+From the repository root, follow the setup instructions in the root
+[README](../README.md), including configuring `server/.env` with the MongoDB
+connection string and JWT secret. Start the client and API together with:
 
-1. Install dependencies: `npm install`
-2. Copy `.env.example` to `.env` if the API is hosted somewhere other than `http://localhost:5000`.
-3. Start the API from the sibling directory: `cd ../server; npm start`
-4. Start the client: `npm run dev`
+```bash
+npm run dev
+```
 
-The Vite development server proxies `/api` requests to `http://localhost:5000`.
-The current client uses seeded local storage data while the server API is being
-expanded beyond its health endpoint.
+The Vite development server proxies `/api` requests to the API on port `5001`.
+For a separately hosted API, set `VITE_API_URL` in the client environment to the
+API origin (for example, `https://api.example.com`). The client uses API-backed
+authentication for admin, faculty, and student accounts.
+
+## Build and test
+
+From the repository root:
+
+```bash
+npm run build
+npm run lint --prefix client
+npm test
+```
 
 ## Google Sign-In Setup
 

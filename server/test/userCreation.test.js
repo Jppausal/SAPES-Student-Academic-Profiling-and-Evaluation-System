@@ -2,101 +2,81 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const AdminUser = require('../models/AdminUser');
+const FacultyUser = require('../models/FacultyUser');
 const Student = require('../models/Student');
 const AuditLog = require('../models/AuditLog');
 const SessionToken = require('../models/SessionToken');
 const RolePermission = require('../models/RolePermission');
 const userRoutes = require('../routes/userRoutes');
 
-const chainResult = (value) => ({
-  select() { return this; },
-  lean: async () => value
-});
+const accountModels = { admin: AdminUser, faculty: FacultyUser, student: Student };
+const query = value => {
+  const result = Promise.resolve(value);
+  result.select = () => result;
+  result.lean = async () => value;
+  return result;
+};
 
-test('A103 lets an authorized admin create student, faculty, and admin accounts', async (t) => {
-  const originals = {
-    userFindById: User.findById,
-    userExists: User.exists,
-    userCreate: User.create,
-    studentFindById: Student.findById,
-    studentExists: Student.exists,
-    studentCreate: Student.create,
-    sessionFindOne: SessionToken.findOne,
-    permissionFindOne: RolePermission.findOne,
-    auditCreate: AuditLog.create,
-    jwtSecret: process.env.JWT_SECRET
-  };
-  const createdUsers = [];
-  const createdStudents = [];
-  const auditLogs = [];
-
-  process.env.JWT_SECRET = 'a103-test-secret';
-  User.findById = () => chainResult({
-    _id: 'admin-user-id',
-    username: 'authorized.admin',
-    role: 'admin',
-    accountStatus: 'active'
+async function fixture(t, actorRole = 'admin') {
+  const previousSecret = process.env.JWT_SECRET;
+  process.env.JWT_SECRET = 'role-account-creation-test-secret';
+  t.after(() => {
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
   });
-  Student.findById = () => chainResult(null);
-  SessionToken.findOne = () => chainResult({ _id: 'session-id' });
-  RolePermission.findOne = () => ({ lean: async () => null });
-  User.exists = async () => false;
-  Student.exists = async () => false;
-  User.create = async (data) => {
-    const user = {
-      _id: `created-user-${createdUsers.length + 1}`,
-      accountStatus: 'active',
-      createdAt: new Date(),
-      ...data
-    };
-    createdUsers.push(user);
-    return user;
+
+  const actors = {
+    admin: { _id: '507f1f77bcf86cd799439010', username: 'authorized.admin', role: 'admin', accountStatus: 'active' },
+    faculty: { _id: '507f1f77bcf86cd799439020', username: 'authorized.faculty', role: 'faculty', accountStatus: 'active' }
   };
-  Student.create = async (data) => {
-    createdStudents.push(data);
-    return data;
-  };
-  AuditLog.create = async (data) => {
-    auditLogs.push(data);
-    return data;
-  };
+  const created = { admin: [], faculty: [], student: [] };
+  for (const [role, Model] of Object.entries(accountModels)) {
+    t.mock.method(Model, 'findById', id => query(
+      role === actorRole && actors[actorRole]?._id === String(id) ? actors[actorRole] : null
+    ));
+    t.mock.method(Model, 'findOne', () => query(null));
+    t.mock.method(Model, 'create', async data => {
+      const account = {
+        _id: `created-${role}-${created[role].length + 1}`,
+        createdAt: new Date(),
+        ...data
+      };
+      created[role].push(account);
+      return account;
+    });
+    t.mock.method(Model, 'deleteOne', async () => ({ deletedCount: 1 }));
+  }
+  t.mock.method(SessionToken, 'findOne', () => query({ _id: 'session-id' }));
+  t.mock.method(RolePermission, 'findOne', () => query(null));
+  const auditLogs = [];
+  t.mock.method(AuditLog, 'create', async event => { auditLogs.push(event); return event; });
 
   const app = express();
   app.use(express.json());
   app.use('/api/users', userRoutes);
-  const server = app.listen(0);
-  await new Promise((resolve) => server.once('listening', resolve));
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
 
-  t.after(async () => {
-    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    User.findById = originals.userFindById;
-    User.exists = originals.userExists;
-    User.create = originals.userCreate;
-    Student.findById = originals.studentFindById;
-    Student.exists = originals.studentExists;
-    Student.create = originals.studentCreate;
-    SessionToken.findOne = originals.sessionFindOne;
-    RolePermission.findOne = originals.permissionFindOne;
-    AuditLog.create = originals.auditCreate;
-    if (originals.jwtSecret === undefined) delete process.env.JWT_SECRET;
-    else process.env.JWT_SECRET = originals.jwtSecret;
-  });
-
-  const address = server.address();
-  const endpoint = `http://127.0.0.1:${address.port}/api/users`;
-  const token = jwt.sign(
-    { jti: 'session-jti', userId: 'admin-user-id', role: 'admin', username: 'authorized.admin' },
-    process.env.JWT_SECRET
-  );
-  const createAccount = (body) => fetch(endpoint, {
+  const actor = actors[actorRole];
+  const token = jwt.sign({
+    jti: 'session-jti',
+    userId: actor._id,
+    role: actorRole,
+    username: actor.username
+  }, process.env.JWT_SECRET);
+  const endpoint = `http://127.0.0.1:${server.address().port}/api/users`;
+  const createAccount = body => fetch(endpoint, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
+  return { created, auditLogs, endpoint, createAccount };
+}
+
+test('admins create accounts in their role-specific collections', async t => {
+  const { created, auditLogs, createAccount } = await fixture(t);
 
   const studentResponse = await createAccount({
     password: 'temporary-password',
@@ -104,21 +84,16 @@ test('A103 lets an authorized admin create student, faculty, and admin accounts'
     firstName: 'Alex',
     lastName: 'Rivera',
     accountStatus: 'inactive',
-    email: '  2401105814@STUDENT.BUKSU.EDU.PH  ',
-    department: 'College of Technologies'
+    email: '  2401105814@STUDENT.BUKSU.EDU.PH  '
   });
   assert.equal(studentResponse.status, 201);
-  assert.equal(createdUsers[0].username, '2401105814');
-  assert.equal(createdUsers[0].studentNumber, '2401105814');
-  assert.equal(createdUsers[0].email, '2401105814@student.buksu.edu.ph');
-  assert.equal(createdStudents[0].institutionId, '2401105814');
-  assert.equal(createdStudents[0].accountStatus, 'inactive');
-  assert.deepEqual(createdStudents[0].personalInformation, { firstName: 'Alex', lastName: 'Rivera' });
-  assert.equal(
-    createdStudents[0].contactInformation.institutionalEmail,
-    '2401105814@student.buksu.edu.ph'
-  );
-  assert.equal(createdStudents[0].classification, undefined);
+  assert.equal(created.student[0].username, '2401105814');
+  assert.equal(created.student[0].institutionId, '2401105814');
+  assert.equal(created.student[0].email, '2401105814@student.buksu.edu.ph');
+  assert.equal(created.student[0].accountStatus, 'inactive');
+  assert.equal(created.student[0].contactInformation.institutionalEmail, created.student[0].email);
+  assert.deepEqual(created.student[0].personalInformation, { firstName: 'Alex', lastName: 'Rivera' });
+  assert.equal(Object.hasOwn(created.student[0], 'userId'), false);
 
   const facultyResponse = await createAccount({
     username: 'faculty.test',
@@ -126,12 +101,12 @@ test('A103 lets an authorized admin create student, faculty, and admin accounts'
     role: 'faculty',
     firstName: 'Faculty',
     lastName: 'Member',
-    email: 'faculty.test@buksu.edu.ph',
+    email: 'faculty.test@faculty.buksu.edu.ph',
     employeeId: 'FAC-001',
     accountStatus: 'inactive'
   });
   assert.equal(facultyResponse.status, 201);
-  assert.equal(createdUsers[1].accountStatus, 'inactive');
+  assert.equal(created.faculty[0].accountStatus, 'inactive');
 
   const adminResponse = await createAccount({
     username: 'registrar.test',
@@ -142,93 +117,42 @@ test('A103 lets an authorized admin create student, faculty, and admin accounts'
     email: 'registrar.test@buksu.edu.ph'
   });
   assert.equal(adminResponse.status, 201);
-
-  assert.deepEqual(createdUsers.map((user) => user.role), ['student', 'faculty', 'admin']);
-  assert.equal(createdStudents.length, 1);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(created).map(([role, accounts]) => [role, accounts.length])),
+    { admin: 1, faculty: 1, student: 1 }
+  );
   assert.equal(auditLogs.length, 3);
-  assert.ok(auditLogs.every((entry) => entry.action === 'USER_CREATED'));
+  assert.ok(auditLogs.every(event => event.action === 'USER_CREATED'));
 });
 
-test('A103 rejects unauthenticated creation and mismatched student identity', async (t) => {
-  const originals = {
-    userFindById: User.findById,
-    studentFindById: Student.findById,
-    sessionFindOne: SessionToken.findOne,
-    permissionFindOne: RolePermission.findOne,
-    jwtSecret: process.env.JWT_SECRET
-  };
-  process.env.JWT_SECRET = 'a103-rejection-test-secret';
-  let authenticatedRole = 'admin';
-  User.findById = () => chainResult({
-    _id: 'admin-user-id', username: 'admin', role: authenticatedRole, accountStatus: 'active'
-  });
-  Student.findById = () => chainResult(null);
-  SessionToken.findOne = () => chainResult({ _id: 'session-id' });
-  RolePermission.findOne = () => ({ lean: async () => null });
-
-  const app = express();
-  app.use(express.json());
-  app.use('/api/users', userRoutes);
-  const server = app.listen(0);
-  await new Promise((resolve) => server.once('listening', resolve));
-  t.after(async () => {
-    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    User.findById = originals.userFindById;
-    Student.findById = originals.studentFindById;
-    SessionToken.findOne = originals.sessionFindOne;
-    RolePermission.findOne = originals.permissionFindOne;
-    if (originals.jwtSecret === undefined) delete process.env.JWT_SECRET;
-    else process.env.JWT_SECRET = originals.jwtSecret;
-  });
-
-  const address = server.address();
-  const endpoint = `http://127.0.0.1:${address.port}/api/users`;
-  const unauthenticatedResponse = await fetch(endpoint, {
+test('account creation rejects anonymous callers, mismatched student IDs, and faculty callers', async t => {
+  const adminFixture = await fixture(t);
+  const anonymousResponse = await fetch(adminFixture.endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({})
   });
-  assert.equal(unauthenticatedResponse.status, 401);
+  assert.equal(anonymousResponse.status, 401);
 
-  const token = jwt.sign(
-    { jti: 'session-jti', userId: 'admin-user-id', role: 'admin' },
-    process.env.JWT_SECRET
-  );
-  const mismatchResponse = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      username: '2401109999',
-      studentNumber: '2401109999',
-      password: 'temporary-password',
-      role: 'student',
-      firstName: 'Test',
-      lastName: 'Student',
-      email: '2401105814@student.buksu.edu.ph'
-    })
+  const mismatchResponse = await adminFixture.createAccount({
+    password: 'temporary-password',
+    role: 'student',
+    firstName: 'Test',
+    lastName: 'Student',
+    studentNumber: '2401109999',
+    email: '2401105814@student.buksu.edu.ph'
   });
   assert.equal(mismatchResponse.status, 400);
-  const mismatchPayload = await mismatchResponse.json();
-  assert.match(mismatchPayload.message, /must match/);
+  assert.match((await mismatchResponse.json()).message, /must match/);
 
-  authenticatedRole = 'faculty';
-  const facultyResponse = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      username: 'unauthorized.creator',
-      password: 'temporary-password',
-      role: 'faculty',
-      firstName: 'Unauthorized',
-      lastName: 'Creator',
-      email: 'unauthorized.creator@buksu.edu.ph'
-    })
+  const facultyFixture = await fixture(t, 'faculty');
+  const forbiddenResponse = await facultyFixture.createAccount({
+    username: 'unauthorized.creator',
+    password: 'temporary-password',
+    role: 'faculty',
+    firstName: 'Unauthorized',
+    lastName: 'Creator',
+    email: 'unauthorized.creator@faculty.buksu.edu.ph'
   });
-  assert.equal(facultyResponse.status, 403);
+  assert.equal(forbiddenResponse.status, 403);
 });

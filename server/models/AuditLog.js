@@ -4,7 +4,19 @@ const auditLogSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      refPath: 'userModel',
+      required: true
+    },
+
+    userRole: {
+      type: String,
+      enum: ['student', 'faculty', 'admin'],
+      required: true
+    },
+
+    userModel: {
+      type: String,
+      enum: ['AdminUser', 'FacultyUser', 'Student'],
       required: true
     },
 

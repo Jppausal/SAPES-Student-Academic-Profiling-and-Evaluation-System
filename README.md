@@ -27,7 +27,7 @@ developed by EnTech-T.
 |------|----------------|-------|
 | Node.js | 18.x or later | LTS recommended |
 | npm | 9.x or later | bundled with Node.js |
-| MongoDB | 6.x or later | local, or use Atlas |
+| MongoDB Atlas | 6.x or later | Cloud database used by the application |
 | Git | any recent | for cloning |
 
 > **Note:** The React frontend communicates with the backend exclusively via the REST API. React must never connect directly to MongoDB.
@@ -96,27 +96,19 @@ Open `client/.env` and fill in your `VITE_GOOGLE_CLIENT_ID`.
 
 ---
 
-## Configuring MongoDB
+## Configuring MongoDB Atlas
 
-### Option A — Local MongoDB (default for solo development)
-
-Ensure MongoDB is running locally. The default connection string in `.env.example` is:
-
-```
-MONGO_URI=mongodb://localhost:27017/sapes_dev
-```
-
-### Option B — MongoDB Atlas (recommended for group development)
-
-Replace `MONGO_URI` in `server/.env` with your Atlas connection string:
+The backend connects only to MongoDB Atlas and requires the `sapes_dev` database.
+Local MongoDB URIs and other database names are rejected at startup. Set `MONGO_URI`
+in `server/.env` to your Atlas connection string:
 
 ```
 MONGO_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/sapes_dev?retryWrites=true&w=majority
 ```
 
 - Each developer keeps their own `server/.env` and must not commit it.
-- A shared Atlas cluster gives all group members a common development database.
-- Local-to-Atlas synchronization is **not implemented** — use Atlas directly.
+- Authentication uses the `admin users`, `faculty users`, and `student users`
+  collections; there is no shared `users` account collection.
 
 ### Synchronize database indexes
 

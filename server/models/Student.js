@@ -2,13 +2,6 @@ const mongoose = require('mongoose');
 
 const studentSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      unique: true,
-      sparse: true
-    },
-
     institutionId: {
       type: String,
       required: true,
@@ -34,7 +27,23 @@ const studentSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       trim: true,
-      default: ''
+      default: '',
+      select: false
+    },
+
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true
+    },
+
+    passwordResetCodeHash: { type: String, select: false },
+    passwordResetExpiresAt: { type: Date, select: false },
+    passwordResetAttempts: { type: Number, default: 0, select: false },
+    passwordResetRequestedAt: { type: Date, select: false },
+    notificationPreferences: {
+      profileAndAcademicUpdates: { type: Boolean, default: true }
     },
 
     role: {
@@ -158,8 +167,8 @@ const studentSchema = new mongoose.Schema(
     },
 
     addresses: {
-      presentAddress: { street: String, barangay: String, municipality: String, province: String, country: String, zipCode: String },
-      homeAddress: { street: String, barangay: String, municipality: String, province: String, country: String, zipCode: String }
+      presentAddress: { street: String, barangay: String, municipality: String, province: String, region: String, country: String, zipCode: String },
+      homeAddress: { street: String, barangay: String, municipality: String, province: String, region: String, country: String, zipCode: String }
     },
 
     educationalBackground: {
@@ -202,7 +211,7 @@ const studentSchema = new mongoose.Schema(
   },
   {
   timestamps: true,
-  collection: 'students'
+  collection: 'student users'
 }
 );
 

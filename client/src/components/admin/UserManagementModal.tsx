@@ -78,7 +78,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       if (!userToEdit) {
         await createUserAccount({ username: role === 'student' ? derivedStudentId : username, password, role, accountStatus, firstName, lastName, email, studentNumber: role === 'student' ? derivedStudentId : '', employeeId: facultyId, department });
       } else {
-        await saveUserAccount(userToEdit.id, {
+        await saveUserAccount(userToEdit.id, userToEdit.role, {
           username: role === 'student' ? derivedStudentId : username,
           role,
           firstName,
@@ -139,11 +139,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               <button
                 type="button"
                 key={r}
-                disabled={Boolean(
-                  userToEdit &&
-                  r !== userToEdit.role &&
-                  (r === 'student' || userToEdit.role === 'student')
-                )}
+                disabled={Boolean(userToEdit && r !== userToEdit.role)}
                 onClick={() => {
                   setRole(r);
                   if (r === 'student') {
@@ -231,8 +227,12 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                   setUsername(derivedId);
                 }
               }}
-              className="w-full px-3 py-2"
-              placeholder={role === 'student' ? '2401105814@student.buksu.edu.ph' : 'user@buksu.edu.ph'}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
+              placeholder={role === 'student'
+                ? 'student@student.buksu.edu.ph'
+                : role === 'faculty'
+                  ? 'faculty@faculty.buksu.edu.ph'
+                  : 'admin@buksu.edu.ph'}
             />
             {role === 'student' && (
               <p className="mt-1 text-[11px] text-slate-500">

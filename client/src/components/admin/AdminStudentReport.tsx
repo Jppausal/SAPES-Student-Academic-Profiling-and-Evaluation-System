@@ -11,6 +11,9 @@ export function AdminStudentReport({ report }: { report: StudentReport }) {
   const { student, facultyEvaluation: evaluation } = report;
   const classification = student.classification;
   const classifications = [classification?.isShifter && 'Shifter', classification?.isTransferee && 'Transferee', classification?.isIP && 'IP', classification?.isPWD && 'PWD'].filter(Boolean);
+  const facultyName = evaluation?.facultyId && typeof evaluation.facultyId === 'object'
+    ? evaluation.facultyId.username
+    : undefined;
   return <div className="admin-page-stack">
     <section className="admin-panel admin-panel-body">
       <div className="admin-section-heading"><h3>Student profile and standing</h3></div>
@@ -50,7 +53,7 @@ export function AdminStudentReport({ report }: { report: StudentReport }) {
         <p>Status: <strong>{evaluation.evaluationStatus.replaceAll('_', ' ')}</strong></p>
         <p>Remarks: {evaluation.remarks || 'Not recorded'}</p>
         <p>Reasons: {evaluation.reasons.length ? evaluation.reasons.join('; ') : 'Not recorded'}</p>
-        <p>Faculty: {evaluation.facultyId?.username || 'Not recorded'}</p>
+        <p>Faculty: {facultyName || 'Not recorded'}</p>
         <p>Evaluated: {dateLabel(evaluation.evaluatedAt)}</p>
         <p className="text-slate-500">Student-level evaluation; no academic period is assigned.</p>
       </div>}
