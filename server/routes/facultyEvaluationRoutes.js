@@ -161,7 +161,20 @@ router.get(
             personalInformation: {
               firstName: student.personalInformation?.firstName || '',
               middleName: student.personalInformation?.middleName || '',
-              lastName: student.personalInformation?.lastName || ''
+              lastName: student.personalInformation?.lastName || '',
+              suffix: student.personalInformation?.suffix || '',
+              birthDate: student.personalInformation?.birthDate || null,
+              birthPlace: student.personalInformation?.birthPlace || '',
+              sex: student.personalInformation?.sex || '',
+              civilStatus: student.personalInformation?.civilStatus || '',
+              height: student.personalInformation?.height || '',
+              weight: student.personalInformation?.weight || '',
+              bloodType: student.personalInformation?.bloodType || '',
+              nationality: student.personalInformation?.nationality || '',
+              citizenship: student.personalInformation?.citizenship || '',
+              dualCitizenship: student.personalInformation?.dualCitizenship || '',
+              minority: student.personalInformation?.minority || '',
+              isForeigner: Boolean(student.personalInformation?.isForeigner)
             },
             classification: {
               program: student.classification?.program || '',
@@ -173,7 +186,35 @@ router.get(
               isTransferee: Boolean(student.classification?.isTransferee)
             },
             enrollmentInformation: {
-              studentType: student.enrollmentInformation?.studentType || ''
+              course: student.enrollmentInformation?.course || '',
+              level: student.enrollmentInformation?.level || '',
+              department: student.enrollmentInformation?.department || '',
+              curriculum: student.enrollmentInformation?.curriculum || '',
+              yearLevel: student.enrollmentInformation?.yearLevel || '',
+              entryPeriod: student.enrollmentInformation?.entryPeriod || '',
+              entryDate: student.enrollmentInformation?.entryDate || null,
+              studentType: student.enrollmentInformation?.studentType || '',
+              preferredModality: student.enrollmentInformation?.preferredModality || '',
+              campus: student.enrollmentInformation?.campus || '',
+              learnerReferenceNo: student.enrollmentInformation?.learnerReferenceNo || '',
+              nstpNumber: student.enrollmentInformation?.nstpNumber || ''
+            },
+            contactInformation: {
+              mobileNumber: student.contactInformation?.mobileNumber || '',
+              alternateMobileNumber: student.contactInformation?.alternateMobileNumber || '',
+              telephoneNumber: student.contactInformation?.telephoneNumber || '',
+              institutionalEmail: student.contactInformation?.institutionalEmail || '',
+              alternateEmail: student.contactInformation?.alternateEmail || ''
+            },
+            addresses: {
+              presentAddress: student.addresses?.presentAddress || {},
+              homeAddress: student.addresses?.homeAddress || {}
+            },
+            educationalBackground: {
+              previousSchool: student.educationalBackground?.previousSchool || '',
+              seniorHigh: student.educationalBackground?.seniorHigh || '',
+              juniorHigh: student.educationalBackground?.juniorHigh || '',
+              elementary: student.educationalBackground?.elementary || ''
             },
             religiousInformation: {
               religion: student.religiousInformation?.religion || '',

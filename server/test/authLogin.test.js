@@ -10,6 +10,16 @@ const SessionToken = require('../models/SessionToken');
 const authRoutes = require('../routes/authRoutes');
 const accountModels = { admin: AdminUser, faculty: FacultyUser, student: Student };
 
+test('faculty accounts default to the verified enrollment officer designation', () => {
+  const faculty = new FacultyUser({
+    username: 'faculty.user',
+    passwordHash: 'password-hash',
+    role: 'faculty'
+  });
+  assert.equal(faculty.role, 'faculty');
+  assert.equal(faculty.designation, 'Verified enrollment officer');
+});
+
 const matchesQuery = (account, query) => {
   if (query.$or) return query.$or.some((condition) => matchesQuery(account, condition));
   return Object.entries(query).every(([key, value]) => account[key] === value);
@@ -141,6 +151,7 @@ test('login accepts legacy plain-text password hashes for existing accounts', as
   const payload = await response.json();
   assert.equal(payload.user.role, 'faculty');
   assert.equal(payload.user.employeeId, '2345678901');
+  assert.equal(payload.user.designation, 'Verified enrollment officer');
 });
 
 test('admin login resolves accounts from the admin users collection', async (t) => {

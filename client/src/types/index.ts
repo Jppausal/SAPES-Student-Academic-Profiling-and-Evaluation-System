@@ -14,6 +14,7 @@ export interface UserAccount {
   facultyId?: string;
   employeeId?: string;
   department: string;
+  designation?: string;
   isActive: boolean;
   accountStatus?: 'active' | 'inactive' | 'suspended';
   createdAt: string;

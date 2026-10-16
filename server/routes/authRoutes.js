@@ -96,6 +96,9 @@ const safeUser = (user) => ({
   email: user.email || '',
   employeeId: user.employeeId || '',
   department: user.department || '',
+  ...(user.role === 'faculty'
+    ? { designation: user.designation || 'Verified enrollment officer' }
+    : {}),
   ...((user.studentNumber || user.institutionId)
     ? { studentNumber: user.studentNumber || user.institutionId }
     : {})
