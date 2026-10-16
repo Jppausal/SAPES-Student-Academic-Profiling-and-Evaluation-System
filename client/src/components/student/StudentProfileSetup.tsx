@@ -171,12 +171,21 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
     setMessage('');
     setError('');
     try {
-      const payload = Object.fromEntries(Object.entries(profile).filter(([, value]) =>
+      const nextProfile = changedSections.includes('healthInformation')
+        ? {
+            ...profile,
+            healthInformation: {
+              ...profile.healthInformation,
+              lastUpdated: new Date().toISOString(),
+            },
+          }
+        : profile;
+      const payload = Object.fromEntries(Object.entries(nextProfile).filter(([, value]) =>
         value && typeof value === 'object' && Object.keys(value).length > 0
       )) as StudentProfileUpdate;
       const updatedIdentity = await updateMyStudentProfile(payload);
       onSaved(updatedIdentity);
-      setSavedProfile(profile);
+      setSavedProfile(nextProfile);
       setMessage('Your student profile was saved successfully.');
       setIsReviewing(false);
     } catch (requestError) {
@@ -202,16 +211,6 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
     JSON.stringify(profile[section as keyof StudentProfileUpdate])
       !== JSON.stringify(savedProfile[section as keyof StudentProfileUpdate])
   );
-  const sectionLabels: Record<string, string> = {
-    personalInformation: 'Personal information',
-    classification: 'Student classifications',
-    contactInformation: 'Contact information',
-    educationalBackground: 'Educational background',
-    healthInformation: 'Health information',
-    addresses: 'Addresses',
-    religiousInformation: 'Religious information',
-  };
-
   return (
     <div className={`student-profile-layout${isReviewing ? ' student-profile-layout-reviewing' : ''}`}>
       <nav className="student-profile-index" aria-label="Profile sections">
@@ -545,11 +544,6 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
             </header>
             <div className="student-review-content">
               {error && <p role="alert" className="student-review-error">{error}</p>}
-              <section className="student-review-section" aria-labelledby="review-changed-heading">
-                <h3 id="review-changed-heading">Sections changed</h3>
-                <p>{changedSections.length ? changedSections.map((section) => sectionLabels[section] || section).join(', ') : 'No unsaved changes'}</p>
-              </section>
-
               <section className="student-review-section" aria-labelledby="review-personal-heading">
                 <h3 id="review-personal-heading">Personal information</h3>
                 <dl>
@@ -679,7 +673,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
                 onClick={handleCancelChanges}
                 type="button"
               >
-                Cancel
+                Back to Edit
               </button>
               <button
                 className="student-review-confirm"

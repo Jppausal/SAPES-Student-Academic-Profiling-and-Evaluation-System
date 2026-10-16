@@ -10,11 +10,8 @@ const authorizeRoles = require('../middleware/roleMiddleware');
 const authorizePermission = require('../middleware/permissionMiddleware').authorizePermission;
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { calculateCourseMetrics, validateCourseEvaluation } = require('../utils/courseEvaluation');
-<<<<<<< HEAD
 const { getAcademicStatus } = require('../utils/academicStatus');
-=======
 const { getAccountModelName } = require('../utils/accountCollections');
->>>>>>> 8bd900418572bf0dab24dad66bfbc834ddba70d7
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [

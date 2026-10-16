@@ -15,19 +15,14 @@ interface BackendStudentSearchProps {
   initialQuery?: string;
 }
 
-<<<<<<< HEAD
 const dateLabel = (value?: string) => {
   if (!value) return 'Not recorded';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleDateString();
 };
 
-export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated' }) => {
-  const [institutionId, setInstitutionId] = useState('');
-=======
 export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated', initialQuery = '' }) => {
   const [institutionId, setInstitutionId] = useState(initialQuery);
->>>>>>> 8bd900418572bf0dab24dad66bfbc834ddba70d7
   const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);

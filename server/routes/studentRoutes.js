@@ -12,11 +12,8 @@ const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord'
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConflicts');
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
-<<<<<<< HEAD
 const { getAcademicStatus } = require('../utils/academicStatus');
-=======
 const { getAccountModelName } = require('../utils/accountCollections');
->>>>>>> 8bd900418572bf0dab24dad66bfbc834ddba70d7
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [

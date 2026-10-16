@@ -32,7 +32,6 @@ const isFacultyPage = (value: string | null): value is FacultyPage =>
 
 const AppContent: React.FC = () => {
   const { currentUser, serverStatus, sessionReady, login, loginWithGoogle } = useApp();
-<<<<<<< HEAD
   const [authView, setAuthView] = useState<AuthView>(() => {
     const savedView = sessionStorage.getItem(UI_SESSION_KEYS.AUTH_VIEW);
     return currentUser ? 'dashboard' : (isAuthView(savedView) ? savedView : 'landing');
@@ -49,13 +48,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     sessionStorage.setItem(UI_SESSION_KEYS.ACTIVE_PAGE, activePage);
   }, [activePage]);
-=======
-  const [authView, setAuthView] = useState<AuthView>(() => (
-    currentUser ? 'dashboard' : 'landing'
-  ));
-  const [activePage, setActivePage] = useState<FacultyPage>('dashboard');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
->>>>>>> 8bd900418572bf0dab24dad66bfbc834ddba70d7
 
   useEffect(() => {
     if (!sessionReady) return;
