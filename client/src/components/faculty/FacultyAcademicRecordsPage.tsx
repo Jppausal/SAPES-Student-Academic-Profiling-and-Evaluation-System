@@ -5,6 +5,7 @@ import { BackendStudentSearch } from './BackendStudentSearch';
 import { fetchFacultyEvaluationRoster, fetchFacultyStudentWorkspace, FacultyRosterStudent, FacultyStudentWorkspace } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
+import { StudentEvaluationPanel } from './StudentEvaluationPanel';
 
 const programDetails: Record<string, { icon: LucideIcon; description: string; color: string }> = {
   'Bachelor of Information Technology': {
@@ -271,7 +272,17 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
               </table></div>
             </section>
           )) : <p className="rounded-md bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">No academic subjects are recorded for this student.</p>}
+
         </section>
+      )}
+
+      {step === 'student' && studentWorkspace && (
+        <StudentEvaluationPanel
+          key={studentWorkspace.student.institutionId}
+          institutionId={studentWorkspace.student.institutionId}
+          initialWorkspace={studentWorkspace}
+          showStudentProfile={false}
+        />
       )}
 
       {loadingStudent && <div role="status" className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-slate-500">Loading student profile and subjects…</div>}

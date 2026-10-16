@@ -7,10 +7,10 @@ import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
 import { StudentPortal } from './components/student/StudentPortal';
-import { FacultyPortal } from './components/faculty/FacultyPortal';
 import { StudentSearchPage } from './components/faculty/StudentSearchPage';
 import { FacultyAcademicRecordsPage } from './components/faculty/FacultyAcademicRecordsPage';
 import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPage';
+import { FacultyWorkspaceHeader } from './components/faculty/FacultyWorkspaceHeader';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -108,10 +108,13 @@ const AppContent: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {currentUser?.role === 'student' && <StudentPortal />}
         {currentUser?.role === 'faculty' && (
-          activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
-            : activePage === 'student-records' ? <FacultyAcademicRecordsPage />
-              : activePage === 'evaluations' ? <FacultyEvaluationPage />
-                : <FacultyPortal />
+          <>
+            <FacultyWorkspaceHeader activePage={activePage} onNavigate={setActivePage} />
+            {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
+              : activePage === 'student-records' ? <FacultyAcademicRecordsPage />
+                : activePage === 'evaluations' ? <FacultyEvaluationPage />
+                  : null}
+          </>
         )}
         {currentUser?.role === 'admin' && <AdminPortal />}
       </main>

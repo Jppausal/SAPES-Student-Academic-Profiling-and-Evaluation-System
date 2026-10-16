@@ -11,6 +11,7 @@ export interface ApiUser {
   studentNumber: string;
   employeeId: string;
   department: string;
+  designation?: string;
   role: 'student' | 'faculty' | 'admin';
   accountStatus: 'active' | 'inactive' | 'suspended';
   createdAt?: string;
@@ -26,6 +27,7 @@ export interface SessionUser {
   studentNumber?: string;
   employeeId?: string;
   department?: string;
+  designation?: string;
 }
 
 export interface ApiAuditLog {
@@ -362,6 +364,19 @@ export interface FacultyStudentWorkspace {
       firstName?: string;
       middleName?: string;
       lastName?: string;
+      suffix?: string;
+      birthDate?: string;
+      birthPlace?: string;
+      sex?: string;
+      civilStatus?: string;
+      height?: string;
+      weight?: string;
+      bloodType?: string;
+      nationality?: string;
+      citizenship?: string;
+      dualCitizenship?: string;
+      minority?: string;
+      isForeigner?: boolean;
     };
     classification: {
       program?: string;
@@ -372,17 +387,63 @@ export interface FacultyStudentWorkspace {
       isShifter?: boolean;
       isTransferee?: boolean;
     };
-    enrollmentInformation: { studentType?: string };
+    enrollmentInformation: {
+      course?: string;
+      level?: string;
+      department?: string;
+      curriculum?: string;
+      yearLevel?: string;
+      entryPeriod?: string;
+      entryDate?: string;
+      studentType?: string;
+      preferredModality?: string;
+      campus?: string;
+      learnerReferenceNo?: string;
+      nstpNumber?: string;
+    };
+    contactInformation: {
+      mobileNumber?: string;
+      alternateMobileNumber?: string;
+      telephoneNumber?: string;
+      institutionalEmail?: string;
+      alternateEmail?: string;
+    };
+    addresses: {
+      presentAddress?: {
+        street?: string;
+        barangay?: string;
+        municipality?: string;
+        province?: string;
+        region?: string;
+        country?: string;
+        zipCode?: string;
+      };
+      homeAddress?: {
+        street?: string;
+        barangay?: string;
+        municipality?: string;
+        province?: string;
+        region?: string;
+        country?: string;
+        zipCode?: string;
+      };
+    };
+    educationalBackground: {
+      previousSchool?: string;
+      seniorHigh?: string;
+      juniorHigh?: string;
+      elementary?: string;
+    };
     religiousInformation: {
-      religion: string;
-      shareSpiritualSchedule: boolean;
+      religion?: string;
+      shareSpiritualSchedule?: boolean;
       spiritualActivities: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
     };
     healthInformation: {
-      accommodationRequired: boolean;
-      accommodationNotes: string;
+      accommodationRequired?: boolean;
+      accommodationNotes?: string;
     };
-    academicStatus: { currentStatus: string; isOnProbation: boolean };
+    academicStatus: { currentStatus?: string; isOnProbation: boolean };
     yearLevel: number | string | null;
     section: string;
     enrollmentStatus: string;

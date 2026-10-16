@@ -46,6 +46,9 @@ const toSafeUser = (user) => ({
   studentNumber: user.studentNumber || user.institutionId || '',
   employeeId: user.employeeId || '',
   department: user.department || '',
+  ...(user.role === 'faculty'
+    ? { designation: user.designation || 'Verified enrollment officer' }
+    : {}),
   role: user.role,
   accountStatus: user.accountStatus,
   createdAt: user.createdAt
@@ -130,7 +133,7 @@ router.get(
         Promise.all(entries.map(async ([accountRole, AccountModel]) => ({
           role: accountRole,
           accounts: await AccountModel.find(filter)
-            .select('username firstName lastName email studentNumber institutionId personalInformation employeeId department role accountStatus createdAt')
+            .select('username firstName lastName email studentNumber institutionId personalInformation employeeId department designation role accountStatus createdAt')
             .lean()
         })))
       ]);
