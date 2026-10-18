@@ -29,10 +29,20 @@ async function fixture(t) {
   const student = {
     _id: '507f1f77bcf86cd799439012',
     institutionId: 'REPORT-TEST',
-    personalInformation: { firstName: 'Test', lastName: 'Student' },
+    username: 'test.student',
+    personalInformation: {
+      firstName: 'Test',
+      middleName: 'Profile',
+      lastName: 'Student',
+      birthDate: '2004-02-10',
+      bloodType: 'O+'
+    },
     enrollmentInformation: { course: 'BSIT', yearLevel: '2' },
     classification: { isShifter: true },
     religiousInformation: { religion: 'Test religion' },
+    contactInformation: { mobileNumber: '09170000000', institutionalEmail: 'test@student.buksu.edu.ph' },
+    addresses: { presentAddress: { municipality: 'Malaybalay' } },
+    educationalBackground: { seniorHigh: 'BukSU Senior High School' },
     academicStatus: { currentStatus: 'Probation' },
     healthInformation: {
       hasRelevantHealthConcern: true,
@@ -50,6 +60,7 @@ async function fixture(t) {
     records: [{
       academicYear: '2025-2026',
       semester: '1st Semester',
+      isDemo: true,
       subjects: [{ subjectCode: 'IT101', subjectName: 'Test subject', units: 3, grade: 1.5, isMajor: true, status: 'Passed' }]
     }],
     evaluation: {
@@ -102,7 +113,11 @@ test('administrator report includes student profile, academic records, evaluatio
   assert.equal(data.student.enrollmentInformation.course, 'BSIT');
   assert.equal(data.student.classification.isShifter, true);
   assert.equal(data.student.religiousInformation.religion, 'Test religion');
+  assert.equal(data.student.contactInformation.mobileNumber, '09170000000');
+  assert.equal(data.student.addresses.presentAddress.municipality, 'Malaybalay');
+  assert.equal(data.student.educationalBackground.seniorHigh, 'BukSU Senior High School');
   assert.equal(data.academicRecords[0].majorSubjectGwa, 1.5);
+  assert.equal(data.academicRecords[0].isDemo, true);
   assert.deepEqual(data.facultyEvaluation, state.evaluation);
   assert.deepEqual(data.statusHistory, state.history);
 });
@@ -128,23 +143,23 @@ test('report authorization denies student and anonymous callers', async t => {
   assert.equal((await get('faculty')).status, 200);
 });
 
-test('faculty report returns only authorized health information and shared probation status', async t => {
+test('faculty report returns the full student profile and shared probation status', async t => {
   const { state, get } = await fixture(t);
   const response = await get('faculty');
   assert.equal(response.status, 200);
   const { data } = await response.json();
 
-  assert.deepEqual(data.student.healthInformation, {
-    hasRelevantHealthConcern: true,
-    accommodationRequired: true,
-    accommodationNotes: 'Accessible seating'
-  });
+  assert.equal(data.student.healthInformation.hasRelevantHealthConcern, true);
+  assert.deepEqual(data.student.healthInformation.conditions, ['Asthma']);
+  assert.equal(data.student.healthInformation.allergyDetails, 'Dust');
+  assert.equal(data.student.healthInformation.emergencyContactName, 'Private Contact');
+  assert.equal(data.student.healthInformation.emergencyContactNumber, '09170000000');
+  assert.equal(data.student.personalInformation.bloodType, 'O+');
+  assert.equal(data.student.religiousInformation.religion, 'Test religion');
+  assert.equal(data.student.contactInformation.mobileNumber, '09170000000');
+  assert.equal(data.student.addresses.presentAddress.municipality, 'Malaybalay');
   assert.equal(data.student.academicStatus.isOnProbation, true);
   assert.equal(data.student.academicStatus.currentStatus, 'Probation');
-  assert.equal('conditions' in data.student.healthInformation, false);
-  assert.equal('allergyDetails' in data.student.healthInformation, false);
-  assert.equal('emergencyContactName' in data.student.healthInformation, false);
-  assert.equal('bloodType' in data.student.healthInformation, false);
 
   state.student.academicStatus = { currentStatus: 'On academic probation' };
   const statusTextResponse = await get('faculty');

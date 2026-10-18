@@ -128,7 +128,7 @@ router.get(
 
       const [academicRecords, progress, facultyEvaluation, statusHistory] = await Promise.all([
         AcademicRecord.find({ studentId: student._id })
-          .select('-_id academicYear semester subjects')
+          .select('-_id academicYear semester subjects isDemo')
           .sort({ academicYear: -1, semester: -1 })
           .lean(),
         CourseEvaluation.findOne({ studentId: student._id }).lean(),
@@ -217,8 +217,16 @@ router.get(
                 : []
             },
             healthInformation: {
+              hasRelevantHealthConcern: Boolean(student.healthInformation?.hasRelevantHealthConcern),
+              conditions: student.healthInformation?.conditions || [],
+              otherCondition: student.healthInformation?.otherCondition || '',
+              allergyDetails: student.healthInformation?.allergyDetails || '',
+              conditionDescription: student.healthInformation?.conditionDescription || '',
               accommodationRequired: Boolean(student.healthInformation?.accommodationRequired),
-              accommodationNotes: student.healthInformation?.accommodationNotes || ''
+              accommodationNotes: student.healthInformation?.accommodationNotes || '',
+              emergencyContactName: student.healthInformation?.emergencyContactName || '',
+              emergencyContactNumber: student.healthInformation?.emergencyContactNumber || '',
+              lastUpdated: student.healthInformation?.lastUpdated || null
             },
             academicStatus: getAcademicStatus(student),
             yearLevel: student.yearLevel || student.enrollmentInformation?.yearLevel || null,

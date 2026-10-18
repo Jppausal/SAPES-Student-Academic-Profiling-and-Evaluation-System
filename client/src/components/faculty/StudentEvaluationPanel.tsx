@@ -19,6 +19,7 @@ import {
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 type EvaluationTab = 'gradebook' | 'attendance' | 'remarks' | 'history';
 
@@ -201,12 +202,17 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
     <section aria-label="Student evaluation" className="space-y-4">
       {showStudentProfile && <section aria-label="Student profile" className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-col gap-5 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:p-6">
-          <div aria-label="Student profile photo placeholder" className="flex h-28 w-28 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-400">
-            <div className="flex flex-col items-center gap-1">
-              <UserRound aria-hidden="true" className="h-9 w-9" />
-              <span className="text-[10px] font-medium">Profile photo</span>
-            </div>
-          </div>
+          <StudentProfilePhoto
+            institutionId={workspace.student.institutionId}
+            studentName={studentName || 'Student'}
+            className="h-28 w-28 shrink-0 rounded-xl border border-slate-200 object-cover"
+            fallback={<div aria-label="Student profile photo placeholder" className="flex h-28 w-28 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-400">
+                <div className="flex flex-col items-center gap-1">
+                  <UserRound aria-hidden="true" className="h-9 w-9" />
+                  <span className="text-[10px] font-medium">Profile photo</span>
+                </div>
+              </div>}
+          />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-slate-500">Student profile</p>
             <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">{studentName || workspace.student.institutionId}</h2>
@@ -315,9 +321,16 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                   ? workspace.student.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(', ')
                   : 'Not shared'}
               />
-              <ProfileField label="Faculty-relevant accommodation" value={workspace.student.healthInformation.accommodationRequired
-                ? workspace.student.healthInformation.accommodationNotes || 'Accommodation requested; details not provided'
-                : 'None recorded'} />
+              <ProfileField label="Relevant health concern" value={profileValue(workspace.student.healthInformation.hasRelevantHealthConcern)} />
+              <ProfileField label="Conditions" value={workspace.student.healthInformation.conditions?.join(', ')} />
+              <ProfileField label="Other condition" value={workspace.student.healthInformation.otherCondition} />
+              <ProfileField label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
+              <ProfileField label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
+              <ProfileField label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
+              <ProfileField label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
+              <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
+              <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />
+              <ProfileField label="Health information last updated" value={profileDate(workspace.student.healthInformation.lastUpdated || undefined)} />
             </dl>
           </section>
         </div>

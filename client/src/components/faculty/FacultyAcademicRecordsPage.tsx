@@ -247,6 +247,12 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
             </div>
           </div>
 
+          {studentWorkspace.academicRecords.some((term) => term.isDemo) && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Demo data for testing only. These subjects and grades are fictional, not official academic records.
+            </p>
+          )}
+
           {studentWorkspace.academicRecords.length ? studentWorkspace.academicRecords.map((term) => (
             <section key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-md border border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2.5"><h3 className="text-xs font-bold text-slate-800">{term.academicYear} · {term.semester}</h3><span className="text-[10px] font-semibold text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} · Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>

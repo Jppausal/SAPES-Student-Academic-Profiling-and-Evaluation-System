@@ -136,11 +136,12 @@ test('authorized academic status updates correctly set the probation flag', asyn
     const response = await fetch(base + '/test-id/status', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status, reason: expected ? 'Due to failing grades' : undefined })
     });
     assert.equal(response.status, 200);
     assert.equal(student.academicStatus.isOnProbation, expected);
     assert.equal(student.academicStatus.currentStatus, status);
+    assert.equal(student.academicStatus.probationReason, expected ? 'Due to failing grades' : undefined);
   }
 });
 
@@ -167,7 +168,21 @@ test('student report uses the authenticated student account document', async t =
   });
   t.mock.method(AcademicRecord, 'find', () => ({
     sort() { return this; },
-    lean: async () => []
+    lean: async () => [{
+      academicYear: '2025-2026',
+      semester: '1st Semester',
+      isDemo: true,
+      subjects: []
+    }]
+  }));
+  t.mock.method(StudentStatusHistory, 'find', () => ({
+    sort() { return this; },
+    lean: async () => [{
+      status: 'Regular',
+      reason: 'Reviewed',
+      effectiveDate: '2026-01-01',
+      remarks: 'Current status'
+    }]
   }));
   const evaluation = {
     evaluationStatus: 'eligible',
@@ -194,4 +209,11 @@ test('student report uses the authenticated student account document', async t =
   const data = (await response.json()).data;
   assert.equal(data.student.institutionId, 'own-id');
   assert.deepEqual(data.facultyEvaluation, evaluation);
+  assert.equal(data.academicRecords[0].isDemo, true);
+  assert.deepEqual(data.statusHistory, [{
+    status: 'Regular',
+    reason: 'Reviewed',
+    effectiveDate: '2026-01-01',
+    remarks: 'Current status'
+  }]);
 });

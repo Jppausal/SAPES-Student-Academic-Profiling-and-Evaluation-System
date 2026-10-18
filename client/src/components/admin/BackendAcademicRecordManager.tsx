@@ -14,6 +14,7 @@ import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../..
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { AdminStudentProfileSetup } from './AdminStudentProfileSetup';
 import { AdminStudentReport } from './AdminStudentReport';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 const emptySubject = (): AcademicSubject => ({
   subjectCode: '', subjectName: '', units: 3, grade: 0, isMajor: false, status: 'Ongoing',
@@ -217,8 +218,15 @@ export const BackendAcademicRecordManager: React.FC = () => {
                     onMouseEnter={() => setActiveSuggestionIndex(index)}
                     className={`cursor-pointer px-3 py-2 transition-colors ${index === activeSuggestionIndex ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-900">{student.firstName} {student.lastName}</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <StudentProfilePhoto
+                          institutionId={student.institutionId}
+                          studentName={`${student.firstName} ${student.lastName}`}
+                          className="h-9 w-9 shrink-0 rounded-full object-cover"
+                        />
+                        <span className="truncate text-sm font-medium text-slate-900">{student.firstName} {student.lastName}</span>
+                      </span>
                       <span className="text-xs text-slate-500">({student.institutionId})</span>
                     </div>
                   </li>

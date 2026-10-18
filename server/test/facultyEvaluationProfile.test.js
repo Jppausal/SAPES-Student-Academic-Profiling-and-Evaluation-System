@@ -19,7 +19,7 @@ const queryResult = (value) => ({
   lean: async () => value
 });
 
-test('faculty workspace returns the student profile sections without private medical details', async (t) => {
+test('faculty workspace returns the complete student profile including medical details', async (t) => {
   const originalMethods = {
     academicRecordFind: AcademicRecord.find,
     courseEvaluationFind: CourseEvaluation.find,
@@ -80,6 +80,7 @@ test('faculty workspace returns the student profile sections without private med
       spiritualActivities: [{ dayOfWeek: 'Sunday', startTime: '08:00', endTime: '10:00' }]
     },
     healthInformation: {
+      hasRelevantHealthConcern: true,
       accommodationRequired: true,
       accommodationNotes: 'Seat near the front',
       conditions: ['Private diagnosis'],
@@ -152,7 +153,9 @@ test('faculty workspace returns the student profile sections without private med
   assert.equal(profile.addresses.presentAddress.municipality, 'Malaybalay');
   assert.equal(profile.educationalBackground.seniorHigh, 'BukSU Senior High School');
   assert.equal(profile.religiousInformation.spiritualActivities.length, 1);
+  assert.deepEqual(profile.healthInformation.conditions, ['Private diagnosis']);
+  assert.equal(profile.healthInformation.hasRelevantHealthConcern, true);
+  assert.equal(profile.healthInformation.emergencyContactName, 'Private Contact');
+  assert.equal(profile.healthInformation.emergencyContactNumber, '09179999999');
   assert.equal(profile.healthInformation.accommodationNotes, 'Seat near the front');
-  assert.equal('conditions' in profile.healthInformation, false);
-  assert.equal('emergencyContactName' in profile.healthInformation, false);
 });

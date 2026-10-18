@@ -212,19 +212,70 @@ export interface AcademicTermRecord {
 export interface StudentReport {
   student: {
     institutionId: string;
+    username?: string;
     personalInformation?: {
       firstName?: string;
+      middleName?: string;
       lastName?: string;
+      suffix?: string;
+      birthDate?: string;
+      birthPlace?: string;
+      sex?: string;
+      civilStatus?: string;
+      height?: string;
+      weight?: string;
+      bloodType?: string;
+      nationality?: string;
+      citizenship?: string;
+      dualCitizenship?: string;
+      minority?: string;
+      isForeigner?: boolean;
     };
     classification?: {
       program?: string;
+      studentType?: string;
       isIP?: boolean;
       isPWD?: boolean;
       isShifter?: boolean;
       isTransferee?: boolean;
+      indigenousGroup?: string;
     };
-    enrollmentInformation?: { course?: string; yearLevel?: string; level?: string };
-    religiousInformation?: { religion?: string };
+    enrollmentInformation?: {
+      course?: string;
+      yearLevel?: string;
+      level?: string;
+      department?: string;
+      curriculum?: string;
+      entryPeriod?: string;
+      entryDate?: string;
+      studentType?: string;
+      preferredModality?: string;
+      campus?: string;
+      learnerReferenceNo?: string;
+      nstpNumber?: string;
+    };
+    contactInformation?: {
+      mobileNumber?: string;
+      alternateMobileNumber?: string;
+      telephoneNumber?: string;
+      institutionalEmail?: string;
+      alternateEmail?: string;
+    };
+    addresses?: {
+      presentAddress?: Record<string, string>;
+      homeAddress?: Record<string, string>;
+    };
+    educationalBackground?: {
+      previousSchool?: string;
+      seniorHigh?: string;
+      juniorHigh?: string;
+      elementary?: string;
+    };
+    religiousInformation?: {
+      religion?: string;
+      shareSpiritualSchedule?: boolean;
+      spiritualActivities?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
+    };
     academicStatus?: {
       currentStatus?: string;
       isOnProbation?: boolean;
@@ -234,11 +285,19 @@ export interface StudentReport {
     };
     healthInformation?: {
       hasRelevantHealthConcern?: boolean;
+      conditions?: string[];
+      otherCondition?: string;
+      allergyDetails?: string;
+      conditionDescription?: string;
       accommodationRequired?: boolean;
       accommodationNotes?: string;
+      emergencyContactName?: string;
+      emergencyContactNumber?: string;
+      lastUpdated?: string;
     };
     yearLevel?: number | string;
     section?: string;
+    enrollmentStatus?: string;
     schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   };
   academicRecords: AcademicTermRecord[];
@@ -440,8 +499,16 @@ export interface FacultyStudentWorkspace {
       spiritualActivities: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
     };
     healthInformation: {
+      hasRelevantHealthConcern?: boolean;
+      conditions?: string[];
+      otherCondition?: string;
+      allergyDetails?: string;
+      conditionDescription?: string;
       accommodationRequired?: boolean;
       accommodationNotes?: string;
+      emergencyContactName?: string;
+      emergencyContactNumber?: string;
+      lastUpdated?: string | null;
     };
     academicStatus: { currentStatus?: string; isOnProbation: boolean };
     yearLevel: number | string | null;
@@ -575,6 +642,7 @@ export interface StudentIdentity {
     firstName?: string;
     middleName?: string;
     lastName?: string;
+    suffix?: string;
     birthDate?: string;
     birthPlace?: string;
     sex?: string;

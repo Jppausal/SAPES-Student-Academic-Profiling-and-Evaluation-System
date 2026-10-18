@@ -2,6 +2,7 @@ const express = require('express');
 const Student = require('../models/Student');
 const AcademicRecord = require('../models/AcademicRecord');
 const FacultyEvaluation = require('../models/FacultyEvaluation');
+const StudentStatusHistory = require('../models/StudentStatusHistory');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
@@ -157,16 +158,22 @@ router.get(
         });
       }
 
-      const academicRecords = await AcademicRecord.find(
-        { studentId: student._id },
-        { _id: 0, academicYear: 1, semester: 1, subjects: 1 }
-      ).sort({ academicYear: -1, semester: -1 }).lean();
+      const [academicRecords, facultyEvaluation, statusHistory] = await Promise.all([
+        AcademicRecord.find(
+          { studentId: student._id },
+          { _id: 0, academicYear: 1, semester: 1, subjects: 1, isDemo: 1 }
+        ).sort({ academicYear: -1, semester: -1 }).lean(),
+        FacultyEvaluation.findOne({ studentId: student._id })
+          .sort({ evaluatedAt: -1 })
+          .select('-_id evaluationStatus reasons remarks evaluatedAt')
+          .lean(),
+        StudentStatusHistory.find(
+          { studentId: student._id },
+          { _id: 0, status: 1, reason: 1, effectiveDate: 1, remarks: 1 }
+        ).sort({ effectiveDate: -1 }).lean()
+      ]);
 
       const academicRecordsWithGwa = withAcademicGwas(academicRecords);
-      const facultyEvaluation = await FacultyEvaluation.findOne({ studentId: student._id })
-        .sort({ evaluatedAt: -1 })
-        .select('-_id evaluationStatus reasons remarks evaluatedAt')
-        .lean();
       const overallGwa = calculateOverallGwa(academicRecords);
       const majorSubjectGwa = calculateMajorSubjectGwa(academicRecords);
 
@@ -179,7 +186,8 @@ router.get(
           facultyEvaluation,
           overallGwa,
           majorSubjectGwa,
-          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords)
+          latestAcademicPeriod: getLatestAcademicPeriod(academicRecords),
+          statusHistory
         }
       });
     } catch (error) {

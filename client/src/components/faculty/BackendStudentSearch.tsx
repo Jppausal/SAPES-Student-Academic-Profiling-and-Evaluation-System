@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen, CheckCircle2, CheckCircle, Search, Shield, ShieldAlert, TriangleAlert } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { BookOpen, CheckCircle2, CheckCircle, Search, ShieldAlert, TriangleAlert } from 'lucide-react';
 import {
   fetchStudentReport,
   fetchStudentSuggestions,
@@ -10,6 +10,7 @@ import {
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
@@ -20,6 +21,26 @@ const dateLabel = (value?: string) => {
   if (!value) return 'Not recorded';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleDateString();
+};
+
+const profileValue = (value: string | number | boolean | undefined) => {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return String(value);
+  return value?.trim() || 'Not provided';
+};
+
+const formatAddress = (address?: Record<string, string>) => {
+  if (!address) return 'Not provided';
+  const value = [
+    address.street,
+    address.barangay,
+    address.municipality,
+    address.province,
+    address.region,
+    address.zipCode,
+    address.country,
+  ].filter(Boolean).join(', ');
+  return value || 'Not provided';
 };
 
 export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated', initialQuery = '' }) => {
@@ -38,6 +59,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const refreshing = useRef(false);
 
   useEffect(() => {
     const query = institutionId.trim();
@@ -155,6 +177,48 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
     if (initialQuery.trim()) void findStudent(initialQuery);
   }, [initialQuery]);
 
+  useEffect(() => {
+    if (!report) return;
+
+    let active = true;
+    const refreshReport = async () => {
+      if (document.visibilityState !== 'visible' || loading || refreshing.current) return;
+      refreshing.current = true;
+      try {
+        const updatedReport = await fetchStudentReport(report.student.institutionId);
+        if (!active) return;
+
+        const previousEvaluation = report.facultyEvaluation;
+        if (evaluationStatus === (previousEvaluation?.evaluationStatus || 'for_review')) {
+          setEvaluationStatus(updatedReport.facultyEvaluation?.evaluationStatus || 'for_review');
+        }
+        if (reasons === (previousEvaluation?.reasons?.join(', ') || '')) {
+          setReasons(updatedReport.facultyEvaluation?.reasons?.join(', ') || '');
+        }
+        if (remarks === (previousEvaluation?.remarks || '')) {
+          setRemarks(updatedReport.facultyEvaluation?.remarks || '');
+        }
+        if (studentStatus === (report.student.academicStatus?.currentStatus || '')) {
+          setStudentStatus(updatedReport.student.academicStatus?.currentStatus || '');
+        }
+        setReport(updatedReport);
+        setError('');
+      } catch (requestError) {
+        if (active) setError(requestError instanceof Error ? requestError.message : 'Unable to refresh this student report.');
+      } finally {
+        refreshing.current = false;
+      }
+    };
+
+    window.addEventListener('focus', refreshReport);
+    document.addEventListener('visibilitychange', refreshReport);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refreshReport);
+      document.removeEventListener('visibilitychange', refreshReport);
+    };
+  }, [evaluationStatus, loading, reasons, remarks, report, studentStatus]);
+
   const searchStudent = async (event: React.FormEvent) => {
     event.preventDefault();
     await findStudent(institutionId);
@@ -216,6 +280,105 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const isOnProbation = academicStatus?.isOnProbation === true
     || /probation/i.test(academicStatus?.currentStatus || '');
   const healthInformation = report?.student.healthInformation;
+  const student = report?.student;
+  const spiritualSchedule = student?.religiousInformation?.shareSpiritualSchedule
+    ? student.religiousInformation.spiritualActivities?.map((activity) =>
+      `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`
+    ).join(', ')
+    : 'Not shared';
+  const profileSections = student ? [
+    {
+      title: 'Personal information',
+      fields: [
+        ['First name', profileValue(student.personalInformation?.firstName)],
+        ['Middle name', profileValue(student.personalInformation?.middleName)],
+        ['Last name', profileValue(student.personalInformation?.lastName)],
+        ['Suffix', profileValue(student.personalInformation?.suffix)],
+        ['Date of birth', dateLabel(student.personalInformation?.birthDate)],
+        ['Place of birth', profileValue(student.personalInformation?.birthPlace)],
+        ['Sex', profileValue(student.personalInformation?.sex)],
+        ['Civil status', profileValue(student.personalInformation?.civilStatus)],
+        ['Height', profileValue(student.personalInformation?.height)],
+        ['Weight', profileValue(student.personalInformation?.weight)],
+        ['Blood type', profileValue(student.personalInformation?.bloodType)],
+        ['Nationality', profileValue(student.personalInformation?.nationality)],
+        ['Citizenship', profileValue(student.personalInformation?.citizenship)],
+        ['Dual citizenship', profileValue(student.personalInformation?.dualCitizenship)],
+        ['Minority group', profileValue(student.personalInformation?.minority)],
+        ['Foreigner', profileValue(student.personalInformation?.isForeigner)],
+      ],
+    },
+    {
+      title: 'Student classification',
+      fields: [
+        ['Program', profileValue(student.classification?.program)],
+        ['Student type', profileValue(student.classification?.studentType)],
+        ['Indigenous Peoples', profileValue(student.classification?.isIP)],
+        ['Indigenous group', profileValue(student.classification?.indigenousGroup)],
+        ['Person with disability', profileValue(student.classification?.isPWD)],
+        ['Shifter', profileValue(student.classification?.isShifter)],
+        ['Transferee', profileValue(student.classification?.isTransferee)],
+      ],
+    },
+    {
+      title: 'Enrollment information',
+      fields: [
+        ['Course', profileValue(student.enrollmentInformation?.course)],
+        ['Level', profileValue(student.enrollmentInformation?.level)],
+        ['Department', profileValue(student.enrollmentInformation?.department)],
+        ['Curriculum', profileValue(student.enrollmentInformation?.curriculum)],
+        ['Year level', profileValue(student.enrollmentInformation?.yearLevel || student.yearLevel)],
+        ['Section', profileValue(student.section)],
+        ['Enrollment status', profileValue(student.enrollmentStatus)],
+        ['Entry period', profileValue(student.enrollmentInformation?.entryPeriod)],
+        ['Entry date', dateLabel(student.enrollmentInformation?.entryDate)],
+        ['Student type', profileValue(student.enrollmentInformation?.studentType)],
+        ['Preferred modality', profileValue(student.enrollmentInformation?.preferredModality)],
+        ['Campus', profileValue(student.enrollmentInformation?.campus)],
+        ['Learner reference number', profileValue(student.enrollmentInformation?.learnerReferenceNo)],
+        ['NSTP number', profileValue(student.enrollmentInformation?.nstpNumber)],
+      ],
+    },
+    {
+      title: 'Contact information',
+      fields: [
+        ['Mobile number', profileValue(student.contactInformation?.mobileNumber)],
+        ['Alternate mobile number', profileValue(student.contactInformation?.alternateMobileNumber)],
+        ['Telephone number', profileValue(student.contactInformation?.telephoneNumber)],
+        ['Institutional email', profileValue(student.contactInformation?.institutionalEmail)],
+        ['Alternate email', profileValue(student.contactInformation?.alternateEmail)],
+      ],
+    },
+    {
+      title: 'Addresses and education',
+      fields: [
+        ['Present address', formatAddress(student.addresses?.presentAddress)],
+        ['Home address', formatAddress(student.addresses?.homeAddress)],
+        ['Previous school', profileValue(student.educationalBackground?.previousSchool)],
+        ['Senior high school', profileValue(student.educationalBackground?.seniorHigh)],
+        ['Junior high school', profileValue(student.educationalBackground?.juniorHigh)],
+        ['Elementary school', profileValue(student.educationalBackground?.elementary)],
+      ],
+    },
+    {
+      title: 'Religious and health information',
+      fields: [
+        ['Religion', profileValue(student.religiousInformation?.religion)],
+        ['Spiritual schedule shared', profileValue(student.religiousInformation?.shareSpiritualSchedule)],
+        ['Shared spiritual activities', spiritualSchedule],
+        ['Relevant health concern', profileValue(healthInformation?.hasRelevantHealthConcern)],
+        ['Conditions', healthInformation?.conditions?.join(', ') || 'Not provided'],
+        ['Other condition', profileValue(healthInformation?.otherCondition)],
+        ['Allergy details', profileValue(healthInformation?.allergyDetails)],
+        ['Condition description', profileValue(healthInformation?.conditionDescription)],
+        ['Accommodation required', profileValue(healthInformation?.accommodationRequired)],
+        ['Accommodation notes', profileValue(healthInformation?.accommodationNotes)],
+        ['Emergency contact', profileValue(healthInformation?.emergencyContactName)],
+        ['Emergency contact number', profileValue(healthInformation?.emergencyContactNumber)],
+        ['Health information last updated', dateLabel(healthInformation?.lastUpdated)],
+      ],
+    },
+  ] : [];
 
   return (
     <section className="space-y-5">
@@ -276,9 +439,16 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                     onClick={() => void findStudent(institutionId, student)}
                     className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left ${activeSuggestionIndex === index ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold text-slate-800">{student.firstName} {student.lastName}</span>
-                      <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{student.institutionId}</span>
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <StudentProfilePhoto
+                        institutionId={student.institutionId}
+                        studentName={`${student.firstName} ${student.lastName}`}
+                        className="h-9 w-9 shrink-0 rounded-full object-cover"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-semibold text-slate-800">{student.firstName} {student.lastName}</span>
+                        <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{student.institutionId}</span>
+                      </span>
                     </span>
                     <span className="shrink-0 text-[10px] text-slate-500">@{student.username}</span>
                   </button>
@@ -301,18 +471,25 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
       {report && (
         <div className="space-y-5">
           <div className="flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xl font-extrabold tracking-tight text-slate-950">{studentName || 'Student record'}</p>
-                <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">{report.student.institutionId}</span>
+            <div className="flex min-w-0 items-center gap-4">
+              <StudentProfilePhoto
+                institutionId={report.student.institutionId}
+                studentName={studentName || 'Student'}
+                className="h-16 w-16 shrink-0 rounded-full border border-slate-200 object-cover"
+              />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xl font-extrabold tracking-tight text-slate-950">{studentName || 'Student record'}</p>
+                  <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">{report.student.institutionId}</span>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">{report.student.enrollmentInformation?.course || report.student.classification?.program || 'Program not recorded'}</p>
+                {(report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level || report.student.section) && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level ? `Year ${report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level}` : null}
+                    {report.student.section ? ` · Section ${report.student.section}` : null}
+                  </p>
+                )}
               </div>
-              <p className="mt-2 text-sm text-slate-600">{report.student.enrollmentInformation?.course || report.student.classification?.program || 'Program not recorded'}</p>
-              {(report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level || report.student.section) && (
-                <p className="mt-1 text-xs text-slate-500">
-                  {report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level ? `Year ${report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level}` : null}
-                  {report.student.section ? ` · Section ${report.student.section}` : null}
-                </p>
-              )}
             </div>
             <div className="w-full rounded-xl bg-brand-700 px-4 py-3 text-white sm:w-auto sm:min-w-72">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-200">Latest period</p>
@@ -331,32 +508,38 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className="text-xs font-medium text-slate-500">Latest evaluation</span><strong className="mt-2 block text-slate-900">{formatStatusLabel(report.facultyEvaluation?.evaluationStatus || 'For review')}</strong></div>
           </div>
 
-          <div className={`flex items-center gap-2 text-sm font-bold ${isOnProbation ? 'text-amber-800' : 'text-emerald-700'}`}>
+          <div className={`flex items-center gap-2 text-sm font-bold ${isOnProbation ? 'text-rose-800' : 'text-emerald-700'}`}>
             {isOnProbation ? <TriangleAlert className="h-4 w-4" aria-hidden="true" /> : <CheckCircle className="h-4 w-4" aria-hidden="true" />}
             <span>{isOnProbation ? 'Under academic probation' : 'Not under academic probation'}</span>
           </div>
-          {isOnProbation && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          {isOnProbation && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
             <dl className="grid gap-3 text-xs text-slate-700 sm:grid-cols-3">
-              <div><dt className="font-semibold text-amber-900">Reason</dt><dd className="mt-1">{academicStatus?.probationReason || 'Not recorded'}</dd></div>
-              <div><dt className="font-semibold text-amber-900">Remarks</dt><dd className="mt-1">{academicStatus?.statusRemarks || 'Not recorded'}</dd></div>
-              <div><dt className="font-semibold text-amber-900">Effective date</dt><dd className="mt-1">{dateLabel(academicStatus?.effectiveDate)}</dd></div>
+              <div><dt className="font-semibold text-rose-900">Reason</dt><dd className="mt-1">{academicStatus?.probationReason || 'Not recorded'}</dd></div>
+              <div><dt className="font-semibold text-rose-900">Remarks</dt><dd className="mt-1">{academicStatus?.statusRemarks || 'Not recorded'}</dd></div>
+              <div><dt className="font-semibold text-rose-900">Effective date</dt><dd className="mt-1">{dateLabel(academicStatus?.effectiveDate)}</dd></div>
             </dl>
           </div>}
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><Shield className="h-4 w-4 text-brand-600" aria-hidden="true" /> Health &amp; Medical (authorized for faculty evaluation)</h3>
-              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">Confidential – for academic evaluation use only</span>
+              <h3 className="text-sm font-bold text-slate-900">Student profiling information</h3>
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">Confidential student information</span>
             </div>
-            {!healthInformation ? <p className="mt-2 text-sm text-slate-600">Not provided</p> : !healthInformation.hasRelevantHealthConcern ? (
-              <p className="mt-2 text-sm text-slate-700">No relevant health concern reported</p>
-            ) : (
-              <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                <div><dt className="text-xs font-semibold text-slate-500">Relevant health concern</dt><dd>Concern flagged</dd></div>
-                <div><dt className="text-xs font-semibold text-slate-500">Accommodation required</dt><dd>{healthInformation.accommodationRequired ? 'Yes' : 'No'}</dd></div>
-                <div className="sm:col-span-2"><dt className="text-xs font-semibold text-slate-500">Accommodation notes</dt><dd>{healthInformation.accommodationNotes || 'Not provided'}</dd></div>
-              </dl>
-            )}
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {profileSections.map((section) => (
+                <section key={section.title} className="rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                  <h4 className="text-xs font-bold text-slate-800">{section.title}</h4>
+                  <dl className="mt-3 grid gap-x-4 gap-y-3 text-xs sm:grid-cols-2">
+                    {section.fields.map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <dt className="font-medium text-slate-500">{label}</dt>
+                        <dd className="mt-0.5 break-words text-slate-800">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              ))}
+            </div>
           </div>
 
           {displayMode === 'consolidated' && <div className="grid gap-4 lg:grid-cols-2">
@@ -384,6 +567,11 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
+            {report.academicRecords.some((term) => term.isDemo) && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                Demo data for testing only. These subjects and grades are fictional, not official academic records.
+              </p>
+            )}
             {report.academicRecords.length === 0 && (
               <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No academic records have been entered.</p>
             )}

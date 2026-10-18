@@ -116,6 +116,9 @@ router.put(
 
       student.academicStatus.currentStatus = status.trim();
       student.academicStatus.isOnProbation = ['probation', 'probationary', 'on probation'].includes(status.trim().toLowerCase());
+      student.academicStatus.probationReason = student.academicStatus.isOnProbation
+        ? reason?.trim() || undefined
+        : undefined;
       student.academicStatus.statusRemarks = remarks;
       student.academicStatus.effectiveDate = parsedEffectiveDate;
       await student.save();
@@ -650,13 +653,20 @@ router.get(
         { institutionId },
         {
           _id: 1,
+          username: 1,
           institutionId: 1,
           personalInformation: 1,
           enrollmentInformation: 1,
           classification: 1,
           religiousInformation: 1,
+          contactInformation: 1,
+          addresses: 1,
+          educationalBackground: 1,
           healthInformation: 1,
-          academicStatus: 1
+          academicStatus: 1,
+          yearLevel: 1,
+          section: 1,
+          enrollmentStatus: 1
         }
       ).lean();
 
@@ -668,20 +678,12 @@ router.get(
       }
 
       const { _id: studentId, ...student } = studentRecord;
-      if (req.user.role === 'faculty' && student.healthInformation) {
-        student.healthInformation = {
-          hasRelevantHealthConcern: Boolean(student.healthInformation.hasRelevantHealthConcern),
-          accommodationRequired: Boolean(student.healthInformation.accommodationRequired),
-          accommodationNotes: student.healthInformation.accommodationNotes || ''
-        };
-      }
       if (req.user.role === 'faculty') {
         student.academicStatus = {
           ...student.academicStatus,
           ...getAcademicStatus(student)
         };
         const activities = student.religiousInformation?.shareSpiritualSchedule ? student.religiousInformation.spiritualActivities || [] : [];
-        delete student.religiousInformation;
         student.schedulingRestrictions = activities;
       }
 

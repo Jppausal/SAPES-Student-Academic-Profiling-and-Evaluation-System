@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, Contact, GraduationCap, User } from 'lucide-react';
 import {
   fetchMyStudentIdentity,
@@ -6,6 +6,7 @@ import {
   StudentIdentity,
   StudentReport,
 } from '../../lib/api';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 import { BackendStudentWorkspace } from './BackendStudentWorkspace';
 import { StudentProfileSetup } from './StudentProfileSetup';
 import './student-workspace.css';
@@ -18,6 +19,7 @@ export const StudentPortal: React.FC = () => {
   const [reportError, setReportError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'profile'>('overview');
   const [savedMessage, setSavedMessage] = useState('');
+  const previousTab = useRef(activeTab);
 
   useEffect(() => {
     let active = true;
@@ -46,6 +48,51 @@ export const StudentPortal: React.FC = () => {
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const returnedToOverview = previousTab.current === 'profile' && activeTab === 'overview';
+    previousTab.current = activeTab;
+    if (activeTab !== 'overview') return;
+
+    let active = true;
+    let refreshing = false;
+    const refreshWorkspace = async () => {
+      if (document.visibilityState !== 'visible' || refreshing) return;
+      refreshing = true;
+      try {
+        const [identityResult, reportResult] = await Promise.allSettled([
+          fetchMyStudentIdentity(),
+          fetchMyStudentReport(),
+        ]);
+        if (!active) return;
+
+        if (identityResult.status === 'fulfilled') {
+          setIdentity(identityResult.value);
+          setProfileError('');
+        } else {
+          setProfileError(identityResult.reason instanceof Error ? identityResult.reason.message : 'Unable to refresh your student profile.');
+        }
+
+        if (reportResult.status === 'fulfilled') {
+          setReport(reportResult.value);
+          setReportError('');
+        } else {
+          setReportError(reportResult.reason instanceof Error ? reportResult.reason.message : 'Unable to refresh academic records.');
+        }
+      } finally {
+        refreshing = false;
+      }
+    };
+
+    if (returnedToOverview) void refreshWorkspace();
+    window.addEventListener('focus', refreshWorkspace);
+    document.addEventListener('visibilitychange', refreshWorkspace);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refreshWorkspace);
+      document.removeEventListener('visibilitychange', refreshWorkspace);
+    };
+  }, [activeTab]);
 
   if (loading) {
     return (
@@ -76,9 +123,16 @@ export const StudentPortal: React.FC = () => {
   return (
     <div className="student-workspace">
       <header className="student-identity">
-        <div className="student-identity-info">
-          <h1 className="student-name">{name || 'Alex Rivera'}</h1>
-          <p className="student-subdetail">{program} • {yearLevel}</p>
+        <div className="flex min-w-0 items-center gap-4">
+          <StudentProfilePhoto
+            institutionId={identity.institutionId}
+            studentName={name || 'Student'}
+            className="h-16 w-16 shrink-0 rounded-full border-2 border-white object-cover shadow-sm"
+          />
+          <div className="student-identity-info min-w-0">
+            <h1 className="student-name">{name || 'Alex Rivera'}</h1>
+            <p className="student-subdetail">{program} • {yearLevel}</p>
+          </div>
         </div>
         <div className="student-institution-card">
           <div className="student-institution-icon-tile">

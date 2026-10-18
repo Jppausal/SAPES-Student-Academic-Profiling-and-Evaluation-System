@@ -6,6 +6,7 @@ import { FacultyPage, UserRole } from '../../types';
 import { UserSettingsModal } from './UserSettingsModal';
 import { fetchStudentSuggestions, StudentSuggestion } from '../../lib/api';
 import { Modal } from '../common/Modal';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 interface NavbarProps {
   activePage: FacultyPage;
@@ -246,9 +247,16 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
                             onClick={() => selectStudent(student)}
                             className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left ${activeSuggestionIndex === index ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
                           >
-                            <span className="min-w-0">
-                              <span className="block truncate font-semibold text-slate-800">{student.firstName} {student.lastName}</span>
-                              <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{student.institutionId}</span>
+                            <span className="flex min-w-0 items-center gap-2.5">
+                              <StudentProfilePhoto
+                                institutionId={student.institutionId}
+                                studentName={`${student.firstName} ${student.lastName}`}
+                                className="h-9 w-9 shrink-0 rounded-full object-cover"
+                              />
+                              <span className="min-w-0">
+                                <span className="block truncate font-semibold text-slate-800">{student.firstName} {student.lastName}</span>
+                                <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{student.institutionId}</span>
+                              </span>
                             </span>
                             <span className="shrink-0 text-[10px] text-slate-500">@{student.username}</span>
                           </button>
