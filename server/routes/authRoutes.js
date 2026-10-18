@@ -131,7 +131,10 @@ router.post('/login', async (req, res) => {
       });
     }
     account.role = role;
-    if (!emailMatchesRoleDomain(account.email, role)) {
+    if (
+      !emailMatchesRoleDomain(account.email, role)
+      || (loginIdentifier.includes('@') && !emailMatchesRoleDomain(loginIdentifier, role))
+    ) {
       const requiredDomain = ROLE_EMAIL_DOMAINS[role];
       const message = requiredDomain
         ? `${role} accounts must use an @${requiredDomain} email address`
@@ -173,6 +176,46 @@ router.post('/logout', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Logout error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/settings', authenticateToken, async (req, res) => {
+  try {
+    const AccountModel = getAccountModel(req.user.role);
+    if (!AccountModel) return res.status(403).json({ success: false, message: 'Unsupported account role' });
+    const user = await AccountModel.findById(req.user.userId).select('notificationPreferences').lean();
+    return res.json({
+      success: true,
+      data: {
+        notificationPreferences: user?.notificationPreferences || { profileAndAcademicUpdates: true }
+      }
+    });
+  } catch (error) {
+    console.error('User settings read failed:', error);
+    return res.status(500).json({ success: false, message: 'Unable to load user settings' });
+  }
+});
+
+router.put('/settings', authenticateToken, async (req, res) => {
+  try {
+    const value = req.body?.notificationPreferences?.profileAndAcademicUpdates;
+    if (typeof value !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'Notification preference must be a boolean' });
+    }
+    const AccountModel = getAccountModel(req.user.role);
+    if (!AccountModel) return res.status(403).json({ success: false, message: 'Unsupported account role' });
+    await AccountModel.findByIdAndUpdate(
+      req.user.userId,
+      { 'notificationPreferences.profileAndAcademicUpdates': value },
+      { runValidators: true }
+    );
+    return res.json({
+      success: true,
+      data: { notificationPreferences: { profileAndAcademicUpdates: value } }
+    });
+  } catch (error) {
+    console.error('User settings update failed:', error);
+    return res.status(500).json({ success: false, message: 'Unable to save user settings' });
   }
 });
 
