@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, ClipboardList, UserRound } from 'lucide-react';
+import campus from '../../assets/branding/cot building.jpg';
 import logo from '../../assets/branding/logo ccot.jpg';
 
 type AuthLayoutProps = {
@@ -9,65 +10,77 @@ type AuthLayoutProps = {
   onBack?: () => void;
 };
 
+const features = [
+  { label: 'Profile Management', icon: UserRound },
+  { label: 'Academic Records', icon: ClipboardList },
+  { label: 'Enrollment Tracking', icon: BriefcaseBusiness },
+];
+
 export function AuthLayout({ title, subtitle, children, onBack }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-6xl overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200">
-        <div className="grid md:grid-cols-2">
-          <div className="hidden md:flex flex-col justify-between gap-10 bg-brand-700 p-10">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="College of Technologies logo" className="h-12 w-12 rounded-full bg-white object-contain p-0.5" />
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-white">SAPES</p>
-                <p className="mt-1 text-[11px] leading-tight text-brand-200">
-                  Student Enrollment & Academic Status Management System
-                </p>
-              </div>
-            </div>
+    <main
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-900 bg-cover bg-center px-4 py-8 sm:px-8"
+      style={{ backgroundImage: `url("${campus}")` }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/75 to-brand-900/65" />
 
-            <div className="max-w-md">
-              <h2 className="text-3xl font-bold leading-tight text-white">Academic success starts here.</h2>
-              <p className="mt-3 text-sm leading-6 text-brand-100">
-                Manage records, evaluate progress, and stay connected with your academic journey in one secure platform.
-              </p>
-            </div>
-
-            <div className="border-t border-white/15 pt-5">
-              <p className="text-sm font-semibold text-white">Bukidnon State University</p>
-              <p className="mt-0.5 text-xs text-brand-200">Malaybalay City, Philippines</p>
+      <div className="relative z-10 grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
+        <section className="mx-auto flex w-full max-w-xl flex-col justify-center text-white">
+          <div className="flex items-center gap-4">
+            <img
+              src={logo}
+              alt="Bukidnon State University College of Technologies"
+              className="h-14 w-14 rounded-full bg-white object-contain p-1 shadow-md"
+            />
+            <div>
+              <p className="text-sm font-bold tracking-wide sm:text-base">College of Technologies</p>
+              <p className="mt-0.5 text-xs text-blue-100">Skills Today. Solutions Tomorrow.</p>
             </div>
           </div>
 
-          <div className="flex items-center justify-center bg-white p-6 sm:p-10">
-            <div className="w-full max-w-md">
-              <div className="mb-7 flex items-center gap-3 md:hidden">
-                <img src={logo} alt="College of Technologies logo" className="h-12 w-12 rounded-full object-contain" />
-                <div className="leading-tight">
-                  <p className="text-sm font-extrabold tracking-[0.08em] text-brand-700">SAPES</p>
-                  <p className="mt-1 text-[11px] text-slate-500">Student Enrollment & Academic Status Management System</p>
-                </div>
-              </div>
-              {onBack && (
-                <button
-                  type="button"
-                  onClick={onBack}
-                  className="mb-6 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-brand-600 transition-colors"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </button>
-              )}
-
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-slate-900">{title}</h1>
-                <p className="mt-2 text-sm text-slate-600">{subtitle}</p>
-              </div>
-
-              {children}
-            </div>
+          <div className="mt-8 max-w-lg sm:mt-12">
+            <h2 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+              Student Academic Profiling and Enrollment System
+            </h2>
+            <p className="mt-3 max-w-md text-sm leading-6 text-blue-50/90 sm:text-base">
+              A unified platform for student information, academic records, and enrollment management.
+            </p>
           </div>
-        </div>
+
+          <div className="mt-7 grid max-w-lg grid-cols-3 gap-2 border-t border-white/20 pt-5 sm:mt-10 sm:gap-4">
+            {features.map(({ label, icon: Icon }) => (
+              <div key={label} className="flex flex-col items-center gap-2 text-center text-xs text-white sm:text-sm">
+                <Icon aria-hidden="true" className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-md rounded-lg bg-white px-6 py-7 shadow-2xl sm:px-8 sm:py-8">
+          <div className="mb-5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+            <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
+          </div>
+
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-brand-600 transition-colors hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+              Back
+            </button>
+          )}
+
+          {children}
+
+          <p className="mt-6 text-center text-[11px] text-slate-500">
+            © 2025 College of Technologies. All rights reserved.
+          </p>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
