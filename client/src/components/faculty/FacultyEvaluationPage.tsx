@@ -1,15 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FacultyRosterStudent, fetchFacultyEvaluationRoster } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
+import type { EvaluationTarget } from '../../types';
 import { StudentEvaluationPanel } from './StudentEvaluationPanel';
 
-export const FacultyEvaluationPage: React.FC = () => {
-  const [program, setProgram] = useState<string>(TECHNOLOGY_PROGRAMS[0].value);
+interface FacultyEvaluationPageProps {
+  initialTarget?: EvaluationTarget | null;
+}
+
+export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ initialTarget }) => {
+  const [program, setProgram] = useState<string>(initialTarget?.program || TECHNOLOGY_PROGRAMS[0].value);
   const [roster, setRoster] = useState<FacultyRosterStudent[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [selectedSection, setSelectedSection] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const targetIdRef = useRef(initialTarget?.institutionId || '');
 
   useEffect(() => {
     let active = true;
@@ -21,7 +27,12 @@ export const FacultyEvaluationPage: React.FC = () => {
       .then((students) => {
         if (!active) return;
         setRoster(students);
-        setSelectedId(students[0]?.institutionId || '');
+        const targetId = targetIdRef.current;
+        setSelectedId(
+          targetId && students.some((student) => student.institutionId === targetId)
+            ? targetId
+            : students[0]?.institutionId || ''
+        );
       })
       .catch((requestError) => {
         if (!active) return;
@@ -52,7 +63,7 @@ export const FacultyEvaluationPage: React.FC = () => {
             type="button"
             onClick={() => setProgram(item.value)}
             aria-pressed={program === item.value}
-            className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold ${program === item.value ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+            className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold ${program === item.value ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
           >
             {item.label}
           </button>
@@ -89,7 +100,7 @@ export const FacultyEvaluationPage: React.FC = () => {
                 type="button"
                 onClick={() => setSelectedId(student.institutionId)}
                 aria-pressed={selectedId === student.institutionId}
-                className={`mb-1 w-full rounded-md border px-3 py-2.5 text-left ${selectedId === student.institutionId ? 'border-teal-300 bg-teal-50' : 'border-transparent hover:bg-slate-50'}`}
+                className={`mb-1 w-full rounded-md border px-3 py-2.5 text-left ${selectedId === student.institutionId ? 'border-brand-200 bg-brand-50' : 'border-transparent hover:bg-slate-50'}`}
               >
                 <span className="block truncate text-xs font-bold text-slate-900">{student.firstName} {student.lastName}</span>
                 <span className="mt-1 block font-mono text-[10px] text-slate-500">{student.institutionId} · Yr {student.yearLevel || '—'} · {student.section}</span>

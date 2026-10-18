@@ -25,8 +25,6 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
 
   React.useEffect(() => {
     const clientId = googleClientId;
-    console.info('[SAPES] Google client ID present:', Boolean(clientId));
-    console.info('[SAPES] Google sign-in origin:', window.location.origin);
     if (!clientId) {
       setGoogleLoading(false);
       return;
@@ -102,7 +100,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
           <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-700">
             Email, username, or student number
           </label>
-          <div className="mt-2 flex w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-100">
+          <div className="mt-2 flex w-full overflow-hidden rounded-xl border border-slate-300 bg-slate-50 transition focus-within:border-brand-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-100">
             <input
               id="username"
               name="username"
@@ -137,7 +135,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               placeholder="Enter your password"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 pr-12 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
             />
             <button
               type="button"
@@ -145,10 +143,10 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
               className="absolute inset-y-0 right-0 flex items-center px-4"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" /> : <Eye className="h-4 w-4 text-slate-400 hover:text-slate-600 transition-colors" />}
+              {showPassword ? <EyeOff className="h-4 w-4 text-slate-500 hover:text-slate-700 transition-colors" /> : <Eye className="h-4 w-4 text-slate-500 hover:text-slate-700 transition-colors" />}
             </button>
           </div>
-          <button type="button" onClick={onForgotPassword} className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-500">
+          <button type="button" onClick={onForgotPassword} className="mt-3 inline-block text-xs font-medium text-accent-600 hover:text-accent-700">
             Forgot password?
           </button>
         </div>
@@ -159,22 +157,14 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
           </p>
         )}
 
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-          <label htmlFor="remember" className="flex items-center gap-2 text-sm text-slate-600">
-            <input id="remember" type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-            Remember me
-          </label>
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Secure login</span>
-        </div>
-
         <button
           type="submit"
-          className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-200"
+          className="w-full rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-700 focus:outline-none focus:ring-4 focus:ring-accent-200"
         >
           {isSubmitting ? 'Signing in…' : 'Login'}
         </button>
 
-        <div className="flex items-center gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-3 text-xs text-slate-500">
           <span className="h-px flex-1 bg-slate-200" />
           <span>OR</span>
           <span className="h-px flex-1 bg-slate-200" />
@@ -184,13 +174,13 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
           {googleClientIdPresent ? (
             <div ref={googleButtonRef} aria-label="Continue with Google" />
           ) : (
-            <p className="text-center text-xs text-slate-400">
-              Google sign-in is not configured for {window.location.origin}.
+            <p className="text-center text-xs text-slate-500">
+              Google sign-in is currently unavailable. Use your institutional account to sign in.
             </p>
           )}
         </div>
         {googleLoading && googleClientIdPresent && (
-          <p className="text-center text-xs text-slate-400">Loading Google sign-in…</p>
+          <p className="text-center text-xs text-slate-500">Loading Google sign-in…</p>
         )}
       </form>
     </AuthLayout>

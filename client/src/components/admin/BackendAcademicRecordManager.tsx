@@ -11,6 +11,7 @@ import {
   updateStudentStatus,
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
+import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { AdminStudentProfileSetup } from './AdminStudentProfileSetup';
 import { AdminStudentReport } from './AdminStudentReport';
 
@@ -198,7 +199,7 @@ export const BackendAcademicRecordManager: React.FC = () => {
                 }
               }}
               placeholder="Enter a 10-digit student ID number or student's name"
-              className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
               required
             />
             {suggestionsOpen && (
@@ -214,7 +215,7 @@ export const BackendAcademicRecordManager: React.FC = () => {
                     aria-selected={index === activeSuggestionIndex}
                     onClick={() => void loadReport(institutionId, student)}
                     onMouseEnter={() => setActiveSuggestionIndex(index)}
-                    className={`cursor-pointer px-3 py-2 transition-colors ${index === activeSuggestionIndex ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                    className={`cursor-pointer px-3 py-2 transition-colors ${index === activeSuggestionIndex ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-slate-900">{student.firstName} {student.lastName}</span>
@@ -240,13 +241,13 @@ export const BackendAcademicRecordManager: React.FC = () => {
           <div>
             <p className="text-lg font-bold text-slate-950">{studentName || 'Student record'}</p>
             <p className="admin-mono mt-1 text-xs text-slate-500">{report.student.institutionId}</p>
-            <p className="mt-3 text-sm text-slate-600">Current status:<span className="admin-badge admin-badge-navy ml-2">{report.student.academicStatus?.currentStatus || 'Not recorded'}</span></p>
+            <p className="mt-3 text-sm text-slate-600">Current status:<span className="admin-badge admin-badge-navy ml-2">{formatStatusLabel(report.student.academicStatus?.currentStatus)}</span></p>
           </div>
           <div className="admin-record-gwas">
             <div className="admin-gwa-block is-current">
               <p className="admin-gwa-title">Selected period GWA</p>
               <div className="admin-gwa-values"><div><span>Overall</span><strong>{formatAcademicGwa(selectedPeriodGwas.overallGwa)}</strong></div><div><span>Major</span><strong>{formatAcademicGwa(selectedPeriodGwas.majorSubjectGwa)}</strong></div></div>
-              <p className="mt-2 text-[10px] font-semibold text-blue-700">{selectedPeriodLabel}</p>
+              <p className="mt-2 text-[10px] font-semibold text-brand-700">{selectedPeriodLabel}</p>
             </div>
             <div className="admin-gwa-block">
               <p className="admin-gwa-title">Historical cumulative GWA</p>
@@ -267,7 +268,7 @@ export const BackendAcademicRecordManager: React.FC = () => {
           <section className="admin-panel admin-panel-body">
             <div className="admin-section-heading"><div><h3>Academic status</h3><p>Save an authorized standing update with its reason.</p></div></div>
             <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
-              <input aria-label="Academic status" value={status} onChange={(event) => setStatus(event.target.value)} placeholder="e.g. regular, probation" className="px-3 py-2 text-sm" />
+              <input aria-label="Academic status" value={status ? formatStatusLabel(status) : ''} onChange={(event) => setStatus(event.target.value)} placeholder="e.g. Regular, Probation" className="px-3 py-2 text-sm" />
               <input aria-label="Reason for academic status" value={statusReason} onChange={(event) => setStatusReason(event.target.value)} placeholder="Reason for this status update" className="px-3 py-2 text-sm" />
               <input aria-label="Remarks for academic status" value={statusRemarks} onChange={(event) => setStatusRemarks(event.target.value)} placeholder="Status remarks (optional)" className="px-3 py-2 text-sm" />
               <button type="button" disabled={saving} onClick={handleSaveStatus} className="admin-primary-button">Save Status</button>

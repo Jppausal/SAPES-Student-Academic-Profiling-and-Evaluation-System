@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, FileCheck2, RefreshCw, Search, Users } from 'lucide-react';
 import { fetchInstitutionalStudentSummary, InstitutionalStudentSummary } from '../../lib/api';
 import { formatAcademicGwa } from '../../utils/mongoAcademicGwa';
+import { formatStatusLabel } from '../../utils/formatStatusLabel';
 
 export const AdminReportsView: React.FC = () => {
   const [students, setStudents] = useState<InstitutionalStudentSummary[]>([]);
@@ -87,8 +88,8 @@ export const AdminReportsView: React.FC = () => {
                   student.classification.isShifter ? 'Shifter' : '',
                   student.classification.isTransferee ? 'Transferee' : '',
                 ].filter(Boolean) as string[];
-                const academicStatus = student.academicStatus.currentStatus || 'Not recorded';
-                const evaluationStatus = student.facultyEvaluation?.evaluationStatus || 'Pending';
+                const academicStatus = formatStatusLabel(student.academicStatus.currentStatus);
+                const evaluationStatus = formatStatusLabel(student.facultyEvaluation?.evaluationStatus || 'Pending');
                 return <tr key={student.institutionId}>
                   <td><span className="admin-table-primary">{name || 'Name not recorded'}</span><span className="admin-table-secondary admin-mono">{student.institutionId}</span></td>
                   <td><div className="flex max-w-52 flex-wrap gap-1">{classifications.length ? classifications.map((item) => <span key={item} className="admin-badge admin-badge-navy">{item}</span>) : <span className="text-slate-500">Not recorded</span>}</div></td>

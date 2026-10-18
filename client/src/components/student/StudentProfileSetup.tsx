@@ -6,6 +6,7 @@ import {
   updateMyStudentProfile,
 } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
+import { formatStatusLabel } from '../../utils/formatStatusLabel';
 
 interface StudentProfileSetupProps {
   identity: StudentIdentity;
@@ -349,7 +350,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               type="button"
               onClick={handleConfirmSave}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-accent-500 rounded-xl hover:bg-accent-700 transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Confirm & Save'}
             </button>
@@ -379,7 +380,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               <label className="text-xs font-semibold">Civil status<select value={personal.civilStatus || ''} onChange={(event) => setPersonal('civilStatus', event.target.value)} className="mt-1 w-full px-3 py-2"><option value="">Select</option><option>Single</option><option>Married</option><option>Widowed</option><option>Separated</option></select></label>
               <label className="text-xs font-semibold">Nationality<input value={personal.nationality || ''} onChange={(event) => setPersonal('nationality', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
               <label className="text-xs font-semibold">Citizenship<input value={personal.citizenship || ''} onChange={(event) => setPersonal('citizenship', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
-              <label className="flex items-center gap-2 text-xs font-semibold sm:col-span-2"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 shrink-0" checked={personal.isForeigner || false} onChange={(event) => setPersonal('isForeigner', event.target.checked)} /> I am a foreign national</label>
+              <label className="flex items-center gap-2 text-xs font-semibold sm:col-span-2"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-600 shrink-0" checked={personal.isForeigner || false} onChange={(event) => setPersonal('isForeigner', event.target.checked)} /> I am a foreign national</label>
               <label className="text-xs font-semibold">Dual citizenship<input value={personal.dualCitizenship || ''} onChange={(event) => setPersonal('dualCitizenship', event.target.value)} className="mt-1 w-full px-3 py-2" /></label>
               <label className="text-xs font-semibold">Blood type<select value={personal.bloodType || ''} onChange={(event) => setPersonal('bloodType', event.target.value)} className="mt-1 w-full px-3 py-2"><option value="">Select</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option><option>Unknown</option></select></label>
               <label className="text-xs font-semibold">Height<input value={personal.height || ''} onChange={(event) => setPersonal('height', event.target.value)} placeholder="e.g. 165 cm" className="mt-1 w-full px-3 py-2" /></label>
@@ -407,28 +408,6 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               ))}
             </div>
           </section>
-
-      <section id="student-religion" className="student-form-section" aria-labelledby="student-religion-heading">
-        <h3 id="student-religion-heading">Religious Information</h3>
-        <p className="mt-1 text-xs">This is optional student-provided information. SAPES does not infer religion.</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="block text-xs font-semibold">Religion or religious affiliation
-            <select value={hasCustomReligion || isOtherReligion ? 'Other' : religion} onChange={(event) => { const value = event.target.value; setIsOtherReligion(value === 'Other'); setProfile((current) => ({ ...current, religiousInformation: { religion: value === 'Other' ? '' : value } })); }} className="mt-1 w-full px-3 py-2">
-              <option value="">Select an option</option>
-              {RELIGION_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              <option value="Other">Other: specify</option>
-            </select>
-          </label>
-          {(hasCustomReligion || isOtherReligion) && <label className="block text-xs font-semibold">Other religion or affiliation
-            <input value={hasCustomReligion ? religion : ''} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { religion: event.target.value } }))} placeholder="Optional" className="mt-1 w-full px-3 py-2" />
-          </label>}
-        </div>
-        <div className="mt-4 p-4">
-          <label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={Boolean(profile.religiousInformation?.shareSpiritualSchedule)} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { ...current.religiousInformation, shareSpiritualSchedule: event.target.checked } }))} /> Share recurring unavailable times with faculty scheduling staff</label>
-          <p className="mt-1 text-xs">Your declared religion is visible to faculty for enrollment considerations. Recurring unavailable times are shared only when you opt in; activity details remain private.</p>
-          {profile.religiousInformation?.shareSpiritualSchedule && <div className="mt-3 space-y-2">{(profile.religiousInformation.spiritualActivities || []).map((activity, index) => <div key={index} className="grid gap-2 sm:grid-cols-4"><select aria-label={`Unavailable day ${index + 1}`} value={activity.dayOfWeek} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, dayOfWeek: event.target.value } : item))} className="px-2 py-1.5 text-xs"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select><input aria-label={`Start time ${index + 1}`} type="time" value={activity.startTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, startTime: event.target.value } : item))} className="px-2 py-1.5 text-xs" /><input aria-label={`End time ${index + 1}`} type="time" value={activity.endTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, endTime: event.target.value } : item))} className="px-2 py-1.5 text-xs" /><button type="button" onClick={() => setActivities((profile.religiousInformation?.spiritualActivities || []).filter((_, i) => i !== index))} className="text-xs font-semibold" aria-label={`Remove unavailable time ${index + 1}`}>Remove</button></div>) }<button type="button" onClick={() => setActivities([...(profile.religiousInformation?.spiritualActivities || []), { dayOfWeek: 'Thursday', startTime: '18:00', endTime: '20:00' }])} className="text-xs font-bold">+ Add unavailable time</button></div>}
-        </div>
-      </section>
 
           <section id="student-enrollment" className="student-form-section" aria-labelledby="student-enrollment-heading">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -476,11 +455,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
             <h3 id="student-health-heading">Relevant Health Accommodations</h3>
             <p className="mt-1 text-xs">Only accommodation information necessary for academic evaluation may be shared with authorized faculty.</p>
             <div className="mt-4 space-y-3">
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 shrink-0" checked={Boolean(health.hasRelevantHealthConcern)} onChange={(event) => setHealth('hasRelevantHealthConcern', event.target.checked)} /> I have a relevant health concern</label>
-              {health.hasRelevantHealthConcern && <div className="p-4"><p className="text-xs font-semibold">Medical history: select all that apply</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{HEALTH_CONDITIONS.map((condition) => <label key={condition} className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 shrink-0" checked={(health.conditions || []).includes(condition)} onChange={() => toggleCondition(condition)} /> {condition}</label>)}</div></div>}
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-600 shrink-0" checked={Boolean(health.hasRelevantHealthConcern)} onChange={(event) => setHealth('hasRelevantHealthConcern', event.target.checked)} /> I have a relevant health concern</label>
+              {health.hasRelevantHealthConcern && <div className="p-4"><p className="text-xs font-semibold">Medical history: select all that apply</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{HEALTH_CONDITIONS.map((condition) => <label key={condition} className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-600 shrink-0" checked={(health.conditions || []).includes(condition)} onChange={() => toggleCondition(condition)} /> {condition}</label>)}</div></div>}
               {(health.conditions || []).includes('Other') && <label className="block text-xs font-semibold">Other condition<textarea value={health.otherCondition || ''} onChange={(event) => setHealth('otherCondition', event.target.value)} className="mt-1 min-h-16 w-full px-3 py-2" /></label>}
               {(health.conditions || []).includes('Allergies') && <label className="block text-xs font-semibold">Allergy details<textarea value={health.allergyDetails || ''} onChange={(event) => setHealth('allergyDetails', event.target.value)} className="mt-1 min-h-16 w-full px-3 py-2" /></label>}
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 shrink-0" checked={Boolean(health.accommodationRequired)} onChange={(event) => setHealth('accommodationRequired', event.target.checked)} /> I require an academic accommodation</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-600 shrink-0" checked={Boolean(health.accommodationRequired)} onChange={(event) => setHealth('accommodationRequired', event.target.checked)} /> I require an academic accommodation</label>
               <label className="block text-xs font-semibold">Accommodation notes<textarea value={health.accommodationNotes || ''} onChange={(event) => setHealth('accommodationNotes', event.target.value)} className="mt-1 min-h-20 w-full px-3 py-2" /></label>
               <label className="block text-xs font-semibold">Private condition description<textarea value={health.conditionDescription || ''} onChange={(event) => setHealth('conditionDescription', event.target.value)} className="mt-1 min-h-20 w-full px-3 py-2" /></label>
               <div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-semibold">Emergency contact name<input value={health.emergencyContactName || ''} onChange={(event) => setHealth('emergencyContactName', event.target.value)} className="mt-1 w-full px-3 py-2" /></label><label className="block text-xs font-semibold">Emergency contact number<input value={health.emergencyContactNumber || ''} onChange={(event) => setHealth('emergencyContactNumber', event.target.value)} className="mt-1 w-full px-3 py-2" /></label></div>
@@ -512,8 +491,8 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               </label>}
             </div>
             <div className="mt-4 p-4">
-              <label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 shrink-0" checked={Boolean(profile.religiousInformation?.shareSpiritualSchedule)} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { ...current.religiousInformation, shareSpiritualSchedule: event.target.checked } }))} /> Share recurring unavailable times with faculty scheduling staff</label>
-              <p className="mt-1 text-xs">Faculty see only unavailable times, never your religion or activity details.</p>
+              <label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand-600 shrink-0" checked={Boolean(profile.religiousInformation?.shareSpiritualSchedule)} onChange={(event) => setProfile((current) => ({ ...current, religiousInformation: { ...current.religiousInformation, shareSpiritualSchedule: event.target.checked } }))} /> Share recurring unavailable times with faculty scheduling staff</label>
+              <p className="mt-1 text-xs">Your religion is visible to faculty for enrollment considerations. Only the day and time of your recurring unavailable times are shared, and only when you opt in.</p>
               {profile.religiousInformation?.shareSpiritualSchedule && <div className="mt-3 space-y-2">{(profile.religiousInformation.spiritualActivities || []).map((activity, index) => <div key={index} className="grid gap-2 sm:grid-cols-4"><select aria-label={`Unavailable day ${index + 1}`} value={activity.dayOfWeek} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, dayOfWeek: event.target.value } : item))} className="px-2 py-1.5 text-xs"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select><input aria-label={`Start time ${index + 1}`} type="time" value={activity.startTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, startTime: event.target.value } : item))} className="px-2 py-1.5 text-xs" /><input aria-label={`End time ${index + 1}`} type="time" value={activity.endTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, endTime: event.target.value } : item))} className="px-2 py-1.5 text-xs" /><button type="button" onClick={() => setActivities((profile.religiousInformation?.spiritualActivities || []).filter((_, i) => i !== index))} className="text-xs font-semibold" aria-label={`Remove unavailable time ${index + 1}`}>Remove</button></div>) }<button type="button" onClick={() => setActivities([...(profile.religiousInformation?.spiritualActivities || []), { dayOfWeek: 'Thursday', startTime: '18:00', endTime: '20:00' }])} className="text-xs font-bold">+ Add unavailable time</button></div>}
             </div>
           </section>
@@ -583,7 +562,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
                   <ReviewField label="Curriculum" value={enrollment.curriculum} />
                   <ReviewField label="Year level" value={enrollment.yearLevel || enrollment.level} />
                   <ReviewField label="Department" value={enrollment.department} />
-                  <ReviewField label="Academic status" value={academicStatus.currentStatus} />
+                  <ReviewField label="Academic status" value={academicStatus.currentStatus ? formatStatusLabel(academicStatus.currentStatus) : academicStatus.currentStatus} />
                   <ReviewField label="On probation" value={academicStatus.isOnProbation ? 'Yes' : 'No'} />
                   <ReviewField label="Probation reason" value={academicStatus.probationReason} />
                   <ReviewField label="Status remarks" value={academicStatus.statusRemarks} />

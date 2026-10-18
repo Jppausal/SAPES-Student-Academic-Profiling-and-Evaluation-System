@@ -1,5 +1,6 @@
 import type { StudentReport } from '../../lib/api';
 import { formatAcademicGwa } from '../../utils/mongoAcademicGwa';
+import { formatStatusLabel } from '../../utils/formatStatusLabel';
 
 const dateLabel = (value?: string) => {
   if (!value) return 'Not recorded';
@@ -25,7 +26,7 @@ export function AdminStudentReport({ report }: { report: StudentReport }) {
           'Year level': student.enrollmentInformation?.yearLevel || student.enrollmentInformation?.level,
           Classifications: classifications.join(', ') || 'No classifications recorded',
           Religion: student.religiousInformation?.religion,
-          'Current academic status': student.academicStatus?.currentStatus,
+          'Current academic status': formatStatusLabel(student.academicStatus?.currentStatus),
           'Status remarks': student.academicStatus?.statusRemarks,
         }).map(([label, value]) => <div key={label}><dt className="text-sm text-slate-500">{label}</dt><dd className="font-medium text-slate-950">{value || 'Not recorded'}</dd></div>)}
       </dl>
@@ -38,19 +39,19 @@ export function AdminStudentReport({ report }: { report: StudentReport }) {
         <h4 className="font-semibold">{term.academicYear} / {term.semester}</h4>
         <p className="my-2 text-sm">Period GWA — Overall: {formatAcademicGwa(term.overallGwa)} · Major: {formatAcademicGwa(term.majorSubjectGwa)}</p>
         <div className="admin-table-wrap"><table className="admin-table"><thead><tr>{['Code', 'Subject', 'Units', 'Grade', 'Type', 'Status'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
-          <tbody>{term.subjects.map(subject => <tr key={subject.subjectCode}><td>{subject.subjectCode}</td><td>{subject.subjectName}</td><td>{subject.units}</td><td>{subject.grade > 0 ? subject.grade.toFixed(2) : 'Ungraded'}</td><td>{subject.isMajor ? 'Major' : 'Non-major'}</td><td>{subject.status || 'Not recorded'}</td></tr>)}</tbody>
+          <tbody>{term.subjects.map(subject => <tr key={subject.subjectCode}><td>{subject.subjectCode}</td><td>{subject.subjectName}</td><td>{subject.units}</td><td>{subject.grade > 0 ? subject.grade.toFixed(2) : 'Ungraded'}</td><td>{subject.isMajor ? 'Major' : 'Non-major'}</td><td>{formatStatusLabel(subject.status)}</td></tr>)}</tbody>
         </table></div>
         {term.subjects.length === 0 && <p>No subjects recorded in this period.</p>}
       </section>)}
     </section>
     <section className="admin-panel admin-panel-body">
       <div className="admin-section-heading"><h3>Status history</h3></div>
-      {report.statusHistory.length === 0 ? <p className="mt-3">No status history recorded.</p> : <div className="admin-table-wrap mt-3"><table className="admin-table"><thead><tr><th scope="col">Effective date</th><th scope="col">Status</th><th scope="col">Reason</th><th scope="col">Remarks</th></tr></thead><tbody>{report.statusHistory.map((entry, index) => <tr key={`${entry.effectiveDate}-${index}`}><td>{dateLabel(entry.effectiveDate)}</td><td>{entry.status}</td><td>{entry.reason || 'Not recorded'}</td><td>{entry.remarks || 'Not recorded'}</td></tr>)}</tbody></table></div>}
+      {report.statusHistory.length === 0 ? <p className="mt-3">No status history recorded.</p> : <div className="admin-table-wrap mt-3"><table className="admin-table"><thead><tr><th scope="col">Effective date</th><th scope="col">Status</th><th scope="col">Reason</th><th scope="col">Remarks</th></tr></thead><tbody>{report.statusHistory.map((entry, index) => <tr key={`${entry.effectiveDate}-${index}`}><td>{dateLabel(entry.effectiveDate)}</td><td>{formatStatusLabel(entry.status)}</td><td>{entry.reason || 'Not recorded'}</td><td>{entry.remarks || 'Not recorded'}</td></tr>)}</tbody></table></div>}
     </section>
     <section className="admin-panel admin-panel-body">
       <div className="admin-section-heading"><h3>Faculty evaluation</h3></div>
       {!evaluation ? <p className="mt-3">No faculty evaluation recorded.</p> : <div className="mt-3 space-y-2 text-sm">
-        <p>Status: <strong>{evaluation.evaluationStatus.replaceAll('_', ' ')}</strong></p>
+        <p>Status: <strong>{formatStatusLabel(evaluation.evaluationStatus)}</strong></p>
         <p>Remarks: {evaluation.remarks || 'Not recorded'}</p>
         <p>Reasons: {evaluation.reasons.length ? evaluation.reasons.join('; ') : 'Not recorded'}</p>
         <p>Faculty: {facultyName || 'Not recorded'}</p>

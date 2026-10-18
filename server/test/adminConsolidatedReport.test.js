@@ -33,7 +33,17 @@ async function fixture(t) {
     enrollmentInformation: { course: 'BSIT', yearLevel: '2' },
     classification: { isShifter: true },
     religiousInformation: { religion: 'Test religion' },
-    academicStatus: { currentStatus: 'Probation' }
+    academicStatus: { currentStatus: 'Probation' },
+    healthInformation: {
+      hasRelevantHealthConcern: true,
+      accommodationRequired: true,
+      accommodationNotes: 'Accessible seating',
+      conditions: ['Asthma'],
+      allergyDetails: 'Dust',
+      emergencyContactName: 'Private Contact',
+      emergencyContactNumber: '09170000000',
+      bloodType: 'O+'
+    }
   };
   const state = {
     student,
@@ -116,4 +126,31 @@ test('report authorization denies student and anonymous callers', async t => {
   assert.equal((await get('student')).status, 403);
   assert.equal((await get(null)).status, 401);
   assert.equal((await get('faculty')).status, 200);
+});
+
+test('faculty report returns only authorized health information and shared probation status', async t => {
+  const { state, get } = await fixture(t);
+  const response = await get('faculty');
+  assert.equal(response.status, 200);
+  const { data } = await response.json();
+
+  assert.deepEqual(data.student.healthInformation, {
+    hasRelevantHealthConcern: true,
+    accommodationRequired: true,
+    accommodationNotes: 'Accessible seating'
+  });
+  assert.equal(data.student.academicStatus.isOnProbation, true);
+  assert.equal(data.student.academicStatus.currentStatus, 'Probation');
+  assert.equal('conditions' in data.student.healthInformation, false);
+  assert.equal('allergyDetails' in data.student.healthInformation, false);
+  assert.equal('emergencyContactName' in data.student.healthInformation, false);
+  assert.equal('bloodType' in data.student.healthInformation, false);
+
+  state.student.academicStatus = { currentStatus: 'On academic probation' };
+  const statusTextResponse = await get('faculty');
+  assert.equal((await statusTextResponse.json()).data.student.academicStatus.isOnProbation, true);
+
+  state.student.academicStatus = { currentStatus: 'Regular', isOnProbation: false };
+  const regularResponse = await get('faculty');
+  assert.equal((await regularResponse.json()).data.student.academicStatus.isOnProbation, false);
 });

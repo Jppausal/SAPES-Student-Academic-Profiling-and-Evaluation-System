@@ -46,10 +46,10 @@ export const AdminPortal: React.FC = () => {
     const q = userSearch.toLowerCase();
     return (
       !q ||
-      u.fullName.toLowerCase().includes(q) ||
-      u.username.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.role.toLowerCase().includes(q)
+      (u.fullName || '').toLowerCase().includes(q) ||
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.role || '').toLowerCase().includes(q)
     );
   });
 

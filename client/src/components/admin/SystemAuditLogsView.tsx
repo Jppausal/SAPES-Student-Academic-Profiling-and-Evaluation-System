@@ -25,7 +25,7 @@ export const SystemAuditLogsView: React.FC = () => {
   const filteredLogs = auditLogs.filter((log) => {
     const query = search.toLowerCase();
     const matchesSearch = !query
-      || log.action.toLowerCase().includes(query)
+      || (log.action || '').toLowerCase().includes(query)
       || log.userName.toLowerCase().includes(query)
       || log.details.toLowerCase().includes(query);
     return matchesSearch && (categoryFilter === 'ALL' || log.category === categoryFilter);

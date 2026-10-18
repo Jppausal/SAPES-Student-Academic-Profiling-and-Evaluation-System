@@ -18,6 +18,7 @@ import {
   saveFacultyCourseEvaluation,
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
+import { formatStatusLabel } from '../../utils/formatStatusLabel';
 
 type EvaluationTab = 'gradebook' | 'attendance' | 'remarks' | 'history';
 
@@ -216,9 +217,9 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
             <div className="mt-3 flex flex-wrap gap-2">
               <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${workspace.student.academicStatus.isOnProbation ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>{studentStatus}</span>
               {workspace.student.classification.isIP && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">Indigenous Peoples</span>}
-              {workspace.student.classification.isPWD && <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-900">Person with disability</span>}
-              {workspace.student.classification.isShifter && <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-900">Shifter</span>}
-              {workspace.student.classification.isTransferee && <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-900">Transferee</span>}
+              {workspace.student.classification.isPWD && <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-800">Person with disability</span>}
+              {workspace.student.classification.isShifter && <span className="rounded-full bg-accent-50 px-2.5 py-1 text-xs font-semibold text-accent-700">Shifter</span>}
+              {workspace.student.classification.isTransferee && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">Transferee</span>}
             </div>
           </div>
         </div>
@@ -325,9 +326,9 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
       {showEvaluationDetails && <>
       <div aria-label="Evaluation summary" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {[
-          { label: 'Attendance rate', value: percent(workspace.metrics.attendanceRate), icon: CalendarCheck2, color: 'text-sky-700' },
-          { label: 'Class percentile', value: percent(workspace.metrics.classPercentile), icon: Activity, color: 'text-orange-700' },
-          { label: 'Current running grade', value: percent(workspace.metrics.runningGrade), icon: BookOpenCheck, color: 'text-teal-700' },
+          { label: 'Attendance rate', value: percent(workspace.metrics.attendanceRate), icon: CalendarCheck2, color: 'text-brand-700' },
+          { label: 'Class percentile', value: percent(workspace.metrics.classPercentile), icon: Activity, color: 'text-accent-700' },
+          { label: 'Current running grade', value: percent(workspace.metrics.runningGrade), icon: BookOpenCheck, color: 'text-brand-600' },
           { label: 'Submission rate', value: percent(workspace.metrics.submissionRate), icon: ClipboardList, color: 'text-rose-700' },
         ].map((metric) => {
           const Icon = metric.icon;
@@ -350,7 +351,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               aria-selected={activeTab === id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-xs font-semibold ${activeTab === id ? 'border-teal-700 text-teal-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-xs font-semibold ${activeTab === id ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
             >
               <Icon className="h-4 w-4" />{label}
             </button>
@@ -376,7 +377,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                       <td className="px-3 py-2"><select aria-label="Assessment category" value={assessment.category} onChange={(event) => updateAssessment(index, 'category', event.target.value)} className="rounded-md border border-slate-200 bg-white px-2 py-1.5"><option value="quiz">Quiz</option><option value="lab">Lab</option><option value="exam">Exam</option><option value="other">Other</option></select></td>
                       <td className="px-3 py-2"><input aria-label="Assessment score" type="number" min="0" max={assessment.possiblePoints} step="0.1" value={assessment.score} onChange={(event) => updateAssessment(index, 'score', Number(event.target.value))} className="w-20 rounded-md border border-slate-200 px-2 py-1.5" /></td>
                       <td className="px-3 py-2"><input aria-label="Assessment possible points" type="number" min="1" step="0.1" value={assessment.possiblePoints} onChange={(event) => updateAssessment(index, 'possiblePoints', Number(event.target.value))} className="w-20 rounded-md border border-slate-200 px-2 py-1.5" /></td>
-                      <td className="px-3 py-2"><input aria-label="Assessment submitted" type="checkbox" checked={assessment.submitted} onChange={(event) => updateAssessment(index, 'submitted', event.target.checked)} className="h-4 w-4 accent-teal-700" /></td>
+                      <td className="px-3 py-2"><input aria-label="Assessment submitted" type="checkbox" checked={assessment.submitted} onChange={(event) => updateAssessment(index, 'submitted', event.target.checked)} className="h-4 w-4 accent-brand-600" /></td>
                       <td className="px-3 py-2"><button type="button" aria-label="Remove assessment" onClick={() => setDraft((current) => current ? { ...current, assessments: current.assessments.filter((_, itemIndex) => itemIndex !== index) } : current)} className="rounded p-1 text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></td>
                     </tr>
                   ))}
@@ -384,7 +385,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 </tbody>
               </table>
             </div>
-            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Gradebook saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-teal-800 px-4 py-2 text-xs font-bold text-white hover:bg-teal-900 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save gradebook'}</button></div>
+            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Gradebook saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save gradebook'}</button></div>
           </div>
         )}
 
@@ -406,7 +407,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               ))}
               {draft.attendanceLogs.length === 0 && <p className="rounded-md bg-slate-50 p-5 text-center text-xs text-slate-500">No attendance entries recorded.</p>}
             </div>
-            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Attendance log saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-teal-800 px-4 py-2 text-xs font-bold text-white hover:bg-teal-900 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save attendance'}</button></div>
+            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Attendance log saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save attendance'}</button></div>
           </div>
         )}
 
@@ -438,7 +439,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               </div>
               <label className="mt-4 block text-xs font-semibold text-slate-700">Internal notes<textarea value={draft.internalNotes} onChange={(event) => setDraft((current) => current ? { ...current, internalNotes: event.target.value } : current)} placeholder="Private faculty notes" className="mt-1 min-h-24 w-full rounded-md border border-slate-200 px-2.5 py-2 text-xs font-normal" /></label>
             </section>
-            <div className="flex justify-end lg:col-span-2"><button type="button" onClick={() => void saveProgress('Remarks and rubrics saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-teal-800 px-4 py-2 text-xs font-bold text-white hover:bg-teal-900 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save remarks & rubrics'}</button></div>
+            <div className="flex justify-end lg:col-span-2"><button type="button" onClick={() => void saveProgress('Remarks and rubrics saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save remarks & rubrics'}</button></div>
           </div>
         )}
 
@@ -450,7 +451,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 ? <p className="mt-2 text-xs text-slate-500">No status changes have been recorded.</p>
                 : <ol className="mt-2 divide-y divide-slate-100">{workspace.statusHistory.map((entry, index) => (
                   <li key={`${entry.status}-${entry.effectiveDate}-${index}`} className="py-2 text-xs">
-                    <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold capitalize text-slate-800">{entry.status.replace(/_/g, ' ')}</span><time className="text-slate-500">{new Date(entry.effectiveDate).toLocaleDateString()}</time></div>
+                    <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold text-slate-800">{formatStatusLabel(entry.status)}</span><time className="text-slate-500">{new Date(entry.effectiveDate).toLocaleDateString()}</time></div>
                     {entry.reason && <p className="mt-1 text-slate-600">Reason: {entry.reason}</p>}
                     {entry.remarks && <p className="mt-1 text-slate-600">{entry.remarks}</p>}
                   </li>

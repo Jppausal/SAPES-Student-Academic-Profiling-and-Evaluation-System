@@ -82,7 +82,7 @@ export const StudentPortal: React.FC = () => {
         </div>
         <div className="student-institution-card">
           <div className="student-institution-icon-tile">
-            <Contact className="w-5 h-5 text-blue-600" />
+            <Contact className="w-5 h-5 text-brand-600" />
           </div>
           <div className="student-institution-meta">
             <span className="student-institution-label">Institution ID</span>

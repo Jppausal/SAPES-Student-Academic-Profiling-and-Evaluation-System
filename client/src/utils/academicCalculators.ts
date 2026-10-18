@@ -76,18 +76,6 @@ export function calculateProfileCompletion(profile: Partial<StudentProfile>): nu
 }
 
 /**
- * Evaluates academic standing description
- */
-export function getGradeQualityDescription(gwa: number): { label: string; color: string } {
-  if (gwa === 0) return { label: 'No Grades Yet', color: 'text-slate-500' };
-  if (gwa <= 1.25) return { label: 'President’s List / Outstanding', color: 'text-emerald-700 font-semibold' };
-  if (gwa <= 1.75) return { label: 'Dean’s List / High Academic Honors', color: 'text-indigo-700 font-semibold' };
-  if (gwa <= 2.25) return { label: 'Good Standing', color: 'text-blue-700' };
-  if (gwa <= 3.00) return { label: 'Satisfactory Passing', color: 'text-amber-700' };
-  return { label: 'Critical / Academic Deficiency', color: 'text-rose-700 font-semibold' };
-}
-
-/**
  * Formats date into readable string
  */
 export function formatDate(dateString: string): string {

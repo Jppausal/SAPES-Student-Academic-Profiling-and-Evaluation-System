@@ -3,7 +3,7 @@ import { EvaluationStatus, AcademicStatus } from '../../types';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'amber' | 'slate';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -19,10 +19,7 @@ export const Badge: React.FC<BadgeProps> = ({
     success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     warning: 'bg-amber-50 text-amber-700 border-amber-200',
     danger: 'bg-rose-50 text-rose-700 border-rose-200',
-    info: 'bg-sky-50 text-sky-700 border-sky-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    amber: 'bg-amber-100 text-amber-900 border-amber-300',
-    slate: 'bg-slate-800 text-white border-slate-700',
+    info: 'bg-brand-50 text-brand-700 border-brand-200',
   };
 
   const sizeStyles = {
@@ -48,7 +45,7 @@ export const EvaluationBadge: React.FC<{ status: EvaluationStatus; size?: 'sm' |
     case 'Eligible':
       return (
         <Badge variant="success" size={size}>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           Eligible for Enrollment
         </Badge>
       );
@@ -99,7 +96,7 @@ export const AcademicStatusBadge: React.FC<{
       );
     case 'Shifter':
       return (
-        <Badge variant="purple" size={size}>
+        <Badge variant="info" size={size}>
           Shifter
         </Badge>
       );

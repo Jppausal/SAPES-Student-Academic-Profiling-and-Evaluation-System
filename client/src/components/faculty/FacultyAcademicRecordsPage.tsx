@@ -1,37 +1,38 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Archive, ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, GraduationCap, Monitor, Search, Utensils } from 'lucide-react';
+import { ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Monitor, Search, Utensils } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BackendStudentSearch } from './BackendStudentSearch';
 import { fetchFacultyEvaluationRoster, fetchFacultyStudentWorkspace, FacultyRosterStudent, FacultyStudentWorkspace } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
+import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { StudentEvaluationPanel } from './StudentEvaluationPanel';
 
 const programDetails: Record<string, { icon: LucideIcon; description: string; color: string }> = {
   'Bachelor of Information Technology': {
     icon: Monitor,
     description: 'Software, networks, and digital systems.',
-    color: 'bg-sky-100 text-sky-800',
+    color: 'bg-brand-100 text-brand-800',
   },
   'Entertainment and Multimedia Computing': {
     icon: Clapperboard,
     description: 'Interactive media, games, and digital content.',
-    color: 'bg-rose-100 text-rose-800',
+    color: 'bg-accent-100 text-accent-700',
   },
   Electronics: {
     icon: CircuitBoard,
     description: 'Electronic systems, circuits, and instrumentation.',
-    color: 'bg-amber-100 text-amber-800',
+    color: 'bg-brand-100 text-brand-800',
   },
   'Food Technology': {
     icon: Utensils,
     description: 'Food processing, quality, and product development.',
-    color: 'bg-emerald-100 text-emerald-800',
+    color: 'bg-accent-100 text-accent-700',
   },
   'Automotive Technology': {
     icon: CarFront,
     description: 'Vehicle systems, diagnostics, and service.',
-    color: 'bg-indigo-100 text-indigo-800',
+    color: 'bg-brand-100 text-brand-800',
   },
 };
 
@@ -142,17 +143,6 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-teal-700">Faculty workspace</p>
-          <h1 className="mt-1 text-2xl font-extrabold text-slate-900">Academic Records</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">Browse by course, year, and section, or search directly for a student record.</p>
-        </div>
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-          <Archive className="h-5 w-5 text-teal-700" /> <span><GraduationCap className="sr-only" /> Student record lookup</span>
-        </div>
-      </header>
-
       <BackendStudentSearch key={`quick-search-${step}`} displayMode="records" />
 
       {step === 'courses' && <section aria-labelledby="records-programs-heading" className="space-y-3">
@@ -167,7 +157,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
             const Icon = details.icon;
             const isSelected = selectedProgram === program.value;
             return (
-              <article key={program.value} className={`overflow-hidden rounded-lg border bg-white transition ${isSelected ? 'border-teal-700 ring-1 ring-teal-700 shadow-sm sm:col-span-2 xl:col-span-1' : 'border-slate-200'}`}>
+              <article key={program.value} className={`overflow-hidden rounded-lg border bg-white transition ${isSelected ? 'border-brand-600 ring-1 ring-brand-600 shadow-sm sm:col-span-2 xl:col-span-1' : 'border-slate-200'}`}>
                 <button
                   type="button"
                   aria-expanded={isSelected}
@@ -200,7 +190,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
                         </select>
                       </label>
                     </div>
-                    <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className="mt-4 inline-flex items-center gap-2 rounded-md bg-teal-800 px-4 py-2.5 text-xs font-bold text-white hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50">
+                    <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
                       <Check className="h-4 w-4" /> Confirm class
                     </button>
                     {error && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
@@ -217,7 +207,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
         <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
           <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-teal-700">Confirmed class</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Confirmed class</p>
               <h2 className="mt-1 text-lg font-extrabold text-slate-900">{selectedCourseLabel}</h2>
               <p className="mt-1 text-xs text-slate-600">{yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
@@ -226,7 +216,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
           {confirmedStudents.length ? <ul className="divide-y divide-slate-100">
             {confirmedStudents.map((student) => (
               <li key={student.institutionId}>
-                <button type="button" onClick={() => void openStudent(student)} className="flex w-full flex-col justify-between gap-2 rounded-md px-3 py-3 text-left transition hover:bg-teal-50 sm:flex-row sm:items-center">
+                <button type="button" onClick={() => void openStudent(student)} className="flex w-full flex-col justify-between gap-2 rounded-md px-3 py-3 text-left transition hover:bg-brand-50 sm:flex-row sm:items-center">
                   <span>
                     <span className="block text-sm font-semibold text-slate-900">{student.firstName} {student.lastName}</span>
                     <span className="mt-1 block font-mono text-xs text-slate-500">{student.institutionId} · @{student.username}</span>
@@ -246,13 +236,13 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
         <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
           <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-teal-700">Student profile</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Student profile</p>
               <h2 className="mt-1 text-xl font-extrabold text-slate-900">{studentName || studentWorkspace.student.institutionId}</h2>
               <p className="mt-1 font-mono text-xs text-slate-500">Student ID: {studentWorkspace.student.institutionId}</p>
               <p className="mt-2 text-xs text-slate-600">{selectedCourseLabel} · {yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="min-w-64 rounded-lg bg-slate-900 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-slate-300">Latest-period GWA</p><div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-slate-400">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div><div><span className="text-[10px] text-slate-400">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div></div>{latestAcademicPeriod && <p className="mt-1 text-[10px] text-slate-300">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}<p className="mt-1 text-[10px] text-slate-400">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(studentWorkspace.majorSubjectGwa)}</p></div>
+              <div className="min-w-64 rounded-lg bg-brand-700 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-brand-200">Latest-period GWA</p><div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-brand-200">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div><div><span className="text-[10px] text-brand-200">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div></div>{latestAcademicPeriod && <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}<p className="mt-1 text-[10px] text-brand-200">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(studentWorkspace.majorSubjectGwa)}</p></div>
               <button type="button" onClick={() => setStep('roster')} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
             </div>
           </div>
@@ -267,7 +257,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
                   <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
                   <td className="px-3 py-2">{subject.units}</td>
                   <td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td>
-                  <td className="px-3 py-2">{subject.status}</td>
+                  <td className="px-3 py-2">{formatStatusLabel(subject.status)}</td>
                 </tr>)}</tbody>
               </table></div>
             </section>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, CheckCircle2, Search, ShieldAlert } from 'lucide-react';
+import { BookOpen, CheckCircle2, CheckCircle, Search, Shield, ShieldAlert, TriangleAlert } from 'lucide-react';
 import {
   fetchStudentReport,
   fetchStudentSuggestions,
@@ -9,6 +9,7 @@ import {
   updateStudentStatus,
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
+import { formatStatusLabel } from '../../utils/formatStatusLabel';
 
 interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
@@ -217,12 +218,12 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const healthInformation = report?.student.healthInformation;
 
   return (
-    <section className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm sm:p-6">
-      <div className="mb-4 grid gap-2 lg:grid-cols-[minmax(260px,0.8fr)_minmax(440px,1.2fr)] lg:items-center">
+    <section className="space-y-5">
+      <div className="grid gap-5 border-b border-slate-200 pb-5 lg:grid-cols-[minmax(280px,0.8fr)_minmax(420px,1.2fr)] lg:items-end">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Primary workflow</p>
-          <h2 className="mt-1 text-xl font-extrabold text-slate-900">{displayMode === 'records' ? 'Find student academic records' : 'Search students'}</h2>
-          <p className="mt-1 text-xs text-slate-600">Search by student ID, first or last name, or username.</p>
+          <p className="text-sm font-semibold text-brand-700">Faculty workspace</p>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-950">{displayMode === 'records' ? 'Academic Records' : 'Student Search'}</h1>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600">{displayMode === 'records' ? 'Review a student’s academic standing, records, and evaluation details.' : 'Find a student by student number, name, or username.'}</p>
         </div>
         <form onSubmit={searchStudent} className="flex min-w-0 flex-col gap-2 sm:flex-row">
         <div className="relative min-w-0 flex-1">
@@ -256,10 +257,12 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             aria-expanded={suggestionsOpen}
             aria-controls="student-search-suggestions"
             aria-activedescendant={activeSuggestionIndex >= 0 ? `student-suggestion-${activeSuggestionIndex}` : undefined}
-            placeholder="Enter a 10-digit student ID number or student's name"
-            className="w-full min-w-0 rounded-xl border border-indigo-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+            aria-label="Search by student number or name"
+            placeholder="Search by student number or name"
+            className="w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 py-3 pl-10 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
             required
           />
+          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           {suggestionsOpen && (
             <ul id="student-search-suggestions" role="listbox" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
               {suggestionsLoading && <li className="px-3 py-2 text-xs text-slate-500">Searching students…</li>}
@@ -271,7 +274,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                     type="button"
                     onMouseEnter={() => setActiveSuggestionIndex(index)}
                     onClick={() => void findStudent(institutionId, student)}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left ${activeSuggestionIndex === index ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left ${activeSuggestionIndex === index ? 'bg-brand-50' : 'hover:bg-slate-50'}`}
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-xs font-semibold text-slate-800">{student.firstName} {student.lastName}</span>
@@ -284,61 +287,66 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             </ul>
           )}
         </div>
-        <button disabled={loading} className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-60">
+        <button type="submit" disabled={loading} className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60">
           <Search className="h-4 w-4" /> {loading ? 'Loading…' : 'Search Student'}
         </button>
       </form>
       </div>
 
-      {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-      {message && <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
+      {!report && !loading && !error && <p aria-live="polite" className="text-sm text-slate-500">Search for a student to view their records.</p>}
+      {loading && <p aria-live="polite" className="text-sm text-slate-500">Loading student report…</p>}
+      {error && <p role="alert" aria-live="assertive" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {message && <p role="status" aria-live="polite" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
 
       {report && (
-        <div className="mt-5 space-y-4 rounded-2xl border border-white bg-white p-4">
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+        <div className="space-y-5">
+          <div className="flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
             <div>
-              <p className="text-lg font-extrabold text-slate-900">{studentName || 'Student record'}</p>
-              <p className="font-mono text-xs text-slate-500">{report.student.institutionId}</p>
-              <p className="mt-1 text-xs text-slate-600">
-                {report.student.enrollmentInformation?.course || report.student.classification?.program || 'Program not recorded'}
-                {' · '}
-                Year {report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level || 'Not recorded'}
-                {' · '}
-                Section {report.student.section || 'Not recorded'}
-              </p>
-            </div>
-            <div className="min-w-64 rounded-xl bg-slate-900 px-4 py-3 text-white">
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">Latest-period GWA</p>
-              <div className="mt-1 grid grid-cols-2 gap-4">
-                <div><span className="text-[10px] text-slate-400">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div>
-                <div><span className="text-[10px] text-slate-400">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xl font-extrabold tracking-tight text-slate-950">{studentName || 'Student record'}</p>
+                <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">{report.student.institutionId}</span>
               </div>
-              {latestAcademicPeriod && <p className="mt-1 text-[10px] text-slate-300">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}
-              <p className="mt-1 text-[10px] text-slate-400">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(report.majorSubjectGwa)}</p>
+              <p className="mt-2 text-sm text-slate-600">{report.student.enrollmentInformation?.course || report.student.classification?.program || 'Program not recorded'}</p>
+              {(report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level || report.student.section) && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level ? `Year ${report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level}` : null}
+                  {report.student.section ? ` · Section ${report.student.section}` : null}
+                </p>
+              )}
+            </div>
+            <div className="w-full rounded-xl bg-brand-700 px-4 py-3 text-white sm:w-auto sm:min-w-72">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-200">Latest period</p>
+              <div className="mt-1 grid grid-cols-2 gap-4">
+                <div><span className="text-[10px] text-brand-200">Overall</span><p className="text-xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div>
+                <div><span className="text-[10px] text-brand-200">Major</span><p className="text-xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div>
+              </div>
+              <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod ? `${latestAcademicPeriod.academicYear} · ${latestAcademicPeriod.semester}` : 'Not recorded'}</p>
+              <p className="mt-2 border-t border-white/15 pt-2 text-[10px] text-brand-200">Cumulative · Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(report.majorSubjectGwa)}</p>
             </div>
           </div>
 
           <div className="grid gap-3 text-sm sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-3"><span className="text-xs text-slate-500">Current status</span><strong className="mt-1 block text-slate-900">{report.student.academicStatus?.currentStatus || 'Not recorded'}</strong></div>
-            <div className="rounded-xl bg-slate-50 p-3"><span className="text-xs text-slate-500">Academic records</span><strong className="mt-1 block text-slate-900">{report.academicRecords.length}</strong></div>
-            <div className="rounded-xl bg-slate-50 p-3"><span className="text-xs text-slate-500">Latest evaluation</span><strong className="mt-1 block text-slate-900">{report.facultyEvaluation?.evaluationStatus || 'For review'}</strong></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className="text-xs font-medium text-slate-500">Current status</span><strong className="mt-2 block text-slate-900">{formatStatusLabel(report.student.academicStatus?.currentStatus)}</strong></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className="text-xs font-medium text-slate-500">Academic records</span><strong className="mt-2 block text-slate-900">{report.academicRecords.length}</strong></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className="text-xs font-medium text-slate-500">Latest evaluation</span><strong className="mt-2 block text-slate-900">{formatStatusLabel(report.facultyEvaluation?.evaluationStatus || 'For review')}</strong></div>
           </div>
 
-          <div className={`rounded-xl border p-4 ${isOnProbation ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50'}`}>
-            <p className={`text-sm font-extrabold ${isOnProbation ? 'text-rose-800' : 'text-emerald-800'}`}>
-              {isOnProbation ? 'Under academic probation' : 'Not under academic probation'}
-            </p>
-            {isOnProbation && <dl className="mt-2 grid gap-2 text-xs text-slate-700 sm:grid-cols-3">
-              <div><dt className="font-semibold">Reason</dt><dd>{academicStatus?.probationReason || 'Not recorded'}</dd></div>
-              <div><dt className="font-semibold">Remarks</dt><dd>{academicStatus?.statusRemarks || 'Not recorded'}</dd></div>
-              <div><dt className="font-semibold">Effective date</dt><dd>{dateLabel(academicStatus?.effectiveDate)}</dd></div>
-            </dl>}
+          <div className={`flex items-center gap-2 text-sm font-bold ${isOnProbation ? 'text-amber-800' : 'text-emerald-700'}`}>
+            {isOnProbation ? <TriangleAlert className="h-4 w-4" aria-hidden="true" /> : <CheckCircle className="h-4 w-4" aria-hidden="true" />}
+            <span>{isOnProbation ? 'Under academic probation' : 'Not under academic probation'}</span>
           </div>
+          {isOnProbation && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <dl className="grid gap-3 text-xs text-slate-700 sm:grid-cols-3">
+              <div><dt className="font-semibold text-amber-900">Reason</dt><dd className="mt-1">{academicStatus?.probationReason || 'Not recorded'}</dd></div>
+              <div><dt className="font-semibold text-amber-900">Remarks</dt><dd className="mt-1">{academicStatus?.statusRemarks || 'Not recorded'}</dd></div>
+              <div><dt className="font-semibold text-amber-900">Effective date</dt><dd className="mt-1">{dateLabel(academicStatus?.effectiveDate)}</dd></div>
+            </dl>
+          </div>}
 
-          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-sky-950">Health &amp; Medical (authorized for faculty evaluation)</h3>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Confidential – for academic evaluation use only</span>
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><Shield className="h-4 w-4 text-brand-600" aria-hidden="true" /> Health &amp; Medical (authorized for faculty evaluation)</h3>
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">Confidential – for academic evaluation use only</span>
             </div>
             {!healthInformation ? <p className="mt-2 text-sm text-slate-600">Not provided</p> : !healthInformation.hasRelevantHealthConcern ? (
               <p className="mt-2 text-sm text-slate-700">No relevant health concern reported</p>
@@ -353,19 +361,19 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
           {displayMode === 'consolidated' && <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-200 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><BookOpen className="h-4 w-4 text-indigo-600" /> Faculty evaluation</h3>
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><BookOpen className="h-4 w-4 text-brand-600" /> Faculty evaluation</h3>
               <select value={evaluationStatus} onChange={(event) => setEvaluationStatus(event.target.value)} className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
                 <option value="eligible">Eligible</option>
-                <option value="not_eligible">Not eligible</option>
+                <option value="not_eligible">Not Eligible</option>
                 <option value="for_review">For review</option>
               </select>
               <input value={reasons} onChange={(event) => setReasons(event.target.value)} placeholder="Reasons, separated by commas" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder="Evaluation remarks" className="mt-2 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <button onClick={saveEvaluation} disabled={loading} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> Save evaluation</button>
+              <button onClick={saveEvaluation} disabled={loading} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> Save evaluation</button>
             </div>
             <div className="rounded-xl border border-slate-200 p-4">
               <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><ShieldAlert className="h-4 w-4 text-amber-600" /> Current status</h3>
-              <input value={studentStatus} onChange={(event) => setStudentStatus(event.target.value)} placeholder="e.g. Regular, On probation" className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <input value={studentStatus ? formatStatusLabel(studentStatus) : ''} onChange={(event) => setStudentStatus(event.target.value)} placeholder="e.g. Regular, On Probation" className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <input value={statusReason} onChange={(event) => setStatusReason(event.target.value)} placeholder="Reason for status update" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
               <button onClick={saveStatus} disabled={loading || !studentStatus.trim()} className="mt-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">Update student status</button>
               <p className="mt-3 text-xs text-slate-500">Status history entries are refreshed after a successful update.</p>
@@ -393,7 +401,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                           <td className="px-3 py-2">{subject.units}</td>
                           <td className="px-3 py-2 font-semibold">{subject.grade || '—'}</td>
                           <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
-                          <td className="px-3 py-2">{subject.status}</td>
+                          <td className="px-3 py-2">{formatStatusLabel(subject.status)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -417,7 +425,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                     {report.statusHistory.map((entry, index) => (
                       <tr key={`${entry.effectiveDate}-${index}`}>
                         <td className="px-3 py-2">{dateLabel(entry.effectiveDate)}</td>
-                        <td className="px-3 py-2">{entry.status || 'Not recorded'}</td>
+                        <td className="px-3 py-2">{formatStatusLabel(entry.status)}</td>
                         <td className="px-3 py-2">{entry.reason || 'Not recorded'}</td>
                         <td className="px-3 py-2">{entry.remarks || 'Not recorded'}</td>
                       </tr>

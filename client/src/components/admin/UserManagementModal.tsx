@@ -227,7 +227,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                   setUsername(derivedId);
                 }
               }}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-900"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-slate-900"
               placeholder={role === 'student'
                 ? 'student@student.buksu.edu.ph'
                 : role === 'faculty'

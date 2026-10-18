@@ -10,12 +10,13 @@ import { StudentPortal } from './components/student/StudentPortal';
 import { StudentSearchPage } from './components/faculty/StudentSearchPage';
 import { FacultyAcademicRecordsPage } from './components/faculty/FacultyAcademicRecordsPage';
 import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPage';
+import { FacultyDashboardPage } from './components/faculty/FacultyDashboardPage';
 import { FacultyWorkspaceHeader } from './components/faculty/FacultyWorkspaceHeader';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
-import { FacultyPage } from './types';
+import { EvaluationTarget, FacultyPage } from './types';
 
 type AuthView = 'landing' | 'login' | 'forgot-password' | 'dashboard';
 
@@ -31,7 +32,7 @@ const isFacultyPage = (value: string | null): value is FacultyPage =>
   value === 'dashboard' || value === 'student-search' || value === 'evaluations' || value === 'student-records';
 
 const AppContent: React.FC = () => {
-  const { currentUser, serverStatus, sessionReady, login, loginWithGoogle } = useApp();
+  const { currentUser, sessionReady, login, loginWithGoogle } = useApp();
   const [authView, setAuthView] = useState<AuthView>(() => {
     const savedView = sessionStorage.getItem(UI_SESSION_KEYS.AUTH_VIEW);
     return currentUser ? 'dashboard' : (isAuthView(savedView) ? savedView : 'landing');
@@ -49,6 +50,7 @@ const AppContent: React.FC = () => {
     sessionStorage.setItem(UI_SESSION_KEYS.ACTIVE_PAGE, activePage);
   }, [activePage]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [evaluationTarget, setEvaluationTarget] = useState<EvaluationTarget | null>(null);
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -94,11 +96,16 @@ const AppContent: React.FC = () => {
     return <AuthLandingPage onLogin={() => setAuthView('login')} />;
   }
 
+  const navigateFacultyPage = (page: FacultyPage) => {
+    setEvaluationTarget(null);
+    setActivePage(page);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-brand-600 selection:text-white">
       <Navbar
         activePage={activePage}
-        onNavigate={setActivePage}
+        onNavigate={navigateFacultyPage}
         onStudentSearch={(query) => {
           setStudentSearchQuery(query);
           setActivePage('student-search');
@@ -109,33 +116,28 @@ const AppContent: React.FC = () => {
         {currentUser?.role === 'student' && <StudentPortal />}
         {currentUser?.role === 'faculty' && (
           <>
-            <FacultyWorkspaceHeader activePage={activePage} onNavigate={setActivePage} />
+            <FacultyWorkspaceHeader activePage={activePage} onNavigate={navigateFacultyPage} />
             {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
               : activePage === 'student-records' ? <FacultyAcademicRecordsPage />
-                : activePage === 'evaluations' ? <FacultyEvaluationPage />
-                  : null}
+                : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} />
+                  : (
+                    <FacultyDashboardPage
+                      onNavigate={navigateFacultyPage}
+                      onOpenEvaluation={(target) => {
+                        setEvaluationTarget(target);
+                        setActivePage('evaluations');
+                      }}
+                    />
+                  )}
           </>
         )}
         {currentUser?.role === 'admin' && <AdminPortal />}
       </main>
 
-      <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? 'bg-emerald-500' : serverStatus === 'checking' ? 'bg-amber-400 animate-pulse' : 'bg-rose-500'}`}></span>
-            <span>Student Enrollment & Academic Status Management System (SAPES)</span>
-          </div>
-          <div>
-            <span>API: </span>
-            <strong className={`uppercase font-mono font-bold ${serverStatus === 'online' ? 'text-emerald-700' : serverStatus === 'checking' ? 'text-amber-700' : 'text-rose-700'}`}>
-              {serverStatus}
-            </strong>
-            <span className="mx-2 text-slate-300">|</span>
-            <span>Session Role: </span>
-            <strong className="text-slate-800 uppercase font-mono font-bold">
-              {currentUser?.role}
-            </strong>
-          </div>
+      <footer className="mt-auto border-t border-slate-200 bg-white py-5">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-1 px-4 text-xs text-slate-500 sm:flex-row sm:px-6 lg:px-8">
+          <span>© 2026 Bukidnon State University · SAPES</span>
+          <span>Student Enrollment & Academic Status Management System</span>
         </div>
       </footer>
     </div>
