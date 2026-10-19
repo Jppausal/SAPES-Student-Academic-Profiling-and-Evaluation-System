@@ -92,12 +92,6 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
           </div>
         </div>
 
-        {validRecords.some((record) => record.isDemo) && (
-          <p className="student-demo-note">
-            Demo data for testing only. These subjects and grades are fictional, not official academic records.
-          </p>
-        )}
-
         {(invalidRecordCount > 0 || !Array.isArray(report.academicRecords)) && (
           <p role="alert" className="student-notice">
             Some academic records could not be displayed because their period information is incomplete.
