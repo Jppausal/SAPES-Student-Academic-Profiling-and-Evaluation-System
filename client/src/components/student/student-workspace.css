@@ -692,6 +692,16 @@
   font-size: 13.5px;
 }
 
+.student-standing-badge-risk {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.student-standing-badge-risk .student-standing-indicator {
+  background: #dc2626;
+}
+
 .student-standing-attribution {
   margin-top: 6px;
   color: var(--student-muted);
