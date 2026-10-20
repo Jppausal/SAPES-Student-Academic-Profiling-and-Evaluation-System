@@ -8,6 +8,7 @@ const descriptions: Record<IntegrationName, { title: string; description: string
 };
 
 export function AdminSettings({ onAudit }: { onAudit: () => void }) {
+  const [section, setSection] = useState('Integrations');
   const [settings, setSettings] = useState<IntegrationSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -30,15 +31,16 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
     finally { setSaving(false); }
   }
   return <div className="admin-page-stack">
-    <section className="admin-panel admin-panel-body"><h2 className="text-lg font-bold">App Settings</h2><p>Manage system-wide integrations. Credentials remain on the server.</p></section>
+    <section className="admin-panel admin-panel-body"><h2 className="text-lg font-bold">System settings</h2><p>Configuration that applies to everyone using SAPES. For your password and preferences, open My account.</p></section>
+    <nav className="admin-settings-navigation" aria-label="System settings categories">{['Integrations', 'General', 'Security', 'Academic', 'System & Audit'].map(name => <button key={name} type="button" aria-current={section === name ? 'page' : undefined} onClick={() => setSection(name)}>{name}</button>)}</nav>
     {error && <p role="alert" className="admin-alert admin-alert-error">{error}</p>}
     {message && <p role="status" className="admin-alert admin-alert-success">{message}</p>}
-    <section className="admin-panel admin-panel-body"><h3 className="font-bold">General</h3><p>SAPES · Bukidnon State University</p><p className="text-sm text-slate-500">Maintenance mode is not supported.</p></section>
-    <section className="admin-panel admin-panel-body"><h3 className="font-bold">Integrations</h3>
+    {section === 'General' && <section className="admin-panel admin-panel-body"><h3 className="font-bold">General</h3><p>SAPES · Bukidnon State University</p><p className="text-sm text-slate-500">Maintenance mode is not supported.</p></section>}
+    {section === 'Integrations' && <section className="admin-panel admin-panel-body"><h3 className="font-bold">Integrations</h3>
       {!settings && !error && <p role="status">Loading integrations…</p>}
       {settings && (Object.keys(descriptions) as IntegrationName[]).map(name => {
         const setting = settings.integrations[name];
-        return <div key={name} className="mt-4 rounded-lg border border-slate-200 p-4">
+        return <div key={name} className="admin-integration-row">
           <label className="flex items-center justify-between gap-4 font-semibold">{descriptions[name].title}
             <input type="checkbox" role="switch" aria-label={descriptions[name].title} checked={setting.enabled && setting.configured} disabled={saving || !setting.available || !setting.configured} onChange={event => void toggle(name, event.target.checked)} />
           </label>
@@ -47,9 +49,9 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
         </div>;
       })}
       {saving && <p role="status">Saving…</p>}
-    </section>
-    <section className="admin-panel admin-panel-body"><h3 className="font-bold">Security</h3><p>JWT sessions, account-status checks, role permissions, and email verification for password reset are enforced by the server.</p><p className="text-sm text-slate-500">App Settings requires administrator access with manage_users permission.</p></section>
-    <section className="admin-panel admin-panel-body"><h3 className="font-bold">Academic</h3><p>Overall and major-subject GWA use unit-weighted recorded grades. Dropped, ungraded, and zero-unit subjects are excluded. Academic rules are read-only here.</p></section>
-    <section className="admin-panel admin-panel-body"><h3 className="font-bold">System &amp; Audit</h3><p role="status">{health}</p><button type="button" className="admin-secondary-button mt-3" onClick={onAudit}>View audit logs</button></section>
+    </section>}
+    {section === 'Security' && <section className="admin-panel admin-panel-body"><h3 className="font-bold">Security</h3><p>JWT sessions, account-status checks, role permissions, and email verification for password reset are enforced by the server.</p><p className="text-sm text-slate-500">Changes are restricted to administrators authorized to manage system access.</p></section>}
+    {section === 'Academic' && <section className="admin-panel admin-panel-body"><h3 className="font-bold">Academic</h3><p>Overall and major-subject GWA use unit-weighted recorded grades. Dropped, ungraded, and zero-unit subjects are excluded. Academic rules are read-only here.</p></section>}
+    {section === 'System & Audit' && <section className="admin-panel admin-panel-body"><h3 className="font-bold">System &amp; Audit</h3><p role="status">{health}</p><button type="button" className="admin-secondary-button mt-3" onClick={onAudit}>View audit logs</button></section>}
   </div>;
 }

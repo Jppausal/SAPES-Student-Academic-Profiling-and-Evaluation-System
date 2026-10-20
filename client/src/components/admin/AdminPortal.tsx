@@ -10,6 +10,7 @@ import { AdminSettings } from './AdminSettings';
 import './admin-ui.css';
 import {
   Users,
+  Settings,
   GraduationCap,
   FileCheck2,
   Activity,
@@ -100,14 +101,14 @@ export const AdminPortal: React.FC = () => {
             </span>
           </div>
           <h1>
-            Academic Records & Security Management Portal
+            Administration
           </h1>
           <p>
-            Maintain authorized user access roles, student profiling records, academic probation statuses, Major-Subject GWA configurations, and real-time security audit trails.
+            Manage student records, account access, and system configuration.
           </p>
         </div>
 
-        <div className="shrink-0">
+        {activeTab === 'users' && <div className="shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -119,68 +120,22 @@ export const AdminPortal: React.FC = () => {
             <Plus className="w-4 h-4" />
             Create User Account
           </button>
-        </div>
+        </div>}
       </header>
 
-      {/* Navigation Tabs */}
-      <div className="admin-tabs" role="tablist" aria-label="Administrator workspace sections">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'users'}
-          onClick={() => setActiveTab('users')}
-          className={`admin-tab ${activeTab === 'users' ? 'is-active' : ''}`}
-        >
-          <Users className="w-4 h-4" />
-          User & Access Control ({users.length})
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'permissions'}
-          onClick={() => setActiveTab('permissions')}
-          className={`admin-tab ${activeTab === 'permissions' ? 'is-active' : ''}`}
-        >
-          <KeyRound className="w-4 h-4" />
-          Role Permissions
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'academic-records'}
-          onClick={() => setActiveTab('academic-records')}
-          className={`admin-tab ${activeTab === 'academic-records' ? 'is-active' : ''}`}
-        >
-          <GraduationCap className="w-4 h-4" />
-          Academic Records & Major GWA
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'reports'}
-          onClick={() => setActiveTab('reports')}
-          className={`admin-tab ${activeTab === 'reports' ? 'is-active' : ''}`}
-        >
-          <FileCheck2 className="w-4 h-4" />
-          Institutional Analytics
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'logs'}
-          onClick={() => setActiveTab('logs')}
-          className={`admin-tab ${activeTab === 'logs' ? 'is-active' : ''}`}
-        >
-          <Activity className="w-4 h-4" />
-          Security Audit Trail
-        </button>
-        <button type="button" role="tab" aria-selected={activeTab === 'settings'} className={`admin-tab ${activeTab === 'settings' ? 'is-active' : ''}`} onClick={() => setActiveTab('settings')}>App Settings</button>
-      </div>
-
+      <div className="admin-navigation-layout">
+        <nav className="admin-sidebar" aria-label="Administration">
+          {[
+            { title: 'Student records', items: [{ id: 'academic-records', label: 'Academic records', icon: GraduationCap }, { id: 'reports', label: 'Reports & analytics', icon: FileCheck2 }] },
+            { title: 'Access management', items: [{ id: 'users', label: 'User accounts', icon: Users }, { id: 'permissions', label: 'Roles & permissions', icon: KeyRound }] },
+            { title: 'System', items: [{ id: 'settings', label: 'System settings', icon: Settings }, { id: 'logs', label: 'Audit logs', icon: Activity }] },
+          ].map(group => <div className="admin-nav-group" key={group.title}>
+            <p>{group.title}</p>
+            {group.items.map(item => <button key={item.id} type="button" aria-current={activeTab === item.id ? 'page' : undefined} className={activeTab === item.id ? 'is-active' : ''} onClick={() => setActiveTab(item.id as typeof activeTab)}><item.icon aria-hidden="true" /><span>{item.label}</span>{item.id === 'users' && <small>{users.length}</small>}</button>)}
+          </div>)}
+          <p className="admin-sidebar-note">Personal password and notification preferences are in <strong>My account</strong>, under your profile menu.</p>
+        </nav>
+        <main className="admin-content" aria-label="Selected administration section">
       {/* TAB 1: USERS & ACCESS CONTROL */}
       {activeTab === 'settings' && <AdminSettings onAudit={() => setActiveTab('logs')} />}
       {activeTab === 'users' && (
@@ -345,6 +300,8 @@ export const AdminPortal: React.FC = () => {
       {/* TAB 4: SECURITY AUDIT TRAIL */}
       {activeTab === 'logs' && <SystemAuditLogsView />}
 
+      </main>
+      </div>
       {/* MODALS */}
       {isUserModalOpen && (
         <UserManagementModal
