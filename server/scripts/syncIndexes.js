@@ -28,6 +28,7 @@ const run = async () => {
 
   await Promise.all([
     Student.createIndexes(),
+    require('../models/SystemSettings').createIndexes(),
     AcademicRecord.createIndexes()
   ]);
 

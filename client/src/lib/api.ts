@@ -779,3 +779,14 @@ export async function checkServerHealth(): Promise<boolean> {
     return false;
   }
 }
+
+export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp';
+export interface IntegrationSettings { integrations: Record<IntegrationName, { enabled: boolean; configured: boolean; available: boolean }> }
+export async function fetchIntegrationSettings(admin = false): Promise<IntegrationSettings> {
+  const response = await request<{success: true; data: IntegrationSettings}>(admin ? '/api/settings' : '/api/settings/public');
+  return response.data;
+}
+export async function saveIntegrationSettings(integrations: Partial<Record<IntegrationName, {enabled: boolean}>>): Promise<IntegrationSettings> {
+  const response = await request<{success: true; data: IntegrationSettings}>('/api/settings', { method: 'PUT', body: JSON.stringify({integrations}) });
+  return response.data;
+}

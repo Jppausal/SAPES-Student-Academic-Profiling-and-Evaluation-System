@@ -9,6 +9,9 @@ const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const authRoutes = require('../routes/authRoutes');
 const accountModels = { admin: AdminUser, faculty: FacultyUser, student: Student };
+test.beforeEach(t => {
+  t.mock.method(require('../models/SystemSettings'), 'findById', () => ({ lean: async () => null }));
+});
 
 test('faculty accounts default to the verified enrollment officer designation', () => {
   const faculty = new FacultyUser({

@@ -6,6 +6,7 @@ import { BackendAcademicRecordManager } from './BackendAcademicRecordManager';
 import { AdminReportsView } from './AdminReportsView';
 import { SystemAuditLogsView } from './SystemAuditLogsView';
 import { RolePermissionsPanel } from './RolePermissionsPanel';
+import { AdminSettings } from './AdminSettings';
 import './admin-ui.css';
 import {
   Users,
@@ -31,7 +32,7 @@ export const AdminPortal: React.FC = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
-    'users' | 'permissions' | 'academic-records' | 'reports' | 'logs'
+    'users' | 'permissions' | 'academic-records' | 'reports' | 'logs' | 'settings'
   >('users');
 
   // User Management Modal State
@@ -177,9 +178,11 @@ export const AdminPortal: React.FC = () => {
           <Activity className="w-4 h-4" />
           Security Audit Trail
         </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'settings'} className={`admin-tab ${activeTab === 'settings' ? 'is-active' : ''}`} onClick={() => setActiveTab('settings')}>App Settings</button>
       </div>
 
       {/* TAB 1: USERS & ACCESS CONTROL */}
+      {activeTab === 'settings' && <AdminSettings onAudit={() => setActiveTab('logs')} />}
       {activeTab === 'users' && (
         <div className="admin-page-stack" role="tabpanel">
           {userActionError && (

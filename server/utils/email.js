@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 
 const sendPasswordResetCode = async (recipient, code) => {
+  await require('./systemSettings').requireIntegration('smtp');
   if (!process.env.SMTP_HOST || !process.env.SMTP_FROM) {
     throw new Error('Email delivery is not configured');
   }

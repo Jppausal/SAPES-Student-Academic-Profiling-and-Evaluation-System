@@ -209,6 +209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         case 'UPDATE_FACULTY_EVALUATION':
           return 'FACULTY_EVALUATION';
         case 'ROLE_PERMISSIONS_UPDATED':
+        case 'SYSTEM_SETTINGS_UPDATED':
         case 'USER_CREATED':
         case 'USER_UPDATED':
         case 'USER_STATUS_UPDATED':

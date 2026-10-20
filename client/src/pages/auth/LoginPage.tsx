@@ -1,3 +1,4 @@
+import { fetchIntegrationSettings } from '../../lib/api';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthLayout } from './AuthLayout';
@@ -17,14 +18,16 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = React.useState(true);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
-  const googleClientIdPresent = Boolean(googleClientId);
+  const [googleEnabled, setGoogleEnabled] = React.useState(false);
+  React.useEffect(() => { fetchIntegrationSettings().then(settings => setGoogleEnabled(settings.integrations.googleAuth.enabled && settings.integrations.googleAuth.configured)).catch(() => setGoogleEnabled(false)); }, []);
+  const googleClientIdPresent = Boolean(googleClientId) && googleEnabled;
   const isInstitutionalEmail = ['@student.buksu.edu.ph', '@faculty.buksu.edu.ph']
     .some((domain) => loginIdentifier.trim().toLowerCase().endsWith(domain));
   const shouldWarnAboutEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginIdentifier.trim())
     && !isInstitutionalEmail;
 
   React.useEffect(() => {
-    const clientId = googleClientId;
+    const clientId = googleEnabled ? googleClientId : undefined;
     if (!clientId) {
       setGoogleLoading(false);
       return;
@@ -71,7 +74,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
     return () => {
       script.onload = null;
     };
-  }, [googleClientId, onGoogleLogin]);
+  }, [googleClientId, googleEnabled, onGoogleLogin]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

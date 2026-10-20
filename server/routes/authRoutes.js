@@ -222,6 +222,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
 router.post('/password-reset/request', async (req, res) => {
   const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
+    await require('../utils/systemSettings').requireIntegration('smtp');
     const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
     if (!username) return res.status(400).json({ success: false, message: 'Username or institution ID is required' });
     const { account } = await findAccountByIdentifier(
@@ -428,6 +429,7 @@ router.get('/session', authenticateToken, async (req, res) => {
 
 router.post('/google', async (req, res) => {
   try {
+    await require('../utils/systemSettings').requireIntegration('googleAuth');
     const { credential } = req.body || {};
     if (typeof credential !== 'string' || !credential) {
       return res.status(400).json({ success: false, message: 'Google credential is required' });
@@ -571,7 +573,7 @@ router.post('/google', async (req, res) => {
     });
   } catch (error) {
     console.error('Google login error:', error);
-    return res.status(500).json({ success: false, message: 'Google login failed' });
+    return res.status(error.status === 503 ? 503 : 500).json({ success: false, message: error.status === 503 ? error.message : 'Google login failed' });
   }
 });
 
