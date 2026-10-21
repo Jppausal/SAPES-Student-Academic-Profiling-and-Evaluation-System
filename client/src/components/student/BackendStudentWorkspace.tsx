@@ -297,7 +297,7 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
             </div>
           </div>
           <div className="student-standing-body">
-            <div className="student-standing-badge">
+            <div className={`student-standing-badge${identity.academicStatus?.isOnProbation || /probation/i.test(identity.academicStatus?.currentStatus || '') ? ' student-standing-badge-risk' : ''}`}>
               <span className="student-standing-indicator" />
               <span>{identity.academicStatus?.currentStatus ? statusLabel(identity.academicStatus.currentStatus) : 'Not recorded'}</span>
             </div>

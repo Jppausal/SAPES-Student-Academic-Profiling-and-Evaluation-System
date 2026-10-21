@@ -16,6 +16,8 @@ import {
   useStudentNotificationPreferences,
   useStudentPreferences,
 } from '../../hooks/useStudentPreferences';
+import { LayoutDashboard } from 'lucide-react';
+
 import {
   fetchMyStudentIdentity,
   fetchMyStudentReport,
@@ -25,6 +27,7 @@ import {
 import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 import { UserSettingsModal } from '../layout/UserSettingsModal';
 import { BackendStudentWorkspace } from './BackendStudentWorkspace';
+import { StudentDashboard } from './StudentDashboard';
 import { StudentProfileSetup } from './StudentProfileSetup';
 import './student-workspace.css';
 
@@ -38,7 +41,7 @@ export const StudentPortal: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [reportError, setReportError] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'records' | 'profile'>('dashboard');
   const [savedMessage, setSavedMessage] = useState('');
   const previousTab = useRef(activeTab);
 
@@ -78,9 +81,9 @@ export const StudentPortal: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const returnedToOverview = previousTab.current === 'profile' && activeTab === 'overview';
+    const returnedToOverview = previousTab.current === 'profile' && activeTab === 'dashboard';
     previousTab.current = activeTab;
-    if (activeTab !== 'overview') return;
+    if (activeTab !== 'dashboard') return;
 
     let active = true;
     let refreshing = false;
@@ -333,9 +336,18 @@ export const StudentPortal: React.FC = () => {
       <nav className="student-navigation" aria-label="Student workspace">
         <button
           type="button"
-          onClick={() => setActiveTab('overview')}
-          aria-current={activeTab === 'overview' ? 'page' : undefined}
-          className={activeTab === 'overview' ? 'active' : ''}
+          onClick={() => setActiveTab('dashboard')}
+          aria-current={activeTab === 'dashboard' ? 'page' : undefined}
+          className={activeTab === 'dashboard' ? 'active' : ''}
+        >
+          <LayoutDashboard className="student-tab-icon" />
+          <span>Dashboard</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('records')}
+          aria-current={activeTab === 'records' ? 'page' : undefined}
+          className={activeTab === 'records' ? 'active' : ''}
         >
           <BookOpen className="student-tab-icon" />
           <span>Academic records</span>
@@ -354,7 +366,17 @@ export const StudentPortal: React.FC = () => {
 
       {savedMessage && <p role="status" className="student-notice student-notice-success">{savedMessage}</p>}
 
-      {activeTab === 'overview' && (report
+      {activeTab === 'dashboard' && (
+        <StudentDashboard
+          identity={identity}
+          report={report}
+          reportError={reportError}
+          onViewRecords={() => setActiveTab('records')}
+          onEditProfile={() => setActiveTab('profile')}
+        />
+      )}
+
+      {activeTab === 'records' && (report
         ? <BackendStudentWorkspace identity={identity} report={report} />
         : <div role={reportError ? 'alert' : 'status'} className="student-notice">{reportError || 'Academic records are still loading.'} You can still edit your personal profile.</div>
       )}
@@ -366,7 +388,7 @@ export const StudentPortal: React.FC = () => {
           onSaved={(updatedIdentity) => {
             setIdentity(updatedIdentity);
             setSavedMessage('Your student profile was saved successfully.');
-            setActiveTab('overview');
+            setActiveTab('dashboard');
           }}
         />
       )}
