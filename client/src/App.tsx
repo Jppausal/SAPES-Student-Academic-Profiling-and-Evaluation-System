@@ -68,8 +68,8 @@ const AppContent: React.FC = () => {
   if (authView === 'login') {
     return (
       <LoginPage
-        onLogin={async (username, password) => {
-          const result = await login(username, password);
+        onLogin={async (username, password, recaptchaToken) => {
+          const result = await login(username, password, recaptchaToken);
           if (result.success) setAuthView('dashboard');
           return result;
         }}

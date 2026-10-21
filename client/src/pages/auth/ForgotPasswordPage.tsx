@@ -1,3 +1,4 @@
+import { useRecaptcha } from '../../hooks/useRecaptcha';
 import { useEmailAvailability } from '../../hooks/useEmailAvailability';
 import React, { useState } from 'react';
 import { confirmPasswordReset, requestPasswordReset, verifyPasswordReset } from '../../lib/api';
@@ -8,6 +9,7 @@ const labelClass = 'mb-2 block text-sm font-medium text-slate-700';
 const alertClass = 'rounded-xl border px-3 py-2 text-sm';
 
 export const ForgotPasswordPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const captcha = useRecaptcha();
   const emailAvailability = useEmailAvailability();
   const [username, setUsername] = useState('');
   const [code, setCode] = useState('');
@@ -25,11 +27,13 @@ export const ForgotPasswordPage: React.FC<{ onBack: () => void }> = ({ onBack })
         const result = await confirmPasswordReset(verify.resetAuthorization, password);
         setMessage(result.message);
       } else {
-        const result = await requestPasswordReset(username);
+        const result = await requestPasswordReset(username, captcha.token);
         setMessage(result.message);
         setSent(true);
+        captcha.reset();
       }
     } catch (reason) {
+      if (!sent) captcha.reset();
       setError(reason instanceof Error ? reason.message : 'Unable to process password reset');
     }
   };
@@ -87,13 +91,15 @@ export const ForgotPasswordPage: React.FC<{ onBack: () => void }> = ({ onBack })
           </>
         )}
 
+        {!sent && captcha.view}
+
         {message && <p role="status" className={`${alertClass} border-emerald-200 bg-emerald-50 text-emerald-800`}>{message}</p>}
         {error && <p role="alert" className={`${alertClass} border-rose-200 bg-rose-50 text-rose-700`}>{error}</p>}
 
         <button
-          disabled={!emailAvailability.enabled}
+          disabled={!emailAvailability.enabled || (!sent && !captcha.ready)}
           type="submit"
-          className="w-full rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-700 focus:outline-none focus:ring-4 focus:ring-accent-200"
+          className="w-full rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-700 focus:outline-none focus:ring-4 focus:ring-accent-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {sent ? 'Set new password' : 'Send verification code'}
         </button>

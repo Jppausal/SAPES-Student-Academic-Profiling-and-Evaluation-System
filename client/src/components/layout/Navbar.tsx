@@ -303,7 +303,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
       >
         <p className="text-sm leading-6 text-slate-600">Are you sure you want to log out?</p>
       </Modal>
-      {showSettings && currentUser && <UserSettingsModal username={currentUser.username} role={currentUser.role} onClose={() => setShowSettings(false)} />}
+      {showSettings && currentUser && (
+        <UserSettingsModal
+          username={currentUser.username || currentUser.studentNumber || currentUser.email || ''}
+          role={currentUser.role}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </header>
   );
 };

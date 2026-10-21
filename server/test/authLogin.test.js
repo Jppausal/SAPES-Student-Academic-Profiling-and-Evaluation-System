@@ -398,3 +398,82 @@ test('Google student sign-in creates an enrolled account from the verified ident
   assert.equal(invalidStudentIdResponse.status, 403);
   assert.match((await invalidStudentIdResponse.json()).message, /10-digit ID/);
 });
+
+test('Google student sign-in links to existing student profile by institutionId and sets institutionalEmail', async (t) => {
+  const originalFindOnes = Object.fromEntries(
+    Object.entries(accountModels).map(([role, AccountModel]) => [role, AccountModel.findOne])
+  );
+  const originalStudentFindOne = Student.findOne;
+  const originalSessionTokenCreate = SessionToken.create;
+  const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
+  const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalJwtSecret = process.env.JWT_SECRET;
+
+  const existingStudent = {
+    _id: 'existing-student-doc',
+    institutionId: '2401105814',
+    email: '2401105814@student.buksu.edu.ph',
+    role: 'student',
+    accountStatus: 'active',
+    personalInformation: { firstName: 'Lawrence', lastName: 'Maureal' },
+    contactInformation: {},
+    save: async () => {}
+  };
+
+  const googlePayload = {
+    sub: 'google-student-456',
+    email: '2401105814@student.buksu.edu.ph',
+    email_verified: true,
+    iss: 'https://accounts.google.com',
+    aud: 'test-google-client-id',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    hd: 'student.buksu.edu.ph',
+    given_name: 'Lawrence',
+    family_name: 'Maureal',
+    name: 'Lawrence Maureal'
+  };
+
+  process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
+  process.env.JWT_SECRET = 'test-secret';
+  OAuth2Client.prototype.verifyIdToken = async () => ({ getPayload: () => googlePayload });
+  mockAccountCollections([existingStudent]);
+  Student.findOne = async (query) => {
+    if (query?.institutionId === '2401105814') return existingStudent;
+    return null;
+  };
+  SessionToken.create = async () => ({});
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', authRoutes);
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(async () => {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    for (const [role, AccountModel] of Object.entries(accountModels)) {
+      AccountModel.findOne = originalFindOnes[role];
+    }
+    Student.findOne = originalStudentFindOne;
+    SessionToken.create = originalSessionTokenCreate;
+    OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
+    if (originalGoogleClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+    if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = originalJwtSecret;
+  });
+
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}/api/auth/google`;
+  const response = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential: 'verified-test-credential' })
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.user.role, 'student');
+  assert.equal(payload.user.studentNumber, '2401105814');
+  assert.equal(existingStudent.googleId, 'google-student-456');
+  assert.equal(existingStudent.contactInformation.institutionalEmail, '2401105814@student.buksu.edu.ph');
+});

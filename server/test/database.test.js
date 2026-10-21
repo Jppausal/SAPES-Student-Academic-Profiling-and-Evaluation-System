@@ -4,11 +4,15 @@ const { getCloudMongoUri } = require('../utils/database');
 
 function setMongoUri(t, uri) {
   const previous = process.env.MONGO_URI;
+  const previousAtlas = process.env.ATLAS_URI;
+  delete process.env.ATLAS_URI;
   if (uri === undefined) delete process.env.MONGO_URI;
   else process.env.MONGO_URI = uri;
   t.after(() => {
     if (previous === undefined) delete process.env.MONGO_URI;
     else process.env.MONGO_URI = previous;
+    if (previousAtlas === undefined) delete process.env.ATLAS_URI;
+    else process.env.ATLAS_URI = previousAtlas;
   });
 }
 

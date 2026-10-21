@@ -456,7 +456,8 @@ router.get(
           ).sort({ academicYear: -1, semester: -1 }).lean(),
           FacultyEvaluation.find({ studentId: { $in: studentIds } })
             .sort({ evaluatedAt: -1 })
-            .select('studentId evaluationStatus evaluatedAt')
+            .populate('facultyId', 'username role')
+            .select('studentId facultyId evaluationStatus reasons remarks evaluatedAt')
             .lean()
         ])
         : [[], []];
@@ -493,6 +494,11 @@ router.get(
               latestAcademicPeriod,
               facultyEvaluation: evaluation ? {
                 evaluationStatus: evaluation.evaluationStatus,
+                reasons: evaluation.reasons || [],
+                remarks: evaluation.remarks || '',
+                faculty: evaluation.facultyId && typeof evaluation.facultyId === 'object'
+                  ? { username: evaluation.facultyId.username, role: evaluation.facultyId.role }
+                  : null,
                 evaluatedAt: evaluation.evaluatedAt
               } : null
             };
