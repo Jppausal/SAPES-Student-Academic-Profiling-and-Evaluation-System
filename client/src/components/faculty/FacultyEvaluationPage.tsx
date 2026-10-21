@@ -6,10 +6,11 @@ import { StudentEvaluationPanel } from './StudentEvaluationPanel';
 
 interface FacultyEvaluationPageProps {
   initialTarget?: EvaluationTarget | null;
+  fixedProgram?: string;
 }
 
-export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ initialTarget }) => {
-  const [program, setProgram] = useState<string>(initialTarget?.program || TECHNOLOGY_PROGRAMS[0].value);
+export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ initialTarget, fixedProgram }) => {
+  const [program, setProgram] = useState<string>(fixedProgram || initialTarget?.program || TECHNOLOGY_PROGRAMS[0].value);
   const [roster, setRoster] = useState<FacultyRosterStudent[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [selectedSection, setSelectedSection] = useState('all');
@@ -57,7 +58,7 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
       </header>
 
       <section aria-label="Select course" className="flex gap-2 overflow-x-auto pb-1">
-        {TECHNOLOGY_PROGRAMS.map((item) => (
+        {TECHNOLOGY_PROGRAMS.filter((item) => !fixedProgram || item.value === fixedProgram).map((item) => (
           <button
             key={item.value}
             type="button"

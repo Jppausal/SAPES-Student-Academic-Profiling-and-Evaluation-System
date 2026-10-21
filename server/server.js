@@ -10,6 +10,7 @@ const auditLogRoutes = require('./routes/auditLogRoutes');
 const userRoutes = require('./routes/userRoutes');
 const meRoutes = require('./routes/meRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
+const { syncAllDepartmentMetrics } = require('./utils/departmentMetrics');
 
 const app = express();
 
@@ -47,6 +48,8 @@ const startServer = async () => {
 
   await connectCloudDatabase({ serverSelectionTimeoutMS: 10000 });
   console.log(`Connected to the cloud database: ${mongoose.connection.name}`);
+  await syncAllDepartmentMetrics();
+  console.log('Synchronized department enrollment metrics');
 
   const port = Number(process.env.PORT || 5001);
   const server = app.listen(port, () => console.log(`Server running on port ${port}`));

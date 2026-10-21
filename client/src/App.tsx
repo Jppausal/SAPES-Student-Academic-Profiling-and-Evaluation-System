@@ -11,12 +11,14 @@ import { StudentSearchPage } from './components/faculty/StudentSearchPage';
 import { FacultyAcademicRecordsPage } from './components/faculty/FacultyAcademicRecordsPage';
 import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPage';
 import { FacultyDashboardPage } from './components/faculty/FacultyDashboardPage';
+import { DepartmentEnrollmentDashboard } from './components/faculty/DepartmentEnrollmentDashboard';
 import { FacultyWorkspaceHeader } from './components/faculty/FacultyWorkspaceHeader';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { EvaluationTarget, FacultyPage } from './types';
+import { DEPARTMENT_PROGRAMS } from './lib/academicPrograms';
 
 type AuthView = 'landing' | 'login' | 'forgot-password' | 'dashboard';
 
@@ -100,6 +102,9 @@ const AppContent: React.FC = () => {
     setEvaluationTarget(null);
     setActivePage(page);
   };
+  const departmentProgram = currentUser?.isVerifiedEnrollmentOfficer && currentUser.departmentCode
+    ? DEPARTMENT_PROGRAMS[currentUser.departmentCode]
+    : undefined;
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-brand-600 selection:text-white">
@@ -118,16 +123,21 @@ const AppContent: React.FC = () => {
           <>
             <FacultyWorkspaceHeader activePage={activePage} onNavigate={navigateFacultyPage} />
             {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
-              : activePage === 'student-records' ? <FacultyAcademicRecordsPage />
-                : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} />
+              : activePage === 'student-records' ? <FacultyAcademicRecordsPage fixedProgram={departmentProgram} />
+                : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} fixedProgram={departmentProgram} />
                   : (
-                    <FacultyDashboardPage
-                      onNavigate={navigateFacultyPage}
-                      onOpenEvaluation={(target) => {
-                        setEvaluationTarget(target);
-                        setActivePage('evaluations');
-                      }}
-                    />
+                    currentUser.isVerifiedEnrollmentOfficer
+                      ? <DepartmentEnrollmentDashboard
+                          facultyName={currentUser.fullName}
+                          onNavigate={navigateFacultyPage}
+                        />
+                      : <FacultyDashboardPage
+                          onNavigate={navigateFacultyPage}
+                          onOpenEvaluation={(target) => {
+                            setEvaluationTarget(target);
+                            setActivePage('evaluations');
+                          }}
+                        />
                   )}
           </>
         )}

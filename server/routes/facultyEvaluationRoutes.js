@@ -12,6 +12,11 @@ const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLate
 const { calculateCourseMetrics, validateCourseEvaluation } = require('../utils/courseEvaluation');
 const { getAcademicStatus } = require('../utils/academicStatus');
 const { getAccountModelName } = require('../utils/accountCollections');
+const {
+  buildStudentDepartmentFilter,
+  getEnrollmentOfficerDepartment
+} = require('../utils/departmentAccess');
+const { syncDepartmentMetrics } = require('../utils/departmentMetrics');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -37,16 +42,116 @@ const getPeerProgress = async (student) => {
 };
 
 router.get(
+  '/department-dashboard',
+  authenticateToken,
+  authorizeRoles('faculty'),
+  authorizePermission('view_student_records'),
+  async (req, res) => {
+    try {
+      const department = getEnrollmentOfficerDepartment(req.user);
+      if (!req.user.isVerifiedEnrollmentOfficer || !department) {
+        return res.status(403).json({ success: false, message: 'A verified department enrollment officer account is required' });
+      }
+
+      const departmentStudentFilter = {
+        accountStatus: 'active',
+        'classification.program': department.program
+      };
+      const [metrics, recentStudents, departmentStudentIds] = await Promise.all([
+        syncDepartmentMetrics(department),
+        Student.find(departmentStudentFilter, {
+          institutionId: 1,
+          personalInformation: 1,
+          classification: 1,
+          yearLevel: 1,
+          enrollmentStatus: 1
+        })
+          .sort({ updatedAt: -1, _id: -1 })
+          .limit(5)
+          .lean(),
+        Student.find(departmentStudentFilter).distinct('_id')
+      ]);
+      const recentEvaluations = departmentStudentIds.length
+        ? await FacultyEvaluation.find({ studentId: { $in: departmentStudentIds } })
+          .sort({ evaluatedAt: -1 })
+          .limit(5)
+          .lean()
+        : [];
+      const evaluatedStudentIds = recentEvaluations.map((evaluation) => evaluation.studentId);
+      const evaluatedStudents = evaluatedStudentIds.length
+        ? await Student.find({
+          ...departmentStudentFilter,
+          _id: { $in: evaluatedStudentIds }
+        }, {
+          institutionId: 1,
+          personalInformation: 1
+        }).lean()
+        : [];
+      const studentsById = new Map(evaluatedStudents.map((student) => [
+        String(student._id),
+        student
+      ]));
+
+      return res.json({
+        success: true,
+        data: {
+          code: metrics.code,
+          name: metrics.name,
+          program: metrics.program,
+          totalStudents: metrics.totalStudents,
+          profilesAwaitingEvaluation: metrics.profilesAwaitingEvaluation,
+          pendingEnrollmentDecisions: metrics.pendingEnrollmentDecisions,
+          evaluatedProfiles: metrics.evaluatedProfiles,
+          lastSyncedAt: metrics.lastSyncedAt,
+          recentStudents: recentStudents.map((student) => ({
+            institutionId: student.institutionId,
+            name: [student.personalInformation?.firstName, student.personalInformation?.lastName]
+              .filter(Boolean)
+              .join(' ') || student.institutionId,
+            program: student.classification?.program || department.program,
+            yearLevel: student.yearLevel || null,
+            enrollmentStatus: student.enrollmentStatus || 'not_enrolled'
+          })),
+          recentEvaluations: recentEvaluations.flatMap((evaluation) => {
+            const student = studentsById.get(String(evaluation.studentId));
+            if (!student) return [];
+            return [{
+              institutionId: student.institutionId,
+              name: [student.personalInformation?.firstName, student.personalInformation?.lastName]
+                .filter(Boolean)
+                .join(' ') || student.institutionId,
+              evaluationStatus: evaluation.evaluationStatus,
+              evaluatedAt: evaluation.evaluatedAt
+            }];
+          })
+        }
+      });
+    } catch (error) {
+      console.error('Error loading department enrollment dashboard:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+  }
+);
+
+router.get(
   '/roster',
   authenticateToken,
   authorizeRoles('faculty', 'admin'),
   authorizePermission('view_student_records'),
   async (req, res) => {
     try {
-      const { program, section } = req.query;
+      const department = getEnrollmentOfficerDepartment(req.user);
+      if (req.user.isVerifiedEnrollmentOfficer && !department) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
+      const program = department?.program || req.query.program;
+      const { section } = req.query;
       const yearLevel = req.query.yearLevel === undefined ? undefined : Number(req.query.yearLevel);
       if (!TECHNOLOGY_PROGRAMS.includes(program)) {
         return res.status(400).json({ success: false, message: 'A valid College of Technologies program is required' });
+      }
+      if (department && req.query.program && req.query.program !== department.program) {
+        return res.status(403).json({ success: false, message: 'Enrollment officers may only view their assigned department' });
       }
       if (yearLevel !== undefined && (!Number.isInteger(yearLevel) || yearLevel < 1 || yearLevel > 6)) {
         return res.status(400).json({ success: false, message: 'yearLevel must be an integer from 1 to 6' });
@@ -56,7 +161,12 @@ router.get(
       if (yearLevel !== undefined) filter.yearLevel = yearLevel;
       if (typeof section === 'string' && section.trim()) filter.section = section.trim();
 
-      const students = await Student.find(filter, {
+      const scopedFilter = buildStudentDepartmentFilter(req.user, filter);
+      if (!scopedFilter) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
+
+      const students = await Student.find(scopedFilter, {
         institutionId: 1,
         username: 1,
         personalInformation: 1,
@@ -120,10 +230,14 @@ router.get(
   authorizePermission('view_student_records'),
   async (req, res) => {
     try {
-      const student = await Student.findOne({
+      const studentFilter = buildStudentDepartmentFilter(req.user, {
         institutionId: req.params.institutionId,
         accountStatus: 'active'
-      }).lean();
+      });
+      if (!studentFilter) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
+      const student = await Student.findOne(studentFilter).lean();
       if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
       const [academicRecords, progress, facultyEvaluation, statusHistory] = await Promise.all([
@@ -264,10 +378,14 @@ router.put(
   authorizePermission('submit_evaluations'),
   async (req, res) => {
     try {
-      const student = await Student.findOne({
+      const studentFilter = buildStudentDepartmentFilter(req.user, {
         institutionId: req.params.institutionId,
         accountStatus: 'active'
-      }).select('_id institutionId').lean();
+      });
+      if (!studentFilter) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
+      const student = await Student.findOne(studentFilter).select('_id institutionId').lean();
       if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
       const normalized = validateCourseEvaluation(req.body);

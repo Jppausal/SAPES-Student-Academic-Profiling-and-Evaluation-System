@@ -7,6 +7,17 @@ facultyAccountSchema.add({
     type: String,
     default: 'Verified enrollment officer',
     trim: true
+  },
+  departmentCode: {
+    type: String,
+    enum: ['IT', 'EMC', 'ELECTRONICS', 'FOODTECH', 'AUTOMOTIVE'],
+    uppercase: true,
+    trim: true,
+    default: ''
+  },
+  isVerifiedEnrollmentOfficer: {
+    type: Boolean,
+    default: false
   }
 });
 

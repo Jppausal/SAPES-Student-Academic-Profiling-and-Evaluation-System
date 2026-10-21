@@ -47,9 +47,13 @@ const statusLabel = (student: FacultyRosterStudent) => student.isOnProbation
   ? 'Probationary'
   : student.currentStatus.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-export const FacultyAcademicRecordsPage: React.FC = () => {
+interface FacultyAcademicRecordsPageProps {
+  fixedProgram?: string;
+}
+
+export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProps> = ({ fixedProgram }) => {
   const [step, setStep] = useState<'courses' | 'roster' | 'student'>('courses');
-  const [selectedProgram, setSelectedProgram] = useState('');
+  const [selectedProgram, setSelectedProgram] = useState(fixedProgram || '');
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [roster, setRoster] = useState<FacultyRosterStudent[]>([]);
@@ -99,6 +103,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
   ));
 
   const toggleProgram = (program: string) => {
+    if (fixedProgram) return;
     setSelectedProgram((current) => current === program ? '' : program);
     setSelectedYear('');
     setSelectedSection('');
@@ -152,7 +157,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
         </div>
 
         <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {TECHNOLOGY_PROGRAMS.map((program) => {
+          {TECHNOLOGY_PROGRAMS.filter((program) => !fixedProgram || program.value === fixedProgram).map((program) => {
             const details = programDetails[program.value];
             const Icon = details.icon;
             const isSelected = selectedProgram === program.value;

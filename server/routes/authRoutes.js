@@ -97,7 +97,11 @@ const safeUser = (user) => ({
   employeeId: user.employeeId || '',
   department: user.department || '',
   ...(user.role === 'faculty'
-    ? { designation: user.designation || 'Verified enrollment officer' }
+    ? {
+        designation: user.designation || 'Verified enrollment officer',
+        departmentCode: user.departmentCode || '',
+        isVerifiedEnrollmentOfficer: Boolean(user.isVerifiedEnrollmentOfficer)
+      }
     : {}),
   ...((user.studentNumber || user.institutionId)
     ? { studentNumber: user.studentNumber || user.institutionId }
@@ -414,7 +418,7 @@ router.get('/session', authenticateToken, async (req, res) => {
   try {
     const AccountModel = getAccountModel(req.user.role);
     const user = await AccountModel?.findById(req.user.userId)
-      .select('username role firstName lastName email studentNumber institutionId personalInformation employeeId department accountStatus')
+      .select('username role firstName lastName email studentNumber institutionId personalInformation employeeId department departmentCode designation isVerifiedEnrollmentOfficer accountStatus')
       .lean();
     if (!user || user.accountStatus !== 'active') {
       return res.status(401).json({ success: false, message: 'Account no longer exists or is inactive' });

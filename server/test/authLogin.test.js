@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const bcrypt = require('bcryptjs');
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const AdminUser = require('../models/AdminUser');
 const FacultyUser = require('../models/FacultyUser');
@@ -18,6 +19,69 @@ test('faculty accounts default to the verified enrollment officer designation', 
   });
   assert.equal(faculty.role, 'faculty');
   assert.equal(faculty.designation, 'Verified enrollment officer');
+});
+
+test('restored faculty sessions retain enrollment officer department metadata', async (t) => {
+  const originalSecret = process.env.JWT_SECRET;
+  process.env.JWT_SECRET = 'faculty-session-metadata-test-secret';
+  t.after(() => {
+    if (originalSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = originalSecret;
+  });
+
+  const account = {
+    _id: 'faculty-session-account-id',
+    username: '2345678901',
+    role: 'faculty',
+    firstName: 'Kurt',
+    lastName: 'Santos',
+    email: 'santos@faculty.buksu.edu.ph',
+    employeeId: '2345678901',
+    department: 'Information Technology',
+    departmentCode: 'IT',
+    designation: 'IT-Enrollment Officer',
+    isVerifiedEnrollmentOfficer: true,
+    accountStatus: 'active'
+  };
+  const selectedFields = [];
+  t.mock.method(FacultyUser, 'findById', () => ({
+    select(fields) {
+      selectedFields.push(fields);
+      return this;
+    },
+    lean: async () => account
+  }));
+  t.mock.method(SessionToken, 'findOne', () => ({
+    select() { return this; },
+    lean: async () => ({ _id: 'faculty-session-token-id' })
+  }));
+
+  const app = express();
+  app.use('/api/auth', authRoutes);
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const token = jwt.sign({
+    jti: 'faculty-session-jti',
+    userId: account._id,
+    role: 'faculty'
+  }, process.env.JWT_SECRET);
+  const response = await fetch(
+    `http://127.0.0.1:${server.address().port}/api/auth/session`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.user.departmentCode, 'IT');
+  assert.equal(payload.user.designation, 'IT-Enrollment Officer');
+  assert.equal(payload.user.isVerifiedEnrollmentOfficer, true);
+  assert.ok(selectedFields.every((fields) =>
+    fields.includes('departmentCode')
+    && fields.includes('designation')
+    && fields.includes('isVerifiedEnrollmentOfficer')
+  ));
 });
 
 const matchesQuery = (account, query) => {

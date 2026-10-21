@@ -14,6 +14,8 @@ const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConfli
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
 const { getAcademicStatus } = require('../utils/academicStatus');
 const { getAccountModelName } = require('../utils/accountCollections');
+const { DEPARTMENTS, buildStudentDepartmentFilter, getEnrollmentOfficerDepartment } = require('../utils/departmentAccess');
+const { syncDepartmentMetrics } = require('../utils/departmentMetrics');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -28,7 +30,14 @@ router.put('/:institutionId/classification', authenticateToken, authorizeRoles('
   try {
     const profileUpdate = validateAndNormalizeStudentProfile({ classification: req.body?.classification }, { allowClassification: true });
     if (profileUpdate.error) return res.status(400).json({ success: false, message: profileUpdate.error });
-    const student = await Student.findOne({ institutionId: req.params.institutionId });
+    const filter = buildStudentDepartmentFilter(req.user, { institutionId: req.params.institutionId });
+    if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+    const assignedDepartment = getEnrollmentOfficerDepartment(req.user);
+    const targetProgram = profileUpdate.value.classification.program;
+    if (assignedDepartment && targetProgram !== undefined && targetProgram !== assignedDepartment.program) {
+      return res.status(403).json({ success: false, message: 'Enrollment officers may not change a student to another department' });
+    }
+    const student = await Student.findOne(filter);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
     Object.assign(student.classification, profileUpdate.value.classification);
     await student.save();
@@ -41,7 +50,9 @@ router.post('/:institutionId/schedule-conflicts', authenticateToken, authorizeRo
   try {
     const meetings = req.body?.meetings;
     if (!Array.isArray(meetings) || meetings.length < 1 || meetings.some((meeting) => !meeting || !DAYS.includes(meeting.dayOfWeek) || !isTime(meeting.startTime) || !isTime(meeting.endTime) || meeting.startTime >= meeting.endTime)) return res.status(400).json({ success: false, message: 'Provide valid meeting day and time ranges.' });
-    const student = await Student.findOne({ institutionId: req.params.institutionId }, { religiousInformation: 1 }).lean();
+    const filter = buildStudentDepartmentFilter(req.user, { institutionId: req.params.institutionId });
+    if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+    const student = await Student.findOne(filter, { religiousInformation: 1, classification: 1 }).lean();
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
     const activities = student.religiousInformation?.shareSpiritualSchedule ? student.religiousInformation.spiritualActivities || [] : [];
     const conflicts = findScheduleConflicts(activities, meetings);
@@ -105,7 +116,9 @@ router.put(
         });
       }
 
-      const student = await Student.findOne({ institutionId });
+      const filter = buildStudentDepartmentFilter(req.user, { institutionId });
+      if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      const student = await Student.findOne(filter);
 
       if (!student) {
         return res.status(404).json({
@@ -205,10 +218,9 @@ router.put(
         });
       }
 
-      const student = await Student.findOne(
-        { institutionId },
-        { _id: 1 }
-      ).lean();
+      const filter = buildStudentDepartmentFilter(req.user, { institutionId });
+      if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      const student = await Student.findOne(filter, { _id: 1, classification: 1 }).lean();
 
       if (!student) {
         return res.status(404).json({
@@ -247,6 +259,11 @@ router.put(
       }
       evaluation.evaluatedAt = new Date();
       await evaluation.save();
+
+      const department = DEPARTMENTS.find((item) => item.program === student.classification?.program);
+      if (department) {
+        await syncDepartmentMetrics(department);
+      }
 
       await AuditLog.create({
         userId: req.user.userId,
@@ -304,7 +321,11 @@ router.get(
       // Faculty/admin record access is independent of whether the student can
       // currently authenticate. Account status is enforced by authentication,
       // while historical student records remain searchable to authorized staff.
-      const students = await Student.find(buildStudentSearchFilter(query), {
+      const filter = buildStudentDepartmentFilter(req.user, buildStudentSearchFilter(query));
+      if (!filter) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
+      const students = await Student.find(filter, {
         institutionId: 1,
         username: 1,
         'personalInformation.firstName': 1,
@@ -339,13 +360,19 @@ router.get(
   authorizeAnyPermission('view_student_records', 'view_reports'),
   async (req, res) => {
     try {
+      const department = getEnrollmentOfficerDepartment(req.user);
+      if (req.user.isVerifiedEnrollmentOfficer && !department) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
+      const programs = department ? [department.program] : TECHNOLOGY_PROGRAMS;
+      const departmentStudentFilter = {
+        accountStatus: 'active',
+        'classification.program': { $in: programs }
+      };
       const [programCounts, pendingStudents, totalActiveStudents] = await Promise.all([
         Student.aggregate([
           {
-            $match: {
-              accountStatus: 'active',
-              'classification.program': { $in: TECHNOLOGY_PROGRAMS }
-            }
+            $match: departmentStudentFilter
           },
           {
             $group: {
@@ -358,8 +385,7 @@ router.get(
           }
         ]),
         Student.find({
-          accountStatus: 'active',
-          'classification.program': { $in: TECHNOLOGY_PROGRAMS },
+          ...departmentStudentFilter,
           enrollmentStatus: { $in: ['not_enrolled', 'processing'] }
         }, {
           institutionId: 1,
@@ -368,11 +394,13 @@ router.get(
           yearLevel: 1,
           enrollmentStatus: 1
         }).sort({ institutionId: 1 }).lean(),
-        Student.countDocuments({ accountStatus: 'active' })
+        department
+          ? Student.countDocuments(departmentStudentFilter)
+          : Student.countDocuments({ accountStatus: 'active' })
       ]);
 
       const countsByProgram = new Map(programCounts.map(({ _id, enrolledCount }) => [_id, enrolledCount]));
-      const programs = TECHNOLOGY_PROGRAMS.map((program) => ({
+      const programSummaries = programs.map((program) => ({
         program,
         count: countsByProgram.get(program) || 0
       }));
@@ -390,7 +418,7 @@ router.get(
       return res.json({
         success: true,
         data: {
-          programs,
+          programs: programSummaries,
           totalActiveStudents,
           pendingEnrollmentCount: pendingEnrollmentStudents.length,
           pendingEnrollmentStudents,
@@ -527,8 +555,12 @@ router.get(
   async (req, res) => {
     try {
       const { institutionId } = req.params;
+      const studentFilter = buildStudentDepartmentFilter(req.user, { institutionId });
+      if (!studentFilter) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
       const student = await Student.findOne(
-        { institutionId },
+        studentFilter,
         { _id: 1, institutionId: 1 }
       ).lean();
 
@@ -649,8 +681,12 @@ router.get(
   async (req, res) => {
     try {
       const { institutionId } = req.params;
+      const studentFilter = buildStudentDepartmentFilter(req.user, { institutionId });
+      if (!studentFilter) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
       const studentRecord = await Student.findOne(
-        { institutionId },
+        studentFilter,
         {
           _id: 1,
           username: 1,
@@ -742,9 +778,11 @@ router.get(
   try {
     const { institutionId } = req.params;
 
-    const student = await Student.findOne({
-      institutionId
-    }).lean();
+    const filter = buildStudentDepartmentFilter(req.user, { institutionId });
+    if (!filter) {
+      return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+    }
+    const student = await Student.findOne(filter).lean();
 
     if (!student) {
       return res.status(404).json({
