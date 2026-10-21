@@ -567,11 +567,6 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
-            {report.academicRecords.some((term) => term.isDemo) && (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Demo data for testing only. These subjects and grades are fictional, not official academic records.
-              </p>
-            )}
             {report.academicRecords.length === 0 && (
               <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No academic records have been entered.</p>
             )}

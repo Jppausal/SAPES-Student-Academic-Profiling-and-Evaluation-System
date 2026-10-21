@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { AddressSelector } from './AddressSelector';
 import {
   StudentIdentity,
@@ -7,12 +8,16 @@ import {
 } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
+import { calculateStudentProfileCompletion } from '../../utils/studentProfileCompletion';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 interface StudentProfileSetupProps {
   identity: StudentIdentity;
   isOnboarding?: boolean;
   onSaved: (identity: StudentIdentity) => void;
 }
+
+type ProfileSection = 'personal' | 'contact' | 'education' | 'guardian';
 
 const HEALTH_CONDITIONS = ['None', 'Anemia', 'Anxiety', 'Asthma', 'Blood Clots', 'Cerebrovascular Accident', 'Depression', 'Hypertension', 'Thyroid Disease', 'Allergies', 'Arthritis', 'Cancer', 'Diabetes', 'Migraine Headaches', 'Peptic Ulcer Disease', 'Seizure Disorder', 'Other'];
 const RELIGION_OPTIONS = ['Catholic', 'Protestant / Other Christian', 'Iglesia ni Cristo', 'Islam', 'Buddhism', 'Hinduism', 'Judaism', 'Sikhism', 'Traditional / Indigenous beliefs', 'No religious affiliation', 'Prefer not to say'];
@@ -65,6 +70,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const [error, setError] = useState('');
   const [isOtherReligion, setIsOtherReligion] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
+  const [activeSection, setActiveSection] = useState<ProfileSection>('personal');
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const isDirty = JSON.stringify(profile) !== JSON.stringify(savedProfile);
 
@@ -208,23 +214,57 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   const assignedProgram = enrollment.course || identity.classification?.program || '';
   const assignedProgramLabel = TECHNOLOGY_PROGRAMS.find((program) => program.value === assignedProgram)?.label || assignedProgram;
   const institutionalEmail = identity.contactInformation?.institutionalEmail || '';
+  const profileCompletion = calculateStudentProfileCompletion({
+    ...identity,
+    personalInformation: { ...identity.personalInformation, ...profile.personalInformation },
+    contactInformation: { ...identity.contactInformation, ...profile.contactInformation },
+    addresses: { ...identity.addresses, ...profile.addresses },
+    educationalBackground: { ...identity.educationalBackground, ...profile.educationalBackground },
+    healthInformation: { ...identity.healthInformation, ...profile.healthInformation },
+    religiousInformation: { ...identity.religiousInformation, ...profile.religiousInformation },
+  });
+  const profileName = [personal.firstName, personal.middleName, personal.lastName].filter(Boolean).join(' ') || 'Student name';
+  const profileProgram = enrollment.course || identity.classification?.program || 'Program not assigned';
+  const profileYearLevel = enrollment.yearLevel || enrollment.level || 'Year level not assigned';
+  const enrollmentStatus = identity.enrollmentInformation?.enrollmentStatus || 'Profile on file';
   const changedSections = Object.keys(profile).filter((section) =>
     JSON.stringify(profile[section as keyof StudentProfileUpdate])
       !== JSON.stringify(savedProfile[section as keyof StudentProfileUpdate])
   );
   return (
     <div className={`student-profile-layout${isReviewing ? ' student-profile-layout-reviewing' : ''}`}>
-      <nav className="student-profile-index" aria-label="Profile sections">
-        <p>{isReviewing ? 'Review sections' : 'In your profile'}</p>
-        <a href={isReviewing ? '#review-personal' : '#student-personal'}>Personal information</a>
-        <a href={isReviewing ? '#review-classifications' : '#student-classifications'}>Classifications</a>
-        {!isReviewing && <a href="#student-enrollment">Enrollment information</a>}
-        <a href={isReviewing ? '#review-contact' : '#student-contact'}>Contact information</a>
-        <a href={isReviewing ? '#review-education' : '#student-education'}>Education background</a>
-        <a href={isReviewing ? '#review-health' : '#student-health'}>Health accommodations</a>
-        <a href={isReviewing ? '#review-address' : '#student-address'}>Addresses</a>
-        <a href={isReviewing ? '#review-religion' : '#student-religion'}>Religious information</a>
-      </nav>
+      {isReviewing ? (
+        <nav className="student-profile-index student-profile-review-index" aria-label="Profile sections">
+          <p>Review sections</p>
+          <a href="#review-personal">Personal information</a>
+          <a href="#review-classifications">Classifications</a>
+          <a href="#review-contact">Contact information</a>
+          <a href="#review-education">Education background</a>
+          <a href="#review-health">Health accommodations</a>
+          <a href="#review-address">Addresses</a>
+          <a href="#review-religion">Religious information</a>
+        </nav>
+      ) : (
+        <nav className="student-profile-tabs" aria-label="Profile sections">
+          {([
+            ['personal', 'Personal Information'],
+            ['contact', 'Contact Information'],
+            ['education', 'Educational Background'],
+            ['guardian', 'Guardian & Support'],
+          ] as const).map(([section, label]) => (
+            <button
+              key={section}
+              id={`profile-tab-${section}`}
+              type="button"
+              aria-current={activeSection === section ? 'page' : undefined}
+              className={activeSection === section ? 'active' : ''}
+              onClick={() => setActiveSection(section)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {isReviewing ? (
         <div className="student-profile-form">
@@ -357,15 +397,50 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
           </div>
         </div>
       ) : (
-        <form onSubmit={handleReview} className="student-profile-form">
-          <header className="student-profile-heading">
-            <h2>{isOnboarding ? 'Complete your student profile' : 'Personal profile'}</h2>
-            <p>Keep your information up to date for academic evaluation. Fields marked * are required.</p>
-          </header>
+        <div className="student-profile-editor">
+          <aside className="student-profile-summary" aria-label="Student profile summary">
+            <div className="student-profile-summary-main">
+              <StudentProfilePhoto
+                institutionId={identity.institutionId}
+                studentName={profileName}
+                className="student-profile-summary-photo"
+              />
+              <h2>{profileName}</h2>
+              <p className="student-profile-summary-id">{identity.institutionId}</p>
+              <p className="student-profile-summary-program">{profileProgram}</p>
+              <p className="student-profile-summary-year">{profileYearLevel}{enrollment.section ? ` · Section ${enrollment.section}` : ''}</p>
+              <span className="student-profile-summary-status">
+                <CheckCircle2 aria-hidden="true" />
+                {formatStatusLabel(enrollmentStatus)}
+              </span>
+            </div>
+            <div className="student-profile-summary-completion">
+              <div>
+                <span>Profile completion</span>
+                <strong>{profileCompletion}%</strong>
+              </div>
+              <progress value={profileCompletion} max={100} aria-label="Profile completion" />
+            </div>
+          </aside>
+
+          <form
+            id="student-profile-panel"
+            onSubmit={handleReview}
+            className="student-profile-form"
+          >
+            <header className="student-profile-heading">
+              <h2>{activeSection === 'personal' ? 'Personal Information'
+                : activeSection === 'contact' ? 'Contact Information'
+                  : activeSection === 'education' ? 'Educational Background'
+                    : 'Guardian & Support'}</h2>
+              <p>{isOnboarding ? 'Complete your student profile to keep your academic information up to date.' : 'Review and update your profile information.'}</p>
+            </header>
 
           {message && <div role="status" className="flex items-center gap-2 px-4 py-3 text-xs">{message}</div>}
           {error && <div role="alert" className="px-4 py-3 text-xs">{error}</div>}
 
+          {activeSection === 'personal' && (
+            <>
           <section id="student-personal" className="student-form-section" aria-labelledby="student-personal-heading">
             <h3 id="student-personal-heading">Personal Information</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -408,7 +483,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               ))}
             </div>
           </section>
+            </>
+          )}
 
+          {activeSection === 'education' && (
+            <>
           <section id="student-enrollment" className="student-form-section" aria-labelledby="student-enrollment-heading">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <div><h3 id="student-enrollment-heading">Enrollment Information</h3><p className="mt-1 text-xs">Assigned by the registrar or authorized academic staff.</p></div>
@@ -429,7 +508,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
             </dl>
             <p className="mt-3 text-xs text-slate-500">Contact the registrar if any assigned enrollment information is incorrect.</p>
           </section>
+            </>
+          )}
 
+          {activeSection === 'contact' && (
+            <>
           <section id="student-contact" className="student-form-section" aria-labelledby="student-contact-heading">
             <h3 id="student-contact-heading">Contact Information</h3>
             <p className="mt-1 text-xs">Update the contact details the university may use to reach you.</p>
@@ -441,7 +524,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               <label className="text-xs font-semibold">Alternate email <span className="font-normal text-slate-500">(optional)</span><input type="email" autoComplete="email" value={contact.alternateEmail || ''} onChange={(event) => setContext('contactInformation', 'alternateEmail', event.target.value)} placeholder="Personal email address" className="mt-1 w-full px-3 py-2" /></label>
             </div>
           </section>
+            </>
+          )}
 
+          {activeSection === 'education' && (
+            <>
           <section id="student-education" className="student-form-section" aria-labelledby="student-education-heading">
             <h3 id="student-education-heading">Educational Background</h3>
             <p className="mt-1 text-xs">Provide your previous schools for student profiling and record verification.</p>
@@ -450,7 +537,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               <label className="text-xs font-semibold">Previous college or university <span className="font-normal text-slate-500">(if applicable)</span><input value={education.previousSchool || ''} onChange={(event) => setContext('educationalBackground', 'previousSchool', event.target.value)} placeholder="For transferees or students with prior enrollment" className="mt-1 w-full px-3 py-2" /></label>
             </div>
           </section>
+            </>
+          )}
 
+          {activeSection === 'guardian' && (
+            <>
           <section id="student-health" className="student-form-section" aria-labelledby="student-health-heading">
             <h3 id="student-health-heading">Relevant Health Accommodations</h3>
             <p className="mt-1 text-xs">Only accommodation information necessary for academic evaluation may be shared with authorized faculty.</p>
@@ -465,7 +556,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               <div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-semibold">Emergency contact name<input value={health.emergencyContactName || ''} onChange={(event) => setHealth('emergencyContactName', event.target.value)} className="mt-1 w-full px-3 py-2" /></label><label className="block text-xs font-semibold">Emergency contact number<input value={health.emergencyContactNumber || ''} onChange={(event) => setHealth('emergencyContactNumber', event.target.value)} className="mt-1 w-full px-3 py-2" /></label></div>
             </div>
           </section>
+            </>
+          )}
 
+          {activeSection === 'contact' && (
+            <>
           <section id="student-address" className="student-form-section" aria-labelledby="student-address-heading">
             <h3 id="student-address-heading">Address Information</h3>
             <p className="mt-1 text-xs">Choose Philippine locations by region, province, municipality, and barangay. International addresses remain manually editable.</p>
@@ -474,7 +569,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               <AddressSelector title="Home address" address={addresses.homeAddress || {}} onChange={(field, value) => setAddress('homeAddress', field, value)} />
             </div>
           </section>
+            </>
+          )}
 
+          {activeSection === 'guardian' && (
+            <>
           <section id="student-religion" className="student-form-section" aria-labelledby="student-religion-heading">
             <h3 id="student-religion-heading">Religious Information</h3>
             <p className="mt-1 text-xs">This is optional student-provided information. SAPES does not infer religion.</p>
@@ -496,18 +595,21 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
               {profile.religiousInformation?.shareSpiritualSchedule && <div className="mt-3 space-y-2">{(profile.religiousInformation.spiritualActivities || []).map((activity, index) => <div key={index} className="grid gap-2 sm:grid-cols-4"><select aria-label={`Unavailable day ${index + 1}`} value={activity.dayOfWeek} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, dayOfWeek: event.target.value } : item))} className="px-2 py-1.5 text-xs"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select><input aria-label={`Start time ${index + 1}`} type="time" value={activity.startTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, startTime: event.target.value } : item))} className="px-2 py-1.5 text-xs" /><input aria-label={`End time ${index + 1}`} type="time" value={activity.endTime} onChange={(event) => setActivities((profile.religiousInformation?.spiritualActivities || []).map((item, i) => i === index ? { ...item, endTime: event.target.value } : item))} className="px-2 py-1.5 text-xs" /><button type="button" onClick={() => setActivities((profile.religiousInformation?.spiritualActivities || []).filter((_, i) => i !== index))} className="text-xs font-semibold" aria-label={`Remove unavailable time ${index + 1}`}>Remove</button></div>) }<button type="button" onClick={() => setActivities([...(profile.religiousInformation?.spiritualActivities || []), { dayOfWeek: 'Thursday', startTime: '18:00', endTime: '20:00' }])} className="text-xs font-bold">+ Add unavailable time</button></div>}
             </div>
           </section>
+            </>
+          )}
 
-          <section className="student-readonly-note">
+          {activeSection === 'education' && <section className="student-readonly-note">
             <h3>System-controlled academic information</h3>
             <p className="mt-1">Academic status, grades, GWA, academic records, faculty evaluations, and status history are read-only and cannot be changed here.</p>
-          </section>
+          </section>}
 
           <div className="student-save-row">
             <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white">
-              {isDirty ? 'Confirm changes?' : 'Review'}
+              {isDirty ? 'Review & Save' : 'Review Profile'}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       )}
       {isReviewing && (
         <div className="student-review-overlay">
