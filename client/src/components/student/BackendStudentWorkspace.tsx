@@ -7,8 +7,13 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  EyeOff,
   FileText,
 } from 'lucide-react';
+import {
+  formatPortalDate,
+  useStudentPreferences,
+} from '../../hooks/useStudentPreferences';
 import { AcademicSubject, StudentIdentity, StudentReport } from '../../lib/api';
 import { formatAcademicGwa, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 
@@ -78,18 +83,48 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
   const evaluation = report.facultyEvaluation;
   const evaluationDate = evaluation?.evaluatedAt ? new Date(evaluation.evaluatedAt) : null;
   const reasons = Array.isArray(evaluation?.reasons) ? evaluation.reasons.filter((reason) => typeof reason === 'string' && reason.trim()) : [];
+  const { compactGrades, gwaPrivacyShield, dateFormat, setCompactGrades, setGwaPrivacyShield } = useStudentPreferences();
 
   return (
-    <div className="student-record-workspace">
+    <div className={`student-record-workspace ${compactGrades ? 'is-compact' : ''} ${gwaPrivacyShield ? 'is-gwa-shielded' : ''}`}>
       <section className="student-transcript" aria-labelledby="student-record-heading">
         <div className="student-section-heading">
-          <div className="student-heading-icon-tile">
-            <BookOpen className="student-tile-icon" />
+          <div className="student-heading-title-group">
+            <div className="student-heading-icon-tile">
+              <BookOpen className="student-tile-icon" />
+            </div>
+            <div>
+              <h2 id="student-record-heading">Academic records</h2>
+              <p>Review your subjects and grades by academic period.</p>
+            </div>
           </div>
-          <div>
-            <h2 id="student-record-heading">Academic records</h2>
-            <p>Review your subjects and grades by academic period.</p>
-          </div>
+          {(compactGrades || gwaPrivacyShield) && (
+            <div className="student-active-pref-badges">
+              {compactGrades && (
+                <button
+                  type="button"
+                  onClick={() => setCompactGrades(false)}
+                  className="student-pref-tag student-pref-tag-brand"
+                  title="Compact View is active. Click to switch to standard spacing."
+                >
+                  <span>Compact Mode</span>
+                  <span className="student-tag-close">×</span>
+                </button>
+              )}
+              {gwaPrivacyShield && (
+                <button
+                  type="button"
+                  onClick={() => setGwaPrivacyShield(false)}
+                  className="student-pref-tag student-pref-tag-amber"
+                  title="GWA Privacy Shield is active. Hover over GWA or grades to view. Click to disable shield."
+                >
+                  <EyeOff className="w-3.5 h-3.5" />
+                  <span>GWA Shielded</span>
+                  <span className="student-tag-close">×</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {(invalidRecordCount > 0 || !Array.isArray(report.academicRecords)) && (
@@ -152,17 +187,27 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
                     <p>{selectedSubjects.length} {selectedSubjects.length === 1 ? 'subject' : 'subjects'} recorded</p>
                   </div>
                   <div className="student-gwa-metrics">
-                    <div className="student-gwa-panel">
+                    <div
+                      className={`student-gwa-panel ${gwaPrivacyShield ? 'gwa-privacy-shield is-active' : ''}`}
+                      tabIndex={gwaPrivacyShield ? 0 : undefined}
+                      title={gwaPrivacyShield ? 'GWA Privacy Shield: Hover or focus to reveal' : undefined}
+                    >
                       <div className="student-gwa-label-group">
                         <BarChart3 className="student-gwa-icon" />
                         <span>Overall GWA</span>
+                        {gwaPrivacyShield && <span className="student-shield-badge">Shielded</span>}
                       </div>
                       <div className="student-gwa-value">{formatAcademicGwa(periodGwas.overallGwa)}</div>
                     </div>
-                    <div className="student-gwa-panel">
+                    <div
+                      className={`student-gwa-panel ${gwaPrivacyShield ? 'gwa-privacy-shield is-active' : ''}`}
+                      tabIndex={gwaPrivacyShield ? 0 : undefined}
+                      title={gwaPrivacyShield ? 'GWA Privacy Shield: Hover or focus to reveal' : undefined}
+                    >
                       <div className="student-gwa-label-group">
                         <BookOpen className="student-gwa-icon" />
                         <span>Major GWA</span>
+                        {gwaPrivacyShield && <span className="student-shield-badge">Shielded</span>}
                       </div>
                       <div className="student-gwa-value">{formatAcademicGwa(periodGwas.majorSubjectGwa)}</div>
                     </div>
@@ -210,7 +255,13 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
                                 <span className={`student-type-pill ${badgeClass}`}>{typeLabel}</span>
                               </td>
                               <td className="student-col-center">
-                                <span className="student-grade-pill">{subject.grade.toFixed(2)}</span>
+                                <span
+                                  className={`student-grade-pill ${gwaPrivacyShield ? 'student-grade-shielded' : ''}`}
+                                  tabIndex={gwaPrivacyShield ? 0 : undefined}
+                                  title={gwaPrivacyShield ? 'Grade Shielded: Hover to reveal' : undefined}
+                                >
+                                  {subject.grade.toFixed(2)}
+                                </span>
                               </td>
                               <td>
                                 <RecordedStatus value={subject.status} />
@@ -255,7 +306,7 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
               <p className="student-standing-remarks">{identity.academicStatus.statusRemarks}</p>
             )}
             {identity.academicStatus?.effectiveDate && !Number.isNaN(Date.parse(identity.academicStatus.effectiveDate)) && (
-              <p className="student-standing-remarks">Effective: {new Date(identity.academicStatus.effectiveDate).toLocaleDateString()}</p>
+              <p className="student-standing-remarks">Effective: {formatPortalDate(identity.academicStatus.effectiveDate, dateFormat)}</p>
             )}
             {identity.academicStatus?.isOnProbation && (
               <div className="student-probation">
@@ -285,7 +336,7 @@ export const BackendStudentWorkspace: React.FC<BackendStudentWorkspaceProps> = (
                 </div>
                 {evaluationDate && !Number.isNaN(evaluationDate.getTime()) && (
                   <p className="student-muted student-eval-date">
-                    Evaluated {evaluationDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    Evaluated {formatPortalDate(evaluationDate, dateFormat)}
                   </p>
                 )}
                 {reasons.length > 0 && (

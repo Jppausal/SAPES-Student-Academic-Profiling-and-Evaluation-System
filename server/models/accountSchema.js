@@ -54,7 +54,11 @@ module.exports = new mongoose.Schema(
     passwordResetExpiresAt: { type: Date, select: false },
     passwordResetAttempts: { type: Number, default: 0, select: false },
     passwordResetRequestedAt: { type: Date, select: false },
-    notificationPreferences: { profileAndAcademicUpdates: { type: Boolean, default: true } }
+    notificationPreferences: {
+      profileAndAcademicUpdates: { type: Boolean, default: true },
+      emailAlerts: { type: Boolean, default: true },
+      securityAlerts: { type: Boolean, default: true }
+    }
   },
   { timestamps: true }
 );

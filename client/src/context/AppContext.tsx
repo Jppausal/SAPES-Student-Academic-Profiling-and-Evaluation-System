@@ -45,7 +45,7 @@ interface AppContextType {
   academicRecords: AcademicRecord[];
   evaluations: FacultyEvaluation[];
   auditLogs: SystemAuditLog[];
-  login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  login: (username: string, password: string, recaptchaToken?: string) => Promise<{ success: boolean; message?: string }>;
   loginWithGoogle: (credential: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   switchUser: (userId: string) => void;
@@ -181,7 +181,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const loadAdminData = async () => {
-    const [apiUsers, apiLogs] = await Promise.all([fetchUsers(), fetchAuditLogs()]);
+    const [apiUsers, auditLogsResult] = await Promise.all([fetchUsers(), fetchAuditLogs()]);
+    const apiLogs = auditLogsResult.auditLogs;
     setUsers((currentUsers) => {
       const localById = new Map(currentUsers.map((item) => [item.id, item]));
       return apiUsers.map((item) => {
@@ -213,6 +214,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         case 'UPDATE_FACULTY_EVALUATION':
           return 'FACULTY_EVALUATION';
         case 'ROLE_PERMISSIONS_UPDATED':
+        case 'SYSTEM_SETTINGS_UPDATED':
         case 'USER_CREATED':
         case 'USER_UPDATED':
         case 'USER_STATUS_UPDATED':
@@ -299,9 +301,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMockAuditLogs((prev) => [newLog, ...prev]);
   };
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string, recaptchaToken?: string) => {
     try {
-      const response = await loginRequest(username, password);
+      const response = await loginRequest(username, password, recaptchaToken);
       return await completeLogin(response);
     } catch (error) {
       if (localStorage.getItem('sapes_jwt')) {

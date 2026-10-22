@@ -172,7 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
                     <p className="font-bold text-slate-800">{currentUser.fullName}</p>
                     <p className="truncate text-slate-500">{currentUser.username}</p>
                   </div>
-                  <button onClick={() => { setShowSettings(true); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 font-medium text-slate-700 hover:bg-slate-100"><Settings className="h-3.5 w-3.5" /> Settings</button>
+                  <button onClick={() => { setShowSettings(true); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 font-medium text-slate-700 hover:bg-slate-100"><Settings className="h-3.5 w-3.5" /> My account</button>
                   <button
                     onClick={() => { setShowLogoutConfirm(true); setIsUserMenuOpen(false); }}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 font-medium text-rose-600 hover:bg-rose-50"
@@ -306,7 +306,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
       >
         <p className="text-sm leading-6 text-slate-600">Are you sure you want to log out?</p>
       </Modal>
-      {showSettings && currentUser && <UserSettingsModal username={currentUser.username} role={currentUser.role} onClose={() => setShowSettings(false)} />}
+      {showSettings && currentUser && (
+        <UserSettingsModal
+          username={currentUser.username || currentUser.studentNumber || currentUser.email || ''}
+          role={currentUser.role}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </header>
   );
 };

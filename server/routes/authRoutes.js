@@ -10,7 +10,8 @@ const { sendPasswordResetCode } = require('../utils/email');
 const {
   findAccountByGoogleId,
   findAccountByIdentifier,
-  getAccountModel
+  getAccountModel,
+  getAccountModelName
 } = require('../utils/accountCollections');
 
 const router = express.Router();
@@ -183,6 +184,81 @@ router.post('/logout', authenticateToken, async (req, res) => {
   }
 });
 
+router.post('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters long.'
+      });
+    }
+
+    const AccountModel = getAccountModel(req.user.role);
+    if (!AccountModel) {
+      return res.status(400).json({ success: false, message: 'Invalid user account role.' });
+    }
+
+    const account = await AccountModel.findById(req.user.userId).select('+passwordHash');
+    if (!account || account.accountStatus !== 'active') {
+      return res.status(401).json({ success: false, message: 'Account no longer exists or is inactive.' });
+    }
+
+    // Verify current password if account has an existing password
+    if (account.passwordHash) {
+      if (typeof currentPassword !== 'string' || !currentPassword) {
+        return res.status(400).json({ success: false, message: 'Current password is required.' });
+      }
+
+      let passwordValid = false;
+      try {
+        passwordValid = await bcrypt.compare(currentPassword, account.passwordHash);
+      } catch {
+        passwordValid = false;
+      }
+
+      if (!passwordValid && account.passwordHash === currentPassword) {
+        passwordValid = true;
+      }
+
+      if (!passwordValid) {
+        return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+      }
+
+      if (currentPassword === newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be different from your current password.'
+        });
+      }
+    }
+
+    account.passwordHash = await bcrypt.hash(newPassword, 12);
+    account.passwordResetCodeHash = undefined;
+    account.passwordResetExpiresAt = undefined;
+    account.passwordResetAttempts = 0;
+    await account.save();
+
+    await require('../models/AuditLog').create({
+      userId: account._id,
+      userRole: req.user.role,
+      userModel: getAccountModelName(req.user.role),
+      action: 'PASSWORD_CHANGED',
+      targetType: 'account',
+      targetId: account._id,
+      details: { reason: 'User initiated in-session password change' }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Your password has been changed successfully.'
+    });
+  } catch (error) {
+    console.error('In-session password change error:', error);
+    return res.status(500).json({ success: false, message: 'Unable to update password. Please try again.' });
+  }
+});
+
 router.get('/settings', authenticateToken, async (req, res) => {
   try {
     const AccountModel = getAccountModel(req.user.role);
@@ -191,7 +267,11 @@ router.get('/settings', authenticateToken, async (req, res) => {
     return res.json({
       success: true,
       data: {
-        notificationPreferences: user?.notificationPreferences || { profileAndAcademicUpdates: true }
+        notificationPreferences: {
+          profileAndAcademicUpdates: user?.notificationPreferences?.profileAndAcademicUpdates ?? true,
+          emailAlerts: user?.notificationPreferences?.emailAlerts ?? true,
+          securityAlerts: user?.notificationPreferences?.securityAlerts ?? true
+        }
       }
     });
   } catch (error) {
@@ -202,20 +282,44 @@ router.get('/settings', authenticateToken, async (req, res) => {
 
 router.put('/settings', authenticateToken, async (req, res) => {
   try {
-    const value = req.body?.notificationPreferences?.profileAndAcademicUpdates;
-    if (typeof value !== 'boolean') {
-      return res.status(400).json({ success: false, message: 'Notification preference must be a boolean' });
-    }
     const AccountModel = getAccountModel(req.user.role);
     if (!AccountModel) return res.status(403).json({ success: false, message: 'Unsupported account role' });
-    await AccountModel.findByIdAndUpdate(
+
+    const incoming = req.body?.notificationPreferences;
+    if (!incoming || typeof incoming !== 'object') {
+      return res.status(400).json({ success: false, message: 'Notification preferences must be an object' });
+    }
+
+    const updates = {};
+    if (typeof incoming.profileAndAcademicUpdates === 'boolean') {
+      updates['notificationPreferences.profileAndAcademicUpdates'] = incoming.profileAndAcademicUpdates;
+    }
+    if (typeof incoming.emailAlerts === 'boolean') {
+      updates['notificationPreferences.emailAlerts'] = incoming.emailAlerts;
+    }
+    if (typeof incoming.securityAlerts === 'boolean') {
+      updates['notificationPreferences.securityAlerts'] = incoming.securityAlerts;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one notification preference boolean must be provided' });
+    }
+
+    const updated = await AccountModel.findByIdAndUpdate(
       req.user.userId,
-      { 'notificationPreferences.profileAndAcademicUpdates': value },
-      { runValidators: true }
-    );
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('notificationPreferences').lean();
+
     return res.json({
       success: true,
-      data: { notificationPreferences: { profileAndAcademicUpdates: value } }
+      data: {
+        notificationPreferences: {
+          profileAndAcademicUpdates: updated?.notificationPreferences?.profileAndAcademicUpdates ?? true,
+          emailAlerts: updated?.notificationPreferences?.emailAlerts ?? true,
+          securityAlerts: updated?.notificationPreferences?.securityAlerts ?? true
+        }
+      }
     });
   } catch (error) {
     console.error('User settings update failed:', error);
@@ -226,6 +330,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
 router.post('/password-reset/request', async (req, res) => {
   const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
+    await require('../utils/systemSettings').requireIntegration('smtp');
     const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
     if (!username) return res.status(400).json({ success: false, message: 'Username or institution ID is required' });
     const { account } = await findAccountByIdentifier(
@@ -432,6 +537,7 @@ router.get('/session', authenticateToken, async (req, res) => {
 
 router.post('/google', async (req, res) => {
   try {
+    await require('../utils/systemSettings').requireIntegration('googleAuth');
     const { credential } = req.body || {};
     if (typeof credential !== 'string' || !credential) {
       return res.status(400).json({ success: false, message: 'Google credential is required' });
@@ -575,7 +681,7 @@ router.post('/google', async (req, res) => {
     });
   } catch (error) {
     console.error('Google login error:', error);
-    return res.status(500).json({ success: false, message: 'Google login failed' });
+    return res.status(error.status === 503 ? 503 : 500).json({ success: false, message: error.status === 503 ? error.message : 'Google login failed' });
   }
 });
 

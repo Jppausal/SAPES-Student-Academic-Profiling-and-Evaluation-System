@@ -1,9 +1,11 @@
+import { useRecaptcha } from '../../hooks/useRecaptcha';
+import { fetchIntegrationSettings } from '../../lib/api';
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { AuthLayout } from './AuthLayout';
 
 type LoginPageProps = {
-  onLogin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  onLogin: (username: string, password: string, recaptchaToken?: string) => Promise<{ success: boolean; message?: string }>;
   onGoogleLogin: (credential: string) => Promise<{ success: boolean; message?: string }>;
   onBack?: () => void;
   onForgotPassword?: () => void;
@@ -11,20 +13,23 @@ type LoginPageProps = {
 
 export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPassword }: LoginPageProps) {
   const [error, setError] = React.useState('');
+  const captcha = useRecaptcha();
   const [loginIdentifier, setLoginIdentifier] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = React.useState(true);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
-  const googleClientIdPresent = Boolean(googleClientId);
+  const [googleEnabled, setGoogleEnabled] = React.useState(false);
+  React.useEffect(() => { fetchIntegrationSettings().then(settings => setGoogleEnabled(settings.integrations.googleAuth.enabled && settings.integrations.googleAuth.configured)).catch(() => setGoogleEnabled(false)); }, []);
+  const googleClientIdPresent = Boolean(googleClientId) && googleEnabled;
   const isInstitutionalEmail = ['@student.buksu.edu.ph', '@faculty.buksu.edu.ph']
     .some((domain) => loginIdentifier.trim().toLowerCase().endsWith(domain));
   const shouldWarnAboutEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginIdentifier.trim())
     && !isInstitutionalEmail;
 
   React.useEffect(() => {
-    const clientId = googleClientId;
+    const clientId = googleEnabled ? googleClientId : undefined;
     if (!clientId) {
       setGoogleLoading(false);
       return;
@@ -71,7 +76,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
     return () => {
       script.onload = null;
     };
-  }, [googleClientId, onGoogleLogin]);
+  }, [googleClientId, googleEnabled, onGoogleLogin]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -81,10 +86,11 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
     const loginIdentifier = String(form.get('username') || '').trim();
     const result = await onLogin(
       loginIdentifier,
-      String(form.get('password') || '')
+      String(form.get('password') || ''), captcha.token
     );
     setIsSubmitting(false);
     if (!result.success) {
+      captcha.reset();
       setError(result.message || 'Unable to sign in.');
     }
   };
@@ -151,6 +157,8 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
           </button>
         </div>
 
+        {captcha.view}
+
         {error && (
           <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {error}
@@ -159,7 +167,8 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
 
         <button
           type="submit"
-          className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-200"
+          disabled={isSubmitting || !captcha.ready}
+          className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Signing in…' : 'Login'}
         </button>

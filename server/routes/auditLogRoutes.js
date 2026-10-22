@@ -36,6 +36,30 @@ const sanitizeDetails = (value) => {
   return value;
 };
 
+const CATEGORY_ACTIONS = {
+  USER_MANAGEMENT: [
+    'ROLE_PERMISSIONS_UPDATED',
+    'SYSTEM_SETTINGS_UPDATED',
+    'USER_CREATED',
+    'USER_UPDATED',
+    'USER_STATUS_UPDATED',
+    'ACCOUNT_STATUS_UPDATED'
+  ],
+  ACADEMIC_RECORD: [
+    'UPDATE_STUDENT_STATUS',
+    'ACADEMIC_RECORD_SAVED'
+  ],
+  FACULTY_EVALUATION: [
+    'COURSE_EVALUATION_UPDATED',
+    'UPDATE_FACULTY_EVALUATION'
+  ],
+  PROFILE_UPDATE: [
+    'UPDATE_STUDENT_CLASSIFICATION',
+    'UPDATE_STUDENT_PROFILE',
+    'STUDENT_PROFILE_UPDATED'
+  ]
+};
+
 router.get(
   '/',
   authenticateToken,
@@ -47,6 +71,8 @@ router.get(
         action,
         targetType,
         userId,
+        category,
+        search,
         page: pageParam = '1',
         limit: limitParam = '20'
       } = req.query;
@@ -99,13 +125,37 @@ router.get(
         filter.userId = userId;
       }
 
+      if (category !== undefined && typeof category === 'string' && category.trim()) {
+        const catKey = category.trim().toUpperCase();
+        if (catKey !== 'ALL') {
+          if (CATEGORY_ACTIONS[catKey]) {
+            filter.action = { $in: CATEGORY_ACTIONS[catKey] };
+          } else if (catKey === 'SYSTEM') {
+            const knownActions = Object.values(CATEGORY_ACTIONS).flat();
+            filter.action = { $nin: knownActions };
+          }
+        }
+      }
+
+      if (search !== undefined && typeof search === 'string' && search.trim()) {
+        const safeSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(safeSearch, 'i');
+        filter.$or = [
+          { action: searchRegex },
+          { targetType: searchRegex },
+          { userRole: searchRegex }
+        ];
+      }
+
       const [total, auditLogs] = await Promise.all([
         AuditLog.countDocuments(filter),
         AuditLog.find(
           filter,
           {
-            _id: 0,
+            _id: 1,
             userId: 1,
+            userRole: 1,
+            userModel: 1,
             action: 1,
             targetType: 1,
             targetId: 1,

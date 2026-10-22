@@ -1,4 +1,4 @@
-﻿const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 export type ServerStatus = 'checking' | 'online' | 'offline';
 
@@ -35,12 +35,15 @@ export interface SessionUser {
 }
 
 export interface ApiAuditLog {
+  _id?: string;
   userId: { username: string; role: 'student' | 'faculty' | 'admin' } | null;
+  userRole?: string;
+  userModel?: string;
   action: string;
   targetType: string;
   targetId: string | null;
   timestamp: string;
-  details: Record<string, unknown>;
+  details: Record<string, unknown> | unknown;
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -61,14 +64,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return payload;
 }
 
-export async function loginRequest(username: string, password: string) {
+export async function loginRequest(username: string, password: string, recaptchaToken?: string) {
   return request<{
     success: true;
     token: string;
     user: SessionUser;
   }>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, recaptchaToken }),
   });
 }
 
@@ -89,13 +92,38 @@ export async function logoutRequest() {
   });
 }
 
-export async function requestPasswordReset(username: string) {
+export async function requestPasswordReset(username: string, recaptchaToken?: string) {
   return request<{ success: true; message: string }>('/api/auth/password-reset/request', {
-    method: 'POST', body: JSON.stringify({ username })
+    method: 'POST', body: JSON.stringify({ username, recaptchaToken })
   });
 }
-export async function fetchUserSettings() { const response = await request<{ success: true; data: { notificationPreferences: { profileAndAcademicUpdates: boolean } } }>('/api/auth/settings'); return response.data; }
-export async function saveUserSettings(profileAndAcademicUpdates: boolean) { return request('/api/auth/settings', { method: 'PUT', body: JSON.stringify({ notificationPreferences: { profileAndAcademicUpdates } }) }); }
+export interface UserNotificationPreferences {
+  profileAndAcademicUpdates: boolean;
+  emailAlerts?: boolean;
+  securityAlerts?: boolean;
+}
+
+export async function fetchUserSettings() {
+  const response = await request<{ success: true; data: { notificationPreferences: UserNotificationPreferences } }>('/api/auth/settings');
+  return response.data;
+}
+
+export async function saveUserSettings(preferences: UserNotificationPreferences | boolean) {
+  const notificationPreferences = typeof preferences === 'boolean'
+    ? { profileAndAcademicUpdates: preferences }
+    : preferences;
+  return request<{ success: true; data: { notificationPreferences: UserNotificationPreferences } }>('/api/auth/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ notificationPreferences })
+  });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  return request<{ success: boolean; message: string }>('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+}
 
 export async function verifyPasswordReset(username: string, code: string) { return request<{ success: true; resetAuthorization: string }>('/api/auth/password-reset/verify', { method: 'POST', body: JSON.stringify({ username, code }) }); }
 export async function confirmPasswordReset(resetAuthorization: string, newPassword: string) {
@@ -162,12 +190,39 @@ export async function updateUser(userId: string, role: ApiUser['role'], payload:
   return response.data.user;
 }
 
-export async function fetchAuditLogs() {
+export interface AuditLogsResponse {
+  auditLogs: ApiAuditLog[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export async function fetchAuditLogs(params?: {
+  page?: number;
+  limit?: number;
+  action?: string;
+  targetType?: string;
+  category?: string;
+  search?: string;
+}) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.action) query.set('action', params.action);
+  if (params?.targetType) query.set('targetType', params.targetType);
+  if (params?.category && params.category !== 'ALL') query.set('category', params.category);
+  if (params?.search) query.set('search', params.search);
+
+  const queryStr = query.toString();
+  const url = '/api/audit-logs' + (queryStr ? '?' + queryStr : '');
   const response = await request<{
     success: true;
-    data: { auditLogs: ApiAuditLog[] };
-  }>('/api/audit-logs?limit=20');
-  return response.data.auditLogs;
+    data: AuditLogsResponse;
+  }>(url);
+  return response.data;
 }
 
 export interface RolePermissionConfig {
@@ -318,6 +373,7 @@ export interface StudentReport {
     reasons: string[];
     remarks?: string;
     evaluatedAt?: string;
+    faculty?: { username?: string; role?: string } | null;
     facultyId?: { username?: string; role?: string } | string | null;
   } | null;
   statusHistory: Array<{
@@ -635,7 +691,10 @@ export interface InstitutionalStudentSummary {
   } | null;
   facultyEvaluation: {
     evaluationStatus: string;
+    reasons?: string[];
+    remarks?: string;
     evaluatedAt?: string;
+    faculty?: { username?: string; role?: string } | null;
   } | null;
 }
 
@@ -813,4 +872,15 @@ export async function checkServerHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp';
+export interface IntegrationSettings { integrations: Record<IntegrationName, { enabled: boolean; configured: boolean; available: boolean; siteKey?: string }> }
+export async function fetchIntegrationSettings(admin = false): Promise<IntegrationSettings> {
+  const response = await request<{success: true; data: IntegrationSettings}>(admin ? '/api/settings' : '/api/settings/public');
+  return response.data;
+}
+export async function saveIntegrationSettings(integrations: Partial<Record<IntegrationName, {enabled: boolean}>>): Promise<IntegrationSettings> {
+  const response = await request<{success: true; data: IntegrationSettings}>('/api/settings', { method: 'PUT', body: JSON.stringify({integrations}) });
+  return response.data;
 }

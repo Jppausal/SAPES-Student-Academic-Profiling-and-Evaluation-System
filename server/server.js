@@ -26,6 +26,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/settings', require('./routes/settingsRoutes'));
 app.use('/api/students', studentRoutes);
 app.use('/api/faculty-evaluations', facultyEvaluationRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
