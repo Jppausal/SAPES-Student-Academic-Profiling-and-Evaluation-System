@@ -6,6 +6,7 @@ const { OAuth2Client } = require('google-auth-library');
 const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
+const verifyHuman = require('../middleware/recaptcha');
 const { sendPasswordResetCode } = require('../utils/email');
 const {
   findAccountByGoogleId,
@@ -109,7 +110,7 @@ const safeUser = (user) => ({
     : {})
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', verifyHuman, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || !password) {
@@ -327,7 +328,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/password-reset/request', async (req, res) => {
+router.post('/password-reset/request', verifyHuman, async (req, res) => {
   const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
     await require('../utils/systemSettings').requireIntegration('smtp');
