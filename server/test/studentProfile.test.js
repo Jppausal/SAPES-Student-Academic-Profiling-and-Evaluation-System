@@ -198,3 +198,42 @@ test('T108: permits updating personal, contact, religion, and shifter/transferee
   assert.ok(validateAndNormalizeStudentProfile({ contactInformation: { institutionalEmail: 'tampered@student.buksu.edu.ph' } }).error);
   assert.ok(validateAndNormalizeStudentProfile({ enrollmentInformation: { course: 'BSIT' } }).error);
 });
+
+test('validates physical activity clearance, assistance needs, and medical certificate', () => {
+  const valid = validateAndNormalizeStudentProfile({
+    healthInformation: {
+      hasRelevantHealthConcern: true,
+      conditions: ['Asthma'],
+      physicalActivityClearance: 'restricted',
+      accommodationRequired: true,
+      assistanceNeeds: ['Frequent Rest / Medical Breaks', 'Other'],
+      otherAssistanceDetails: 'Needs quick access to inhaler',
+      medicalCertificate: {
+        fileName: 'med_cert.pdf',
+        fileData: 'data:application/pdf;base64,JVBERi0xLjQK...',
+        fileType: 'application/pdf',
+        fileSize: 102400
+      }
+    }
+  });
+
+  assert.equal(valid.error, undefined);
+  assert.equal(valid.value.healthInformation.physicalActivityClearance, 'restricted');
+  assert.deepEqual(valid.value.healthInformation.assistanceNeeds, ['Frequent Rest / Medical Breaks', 'Other']);
+  assert.equal(valid.value.healthInformation.otherAssistanceDetails, 'Needs quick access to inhaler');
+  assert.equal(valid.value.healthInformation.medicalCertificate.fileName, 'med_cert.pdf');
+
+  const invalidClearance = validateAndNormalizeStudentProfile({
+    healthInformation: {
+      physicalActivityClearance: 'invalid_option'
+    }
+  });
+  assert.equal(invalidClearance.error, 'healthInformation.physicalActivityClearance contains an unsupported clearance option');
+
+  const invalidAssistance = validateAndNormalizeStudentProfile({
+    healthInformation: {
+      assistanceNeeds: ['Unrecognized Assistance Type']
+    }
+  });
+  assert.equal(invalidAssistance.error, 'healthInformation.assistanceNeeds contains an unsupported assistance option');
+});

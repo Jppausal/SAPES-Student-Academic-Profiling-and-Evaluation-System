@@ -97,6 +97,13 @@ router.put(
         return res.status(400).json({ success: false, message: 'First name and last name are required' });
       }
 
+      student.firstName = firstName;
+      student.lastName = lastName;
+      if (typeof student.markModified === 'function') {
+        student.markModified('firstName');
+        student.markModified('lastName');
+      }
+
       await student.save();
       await require('../models/AuditLog').create({
         userId: req.user.userId,

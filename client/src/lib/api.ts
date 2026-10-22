@@ -346,6 +346,10 @@ export interface StudentReport {
       conditionDescription?: string;
       accommodationRequired?: boolean;
       accommodationNotes?: string;
+      physicalActivityClearance?: 'can_attend_all' | 'restricted' | 'cannot_attend' | 'none' | string;
+      assistanceNeeds?: string[];
+      otherAssistanceDetails?: string;
+      medicalCertificate?: MedicalCertificateAttachment | null;
       emergencyContactName?: string;
       emergencyContactNumber?: string;
       lastUpdated?: string;
@@ -562,6 +566,10 @@ export interface FacultyStudentWorkspace {
       conditionDescription?: string;
       accommodationRequired?: boolean;
       accommodationNotes?: string;
+      physicalActivityClearance?: 'can_attend_all' | 'restricted' | 'cannot_attend' | 'none' | string;
+      assistanceNeeds?: string[];
+      otherAssistanceDetails?: string;
+      medicalCertificate?: MedicalCertificateAttachment | null;
       emergencyContactName?: string;
       emergencyContactNumber?: string;
       lastUpdated?: string | null;
@@ -695,6 +703,14 @@ export async function saveAcademicRecord(
   return response.data;
 }
 
+export interface MedicalCertificateAttachment {
+  fileName: string;
+  fileData: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt?: string;
+}
+
 export interface StudentIdentity {
   institutionId: string;
   personalInformation?: {
@@ -719,7 +735,7 @@ export interface StudentIdentity {
   contactInformation?: Record<string, string>;
   addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
   educationalBackground?: Record<string, string>;
-  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; physicalActivityClearance?: 'can_attend_all' | 'restricted' | 'cannot_attend' | 'none' | string; assistanceNeeds?: string[]; otherAssistanceDetails?: string; medicalCertificate?: MedicalCertificateAttachment | null; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
     program?: string;
     studentType?: string;
@@ -767,7 +783,7 @@ export type StudentProfileUpdate = {
   contactInformation?: Record<string, string>;
   addresses?: { presentAddress?: Record<string, string>; homeAddress?: Record<string, string> };
   educationalBackground?: Record<string, string>;
-  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
+  healthInformation?: { hasRelevantHealthConcern?: boolean; conditions?: string[]; otherCondition?: string; allergyDetails?: string; conditionDescription?: string; accommodationRequired?: boolean; accommodationNotes?: string; physicalActivityClearance?: 'can_attend_all' | 'restricted' | 'cannot_attend' | 'none' | string; assistanceNeeds?: string[]; otherAssistanceDetails?: string; medicalCertificate?: MedicalCertificateAttachment | null; emergencyContactName?: string; emergencyContactNumber?: string; lastUpdated?: string };
   classification?: {
     program?: string;
     studentType?: string;

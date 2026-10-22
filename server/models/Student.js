@@ -24,6 +24,18 @@ const studentSchema = new mongoose.Schema(
       default: ''
     },
 
+    firstName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
+    lastName: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+
     passwordHash: {
       type: String,
       trim: true,
@@ -191,6 +203,20 @@ const studentSchema = new mongoose.Schema(
       conditionDescription: String,
       accommodationRequired: { type: Boolean, default: false },
       accommodationNotes: String,
+      physicalActivityClearance: {
+        type: String,
+        enum: ['can_attend_all', 'restricted', 'cannot_attend', 'none', ''],
+        default: 'none'
+      },
+      assistanceNeeds: { type: [String], default: [] },
+      otherAssistanceDetails: String,
+      medicalCertificate: {
+        fileName: String,
+        fileData: String,
+        fileType: String,
+        fileSize: Number,
+        uploadedAt: { type: Date, default: Date.now }
+      },
       emergencyContactName: String,
       emergencyContactNumber: String,
       lastUpdated: Date
@@ -216,5 +242,15 @@ const studentSchema = new mongoose.Schema(
   collection: 'student users'
 }
 );
+
+studentSchema.pre('save', function (next) {
+  if (this.personalInformation?.firstName) {
+    this.firstName = this.personalInformation.firstName.trim();
+  }
+  if (this.personalInformation?.lastName) {
+    this.lastName = this.personalInformation.lastName.trim();
+  }
+  next();
+});
 
 module.exports = mongoose.model('Student', studentSchema);

@@ -71,7 +71,7 @@ export const AdminStudentProfileSetup: React.FC<AdminStudentProfileSetupProps> =
     setProfile((current) => ({ ...current, enrollmentInformation: { ...current.enrollmentInformation, [field]: value } }));
   };
 
-  const setHealth = (field: keyof NonNullable<StudentProfileUpdate['healthInformation']>, value: string | boolean | string[]) => {
+  const setHealth = (field: keyof NonNullable<StudentProfileUpdate['healthInformation']>, value: string | boolean | string[] | any) => {
     setProfile((current) => ({ ...current, healthInformation: { ...current.healthInformation, [field]: value } }));
   };
 

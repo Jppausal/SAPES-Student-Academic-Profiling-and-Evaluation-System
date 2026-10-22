@@ -326,7 +326,22 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               <ProfileField label="Other condition" value={workspace.student.healthInformation.otherCondition} />
               <ProfileField label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
               <ProfileField label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
+              <ProfileField
+                label="Physical activity clearance"
+                value={
+                  workspace.student.healthInformation.physicalActivityClearance === 'can_attend_all'
+                    ? 'Cleared for all physical activities & PE'
+                    : workspace.student.healthInformation.physicalActivityClearance === 'restricted'
+                    ? 'Restricted — Light physical activities only'
+                    : workspace.student.healthInformation.physicalActivityClearance === 'cannot_attend'
+                    ? 'Excused — Not cleared for physical activities'
+                    : 'No restriction specified'
+                }
+              />
               <ProfileField label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
+              <ProfileField label="Assistance needs" value={workspace.student.healthInformation.assistanceNeeds?.join(', ')} />
+              <ProfileField label="Other assistance details" value={workspace.student.healthInformation.otherAssistanceDetails} />
+              <ProfileField label="Medical proof / Certificate" value={workspace.student.healthInformation.medicalCertificate?.fileName ? `Attached: ${workspace.student.healthInformation.medicalCertificate.fileName}` : 'None uploaded'} />
               <ProfileField label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
               <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
               <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />

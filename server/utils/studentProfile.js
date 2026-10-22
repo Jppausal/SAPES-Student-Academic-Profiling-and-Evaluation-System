@@ -1,4 +1,14 @@
 const HEALTH_CONDITIONS = ['None', 'Anemia', 'Anxiety', 'Asthma', 'Blood Clots', 'Cerebrovascular Accident', 'Depression', 'Hypertension', 'Thyroid Disease', 'Allergies', 'Arthritis', 'Cancer', 'Diabetes', 'Migraine Headaches', 'Peptic Ulcer Disease', 'Seizure Disorder', 'Other'];
+const PHYSICAL_ACTIVITY_OPTIONS = ['can_attend_all', 'restricted', 'cannot_attend', 'none', ''];
+const ASSISTANCE_NEEDS_OPTIONS = [
+  'Wheelchair / Ramp Access',
+  'Ground Floor Classroom Placement',
+  'Frequent Rest / Medical Breaks',
+  'Visual / Hearing Assistance',
+  'Emergency Medication Standby',
+  'Special Seating Arrangement',
+  'Other'
+];
 const { validateActivities } = require('./scheduleConflicts');
 
 const PROFILE_SECTION_RULES = {
@@ -28,7 +38,7 @@ const PROFILE_SECTION_RULES = {
     strings: ['previousSchool', 'seniorHigh', 'juniorHigh', 'elementary'], booleans: [], dates: []
   },
   healthInformation: {
-    strings: ['otherCondition', 'allergyDetails', 'conditionDescription', 'accommodationNotes', 'emergencyContactName', 'emergencyContactNumber'], booleans: ['hasRelevantHealthConcern', 'accommodationRequired'], dates: ['lastUpdated'], arrays: ['conditions']
+    strings: ['otherCondition', 'allergyDetails', 'conditionDescription', 'accommodationNotes', 'physicalActivityClearance', 'otherAssistanceDetails', 'emergencyContactName', 'emergencyContactNumber'], booleans: ['hasRelevantHealthConcern', 'accommodationRequired'], dates: ['lastUpdated'], arrays: ['conditions', 'assistanceNeeds']
   }
 };
 
@@ -99,7 +109,7 @@ const validateAndNormalizeStudentProfile = (body, {
       return { error: 'contactInformation.institutionalEmail is system-controlled or not editable' };
     }
 
-    const supportedFields = [...rules.strings, ...rules.booleans, ...rules.dates, ...(rules.arrays || []), ...(sectionName === 'religiousInformation' ? ['spiritualActivities'] : [])];
+    const supportedFields = [...rules.strings, ...rules.booleans, ...rules.dates, ...(rules.arrays || []), ...(sectionName === 'religiousInformation' ? ['spiritualActivities'] : []), ...(sectionName === 'healthInformation' ? ['medicalCertificate'] : [])];
     const unsupportedField = fields.find((field) => !supportedFields.includes(field));
     if (unsupportedField) {
       return { error: `${sectionName}.${unsupportedField} is not editable` };
@@ -115,7 +125,11 @@ const validateAndNormalizeStudentProfile = (body, {
       if (field === 'program' && value[field] && !TECHNOLOGY_PROGRAMS.includes(value[field])) {
         return { error: 'classification.program must be a College of Technologies program' };
       }
-      if (value[field].length > 200) {
+      if (field === 'physicalActivityClearance' && value[field] && !PHYSICAL_ACTIVITY_OPTIONS.includes(value[field])) {
+        return { error: 'healthInformation.physicalActivityClearance contains an unsupported clearance option' };
+      }
+      const maxLen = (field === 'accommodationNotes' || field === 'conditionDescription' || field === 'otherAssistanceDetails') ? 1000 : 200;
+      if (value[field].length > maxLen) {
         return { error: `${sectionName}.${field} is too long` };
       }
       normalized[sectionName][field] = value[field].trim();
@@ -142,14 +156,40 @@ const validateAndNormalizeStudentProfile = (body, {
       if (value[field] === undefined) continue;
       if (!Array.isArray(value[field]) || value[field].some((item) => typeof item !== 'string')) return { error: `${sectionName}.${field} must be an array of strings` };
       const items = [...new Set(value[field].map((item) => item.trim()))];
-      if (items.some((item) => !HEALTH_CONDITIONS.includes(item))) return { error: `${sectionName}.${field} contains an unsupported condition` };
-      if (items.includes('None') && items.length > 1) return { error: `${sectionName}.${field} cannot include None with another condition` };
+      if (field === 'conditions') {
+        if (items.some((item) => !HEALTH_CONDITIONS.includes(item))) return { error: `${sectionName}.${field} contains an unsupported condition` };
+        if (items.includes('None') && items.length > 1) return { error: `${sectionName}.${field} cannot include None with another condition` };
+      } else if (field === 'assistanceNeeds') {
+        if (items.some((item) => !ASSISTANCE_NEEDS_OPTIONS.includes(item))) return { error: `${sectionName}.${field} contains an unsupported assistance option` };
+      }
       normalized[sectionName][field] = items;
     }
     if (sectionName === 'religiousInformation' && value.spiritualActivities !== undefined) {
       const activities = validateActivities(value.spiritualActivities);
       if (activities.error) return activities;
       normalized[sectionName].spiritualActivities = activities.value;
+    }
+    if (sectionName === 'healthInformation' && value.medicalCertificate !== undefined) {
+      if (value.medicalCertificate === null || value.medicalCertificate === '') {
+        normalized[sectionName].medicalCertificate = null;
+      } else if (typeof value.medicalCertificate === 'object' && !Array.isArray(value.medicalCertificate)) {
+        const { fileName, fileData, fileType, fileSize, uploadedAt } = value.medicalCertificate;
+        if (!fileName || typeof fileName !== 'string' || !fileData || typeof fileData !== 'string') {
+          return { error: 'healthInformation.medicalCertificate must include fileName and fileData' };
+        }
+        if (fileData.length > 8 * 1024 * 1024) {
+          return { error: 'healthInformation.medicalCertificate file exceeds size limit' };
+        }
+        normalized[sectionName].medicalCertificate = {
+          fileName: fileName.slice(0, 255).trim(),
+          fileData: fileData.trim(),
+          fileType: typeof fileType === 'string' ? fileType.slice(0, 100).trim() : '',
+          fileSize: typeof fileSize === 'number' ? fileSize : 0,
+          uploadedAt: uploadedAt ? new Date(uploadedAt) : new Date()
+        };
+      } else {
+        return { error: 'healthInformation.medicalCertificate must be an object or null' };
+      }
     }
     if (sectionName === 'healthInformation' && value.hasRelevantHealthConcern === false && (value.conditions || []).length > 0) return { error: 'healthInformation.conditions must be empty when no relevant health concern is reported' };
   }
@@ -178,4 +218,4 @@ const validateAndNormalizeStudentProfile = (body, {
   return { value: normalized };
 };
 
-module.exports = { HEALTH_CONDITIONS, validateAndNormalizeStudentProfile };
+module.exports = { HEALTH_CONDITIONS, PHYSICAL_ACTIVITY_OPTIONS, ASSISTANCE_NEEDS_OPTIONS, validateAndNormalizeStudentProfile };
