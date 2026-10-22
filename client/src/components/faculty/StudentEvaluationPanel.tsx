@@ -3,6 +3,7 @@ import {
   Activity,
   BookOpenCheck,
   CalendarCheck2,
+  CheckCircle2,
   ClipboardList,
   FileClock,
   MessageSquareText,
@@ -16,6 +17,7 @@ import {
   FacultyStudentWorkspace,
   fetchFacultyStudentWorkspace,
   saveFacultyCourseEvaluation,
+  saveStudentEvaluation,
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
@@ -89,6 +91,14 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
 }) => {
   const [workspace, setWorkspace] = useState<FacultyStudentWorkspace | null>(initialWorkspace || null);
   const [draft, setDraft] = useState<CourseEvaluationProgress | null>(initialWorkspace?.courseEvaluation || null);
+  const [enrollmentEligibility, setEnrollmentEligibility] = useState<'eligible' | 'not_eligible' | null>(
+    initialWorkspace?.facultyEvaluation?.evaluationStatus === 'eligible'
+      || initialWorkspace?.facultyEvaluation?.evaluationStatus === 'not_eligible'
+      ? initialWorkspace.facultyEvaluation.evaluationStatus
+      : null
+  );
+  const [evaluationRemarks, setEvaluationRemarks] = useState(initialWorkspace?.facultyEvaluation?.remarks || '');
+  const [evaluationOpen, setEvaluationOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<EvaluationTab>('gradebook');
   const [loading, setLoading] = useState(!initialWorkspace);
   const [saving, setSaving] = useState(false);
@@ -100,6 +110,13 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
     if (initialWorkspace) {
       setWorkspace(initialWorkspace);
       setDraft(initialWorkspace.courseEvaluation || emptyProgress());
+      setEnrollmentEligibility(
+        initialWorkspace.facultyEvaluation?.evaluationStatus === 'eligible'
+          || initialWorkspace.facultyEvaluation?.evaluationStatus === 'not_eligible'
+          ? initialWorkspace.facultyEvaluation.evaluationStatus
+          : null
+      );
+      setEvaluationRemarks(initialWorkspace.facultyEvaluation?.remarks || '');
       setLoading(false);
       setError('');
       return () => { active = false; };
@@ -112,6 +129,13 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
         if (!active) return;
         setWorkspace(result);
         setDraft(result.courseEvaluation || emptyProgress());
+        setEnrollmentEligibility(
+          result.facultyEvaluation?.evaluationStatus === 'eligible'
+            || result.facultyEvaluation?.evaluationStatus === 'not_eligible'
+            ? result.facultyEvaluation.evaluationStatus
+            : null
+        );
+        setEvaluationRemarks(result.facultyEvaluation?.remarks || '');
       })
       .catch((requestError) => {
         if (!active) return;
@@ -134,6 +158,30 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
       setMessage(successMessage);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to save evaluation data.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEligibilityEvaluation = async () => {
+    if (!enrollmentEligibility) return;
+    setSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      await saveStudentEvaluation(institutionId, {
+        evaluationStatus: enrollmentEligibility,
+        reasons: [],
+        remarks: evaluationRemarks,
+      });
+      const updatedWorkspace = await fetchFacultyStudentWorkspace(institutionId);
+      setWorkspace(updatedWorkspace);
+      setDraft(updatedWorkspace.courseEvaluation);
+      setEvaluationRemarks(updatedWorkspace.facultyEvaluation?.remarks || '');
+      setEvaluationOpen(false);
+      setMessage('Enrollment eligibility evaluation saved.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to save the enrollment evaluation.');
     } finally {
       setSaving(false);
     }
@@ -334,6 +382,94 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
             </dl>
           </section>
         </div>
+      </section>}
+
+      {!showEvaluationDetails && <section aria-label="Enrollment eligibility evaluation" className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Enrollment eligibility</h3>
+            <p className="mt-1 text-sm text-slate-600">Record whether this student is eligible for enrollment and add supporting remarks.</p>
+          </div>
+          {!evaluationOpen && <button
+            type="button"
+            onClick={() => setEvaluationOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {workspace.facultyEvaluation ? 'Edit evaluation' : 'Evaluate student'}
+          </button>}
+        </div>
+
+        {error && <p role="alert" className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {message && <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
+
+        {!evaluationOpen && workspace.facultyEvaluation && <div className="mt-4 rounded-lg bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-700">Decision</p>
+          <p className={`mt-1 text-sm font-bold ${workspace.facultyEvaluation.evaluationStatus === 'eligible' ? 'text-emerald-700' : workspace.facultyEvaluation.evaluationStatus === 'not_eligible' ? 'text-rose-700' : 'text-amber-700'}`}>
+            {workspace.facultyEvaluation.evaluationStatus === 'eligible'
+              ? 'Eligible for enrollment'
+              : workspace.facultyEvaluation.evaluationStatus === 'not_eligible'
+                ? 'Not eligible for enrollment'
+                : 'For review'}
+          </p>
+          <p className="mt-3 text-sm font-semibold text-slate-700">Remarks</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{workspace.facultyEvaluation.remarks?.trim() || 'No remarks provided.'}</p>
+        </div>}
+
+        {evaluationOpen && <div className="mt-4 space-y-4">
+          <fieldset>
+            <legend className="text-sm font-semibold text-slate-700">Is this student eligible for enrollment?</legend>
+            <div role="group" aria-label="Enrollment eligibility decision" className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={enrollmentEligibility === 'eligible'}
+                onClick={() => setEnrollmentEligibility('eligible')}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold ${enrollmentEligibility === 'eligible' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                Eligible
+              </button>
+              <button
+                type="button"
+                aria-pressed={enrollmentEligibility === 'not_eligible'}
+                onClick={() => setEnrollmentEligibility('not_eligible')}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold ${enrollmentEligibility === 'not_eligible' ? 'border-rose-700 bg-rose-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                Not eligible
+              </button>
+            </div>
+          </fieldset>
+          <label className="block text-sm font-semibold text-slate-700">
+            Remarks
+            <textarea
+              value={evaluationRemarks}
+              onChange={(event) => setEvaluationRemarks(event.target.value)}
+              rows={4}
+              maxLength={2000}
+              placeholder="Add remarks about the enrollment eligibility decision."
+              className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            />
+          </label>
+          <p className="text-xs text-slate-500">This evaluation records a recommendation and does not change the student's enrollment status.</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => {
+              setEnrollmentEligibility(
+                workspace.facultyEvaluation?.evaluationStatus === 'eligible'
+                  || workspace.facultyEvaluation?.evaluationStatus === 'not_eligible'
+                  ? workspace.facultyEvaluation.evaluationStatus
+                  : null
+              );
+              setEvaluationRemarks(workspace.facultyEvaluation?.remarks || '');
+              setEvaluationOpen(false);
+              setError('');
+              setMessage('');
+            }} disabled={saving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+              Cancel
+            </button>
+            <button type="button" onClick={() => void saveEligibilityEvaluation()} disabled={saving || !enrollmentEligibility} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">
+              <Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save evaluation'}
+            </button>
+          </div>
+        </div>}
       </section>}
 
       {showEvaluationDetails && <>

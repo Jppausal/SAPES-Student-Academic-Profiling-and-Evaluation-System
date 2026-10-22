@@ -351,6 +351,12 @@ router.get(
           overallGwa: calculateOverallGwa(academicRecords),
           majorSubjectGwa: calculateMajorSubjectGwa(academicRecords),
           latestAcademicPeriod: getLatestAcademicPeriod(academicRecords),
+          facultyEvaluation: facultyEvaluation ? {
+            evaluationStatus: facultyEvaluation.evaluationStatus,
+            reasons: facultyEvaluation.reasons || [],
+            remarks: facultyEvaluation.remarks || '',
+            evaluatedAt: facultyEvaluation.evaluatedAt
+          } : null,
           courseEvaluation: progress || {
             academicYear: '2026-2027',
             semester: '1st Semester',

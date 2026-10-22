@@ -588,7 +588,7 @@ export interface FacultyStudentWorkspace {
     evaluationStatus: string;
     reasons: string[];
     remarks?: string;
-    evaluatedAt: string;
+    evaluatedAt?: string;
   } | null;
   statusHistory: Array<{
     status: string;

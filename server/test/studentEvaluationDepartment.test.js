@@ -16,7 +16,7 @@ const queryResult = (value) => ({
   lean: async () => value
 });
 
-test('saving an officer evaluation applies department scope and synchronizes metrics', async (t) => {
+test('saving an officer evaluation persists the decision and remarks within department scope', async (t) => {
   const originalSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = 'student-evaluation-department-test-secret';
   t.after(() => {
@@ -30,13 +30,22 @@ test('saving an officer evaluation applies department scope and synchronizes met
     classification: { program: 'Bachelor of Information Technology' }
   };
   let studentFilter;
-  let evaluationSaved = false;
+  let persistedEvaluation;
   let metricSyncCount = 0;
   const evaluation = {
     _id: 'evaluation-document-id',
     studentId: student._id,
     facultyId: userId,
-    save: async () => { evaluationSaved = true; }
+    save: async () => {
+      persistedEvaluation = {
+        studentId: evaluation.studentId,
+        facultyId: evaluation.facultyId,
+        evaluationStatus: evaluation.evaluationStatus,
+        reasons: evaluation.reasons,
+        remarks: evaluation.remarks,
+        evaluatedAt: evaluation.evaluatedAt
+      };
+    }
   };
 
   t.mock.method(FacultyUser, 'findById', () => queryResult({
@@ -87,7 +96,11 @@ test('saving an officer evaluation applies department scope and synchronizes met
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ evaluationStatus: 'eligible' })
+      body: JSON.stringify({
+        evaluationStatus: 'eligible',
+        reasons: [],
+        remarks: 'All enrollment requirements reviewed.'
+      })
     }
   );
 
@@ -98,6 +111,17 @@ test('saving an officer evaluation applies department scope and synchronizes met
       { 'classification.program': 'Bachelor of Information Technology' }
     ]
   });
-  assert.equal(evaluationSaved, true);
+  assert.deepEqual(persistedEvaluation, {
+    studentId: student._id,
+    facultyId: userId,
+    evaluationStatus: 'eligible',
+    reasons: [],
+    remarks: 'All enrollment requirements reviewed.',
+    evaluatedAt: persistedEvaluation.evaluatedAt
+  });
+  assert.ok(persistedEvaluation.evaluatedAt instanceof Date);
+  const payload = await response.json();
+  assert.equal(payload.data.evaluationStatus, 'eligible');
+  assert.equal(payload.data.remarks, 'All enrollment requirements reviewed.');
   assert.equal(metricSyncCount, 1);
 });
