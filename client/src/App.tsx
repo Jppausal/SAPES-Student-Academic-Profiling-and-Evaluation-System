@@ -123,7 +123,7 @@ const AppContent: React.FC = () => {
           <>
             <FacultyWorkspaceHeader activePage={activePage} onNavigate={navigateFacultyPage} />
             {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
-              : activePage === 'student-records' ? <FacultyAcademicRecordsPage fixedProgram={departmentProgram} />
+              : activePage === 'student-records' ? <FacultyAcademicRecordsPage fixedProgram={departmentProgram} canApproveEnrollment={currentUser.isVerifiedEnrollmentOfficer} />
                 : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} fixedProgram={departmentProgram} />
                   : (
                     currentUser.isVerifiedEnrollmentOfficer

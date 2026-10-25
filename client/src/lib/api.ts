@@ -647,6 +647,14 @@ export async function fetchFacultyStudentWorkspace(institutionId: string) {
   return response.data;
 }
 
+export async function approveStudentEnrollment(institutionId: string) {
+  const response = await request<{ success: true; data: { enrollmentStatus: string } }>(
+    `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}/enrollment-approval`,
+    { method: 'POST' }
+  );
+  return response.data.enrollmentStatus;
+}
+
 export async function saveFacultyCourseEvaluation(institutionId: string, progress: CourseEvaluationProgress) {
   const response = await request<{ success: true; data: { courseEvaluation: CourseEvaluationProgress } }>(
     `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}/progress`,

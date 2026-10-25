@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Monitor, Search, Utensils } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BackendStudentSearch } from './BackendStudentSearch';
-import { fetchFacultyEvaluationRoster, fetchFacultyStudentWorkspace, FacultyRosterStudent, FacultyStudentWorkspace } from '../../lib/api';
+import { approveStudentEnrollment, fetchFacultyEvaluationRoster, fetchFacultyStudentWorkspace, FacultyRosterStudent, FacultyStudentWorkspace } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
-import { StudentEvaluationPanel } from './StudentEvaluationPanel';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 const programDetails: Record<string, { icon: LucideIcon; description: string; color: string }> = {
   'Bachelor of Information Technology': {
@@ -49,9 +49,13 @@ const statusLabel = (student: FacultyRosterStudent) => student.isOnProbation
 
 interface FacultyAcademicRecordsPageProps {
   fixedProgram?: string;
+  canApproveEnrollment?: boolean;
 }
 
-export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProps> = ({ fixedProgram }) => {
+export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProps> = ({
+  fixedProgram,
+  canApproveEnrollment = false,
+}) => {
   const [step, setStep] = useState<'courses' | 'roster' | 'student'>('courses');
   const [selectedProgram, setSelectedProgram] = useState(fixedProgram || '');
   const [selectedYear, setSelectedYear] = useState('');
@@ -60,6 +64,8 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   const [studentWorkspace, setStudentWorkspace] = useState<FacultyStudentWorkspace | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingStudent, setLoadingStudent] = useState(false);
+  const [approvingEnrollment, setApprovingEnrollment] = useState(false);
+  const [enrollmentMessage, setEnrollmentMessage] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -120,6 +126,7 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   const openStudent = async (student: FacultyRosterStudent) => {
     setLoadingStudent(true);
     setError('');
+    setEnrollmentMessage('');
     try {
       setStudentWorkspace(await fetchFacultyStudentWorkspace(student.institutionId));
       setStep('student');
@@ -145,6 +152,30 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   } : null;
   const historicalFallbackGwas = resolveAcademicGwas(studentWorkspace?.academicRecords || []);
   const historicalOverallGwa = studentWorkspace?.overallGwa ?? historicalFallbackGwas.overallGwa;
+
+  const proceedToEnrollment = async () => {
+    if (!studentWorkspace || studentWorkspace.student.enrollmentStatus === 'enrolled') return;
+    setApprovingEnrollment(true);
+    setError('');
+    setEnrollmentMessage('');
+    try {
+      const enrollmentStatus = await approveStudentEnrollment(studentWorkspace.student.institutionId);
+      setStudentWorkspace((current) => current ? {
+        ...current,
+        student: { ...current.student, enrollmentStatus },
+      } : current);
+      setRoster((current) => current.map((student) => (
+        student.institutionId === studentWorkspace.student.institutionId
+          ? { ...student, enrollmentStatus }
+          : student
+      )));
+      setEnrollmentMessage('Enrollment approved. The student status is now enrolled.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to approve this student for enrollment.');
+    } finally {
+      setApprovingEnrollment(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -239,16 +270,21 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
 
       {step === 'student' && studentWorkspace && (
         <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-          <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Student profile</p>
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start">
+            <StudentProfilePhoto
+              institutionId={studentWorkspace.student.institutionId}
+              studentName={studentName || studentWorkspace.student.institutionId}
+              className="h-24 w-24 shrink-0 rounded-lg border border-slate-200 object-cover sm:h-28 sm:w-28"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Report card grades</p>
               <h2 className="mt-1 text-xl font-extrabold text-slate-900">{studentName || studentWorkspace.student.institutionId}</h2>
               <p className="mt-1 font-mono text-xs text-slate-500">Student ID: {studentWorkspace.student.institutionId}</p>
               <p className="mt-2 text-xs text-slate-600">{selectedCourseLabel} · {yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-start gap-3 sm:items-end lg:ml-auto">
+              <button type="button" onClick={() => setStep('roster')} className="inline-flex shrink-0 items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
               <div className="min-w-64 rounded-lg bg-brand-700 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-brand-200">Latest-period GWA</p><div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-brand-200">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div><div><span className="text-[10px] text-brand-200">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div></div>{latestAcademicPeriod && <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}<p className="mt-1 text-[10px] text-brand-200">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(studentWorkspace.majorSubjectGwa)}</p></div>
-              <button type="button" onClick={() => setStep('roster')} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
             </div>
           </div>
 
@@ -268,16 +304,19 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
             </section>
           )) : <p className="rounded-md bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">No academic subjects are recorded for this student.</p>}
 
+          {canApproveEnrollment && <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            {enrollmentMessage && <p role="status" className="text-sm font-medium text-emerald-700">{enrollmentMessage}</p>}
+            <button
+              type="button"
+              onClick={() => void proceedToEnrollment()}
+              disabled={approvingEnrollment || studentWorkspace.student.enrollmentStatus === 'enrolled'}
+              className="inline-flex items-center justify-center gap-2 self-start rounded-md bg-brand-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-emerald-700"
+            >
+              <Check className="h-4 w-4" />
+              {approvingEnrollment ? 'Approving enrollment…' : studentWorkspace.student.enrollmentStatus === 'enrolled' ? 'Enrollment approved' : 'Proceed to enrollment'}
+            </button>
+          </div>}
         </section>
-      )}
-
-      {step === 'student' && studentWorkspace && (
-        <StudentEvaluationPanel
-          key={studentWorkspace.student.institutionId}
-          institutionId={studentWorkspace.student.institutionId}
-          initialWorkspace={studentWorkspace}
-          showStudentProfile={false}
-        />
       )}
 
       {loadingStudent && <div role="status" className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-slate-500">Loading student profile and subjects…</div>}

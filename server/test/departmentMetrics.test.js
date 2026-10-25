@@ -10,13 +10,13 @@ const department = {
   program: 'Bachelor of Information Technology'
 };
 
-test('synchronizes disjoint department metric categories', async (t) => {
+test('synchronizes evaluation and enrollment metrics independently', async (t) => {
   const originalAggregate = Student.aggregate;
   const originalFindOneAndUpdate = Department.findOneAndUpdate;
   const counts = {
     totalStudents: 6,
     evaluatedProfiles: 2,
-    pendingEnrollmentDecisions: 1,
+    pendingEnrollmentDecisions: 3,
     profilesAwaitingEvaluation: 3
   };
   let pipeline;
@@ -42,24 +42,24 @@ test('synchronizes disjoint department metric categories', async (t) => {
   });
   assert.equal(pipeline[1].$lookup.from, 'faculty_evaluations');
   assert.equal(result.totalStudents, 6);
-  assert.equal(
-    result.profilesAwaitingEvaluation
-      + result.pendingEnrollmentDecisions
-      + result.evaluatedProfiles,
-    result.totalStudents
-  );
+  assert.equal(result.pendingEnrollmentDecisions, 3);
+  assert.equal(result.evaluatedProfiles, 2);
+  assert.equal(result.profilesAwaitingEvaluation, 3);
+  const pendingMetric = JSON.stringify(pipeline[2].$group.pendingEnrollmentDecisions);
+  assert.match(pendingMetric, /enrollmentStatus/);
+  assert.doesNotMatch(pendingMetric, /facultyEvaluations/);
   assert.equal(update.filter.code, department.code);
   assert.equal(update.document.$set.name, department.name);
   assert.equal(update.options.upsert, true);
 });
 
-test('fails rather than storing overlapping or incomplete metric totals', async (t) => {
+test('rejects department metrics larger than the active student total', async (t) => {
   const originalAggregate = Student.aggregate;
   const originalFindOneAndUpdate = Department.findOneAndUpdate;
   Student.aggregate = async () => [{
     totalStudents: 4,
     evaluatedProfiles: 2,
-    pendingEnrollmentDecisions: 1,
+    pendingEnrollmentDecisions: 5,
     profilesAwaitingEvaluation: 0
   }];
   Department.findOneAndUpdate = () => {
@@ -72,6 +72,6 @@ test('fails rather than storing overlapping or incomplete metric totals', async 
 
   await assert.rejects(
     syncDepartmentMetrics(department),
-    /Department metrics do not partition students for IT/
+    /Department metrics are outside the student total for IT/
   );
 });

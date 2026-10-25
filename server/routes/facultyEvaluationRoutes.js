@@ -133,6 +133,61 @@ router.get(
   }
 );
 
+router.post(
+  '/student/:institutionId/enrollment-approval',
+  authenticateToken,
+  authorizeRoles('faculty'),
+  authorizePermission('view_student_records'),
+  async (req, res) => {
+    try {
+      const department = getEnrollmentOfficerDepartment(req.user);
+      if (!req.user.isVerifiedEnrollmentOfficer || !department) {
+        return res.status(403).json({ success: false, message: 'A verified department enrollment officer account is required' });
+      }
+
+      const studentFilter = buildStudentDepartmentFilter(req.user, {
+        institutionId: req.params.institutionId,
+        accountStatus: 'active'
+      });
+      if (!studentFilter) {
+        return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+      }
+
+      const student = await Student.findOneAndUpdate(
+        studentFilter,
+        { $set: { enrollmentStatus: 'enrolled' } },
+        { new: true, runValidators: true }
+      ).select('institutionId enrollmentStatus classification.program').lean();
+      if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+      await syncDepartmentMetrics(department);
+      await AuditLog.create({
+        userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: getAccountModelName(req.user.role),
+        action: 'STUDENT_ENROLLMENT_APPROVED',
+        targetType: 'student',
+        targetId: student._id,
+        details: {
+          institutionId: student.institutionId,
+          enrollmentStatus: student.enrollmentStatus
+        }
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          institutionId: student.institutionId,
+          enrollmentStatus: student.enrollmentStatus
+        }
+      });
+    } catch (error) {
+      console.error('Student enrollment approval failed:', error);
+      return res.status(500).json({ success: false, message: 'Unable to approve student enrollment' });
+    }
+  }
+);
+
 router.get(
   '/roster',
   authenticateToken,

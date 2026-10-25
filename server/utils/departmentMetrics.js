@@ -29,22 +29,16 @@ const syncDepartmentMetrics = async (department) => {
         },
         pendingEnrollmentDecisions: {
           $sum: {
-            $cond: [{
-              $and: [
-                { $eq: [{ $size: '$facultyEvaluations' }, 0] },
-                { $in: [{ $ifNull: ['$enrollmentStatus', 'not_enrolled'] }, ['not_enrolled', 'processing']] }
-              ]
-            }, 1, 0]
+            $cond: [
+              { $in: [{ $ifNull: ['$enrollmentStatus', 'not_enrolled'] }, ['not_enrolled', 'processing']] },
+              1,
+              0
+            ]
           }
         },
         profilesAwaitingEvaluation: {
           $sum: {
-            $cond: [{
-              $and: [
-                { $eq: [{ $size: '$facultyEvaluations' }, 0] },
-                { $not: [{ $in: [{ $ifNull: ['$enrollmentStatus', 'not_enrolled'] }, ['not_enrolled', 'processing']] }] }
-              ]
-            }, 1, 0]
+            $cond: [{ $eq: [{ $size: '$facultyEvaluations' }, 0] }, 1, 0]
           }
         }
       }
@@ -57,11 +51,8 @@ const syncDepartmentMetrics = async (department) => {
     pendingEnrollmentDecisions: counts.pendingEnrollmentDecisions || 0,
     evaluatedProfiles: counts.evaluatedProfiles || 0
   };
-  const categoryTotal = stats.profilesAwaitingEvaluation
-    + stats.pendingEnrollmentDecisions
-    + stats.evaluatedProfiles;
-  if (categoryTotal !== stats.totalStudents) {
-    throw new Error(`Department metrics do not partition students for ${department.code}`);
+  if (Object.values(stats).some((count) => count < 0 || count > stats.totalStudents)) {
+    throw new Error(`Department metrics are outside the student total for ${department.code}`);
   }
 
   return Department.findOneAndUpdate(

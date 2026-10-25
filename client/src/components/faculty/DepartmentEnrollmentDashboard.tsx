@@ -178,7 +178,7 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
           </section>
 
           <p className="rounded-lg border border-brand-100 bg-brand-50/70 px-4 py-3 text-xs leading-5 text-brand-900">
-            All figures are for active {department.name} students only. Evaluation and enrollment counts are separate, and together with evaluated profiles they account for the department total.
+            All figures are for active {department.name} students only. Evaluation and enrollment counts are tracked separately, so a student may appear in both.
           </p>
 
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.9fr)]">
@@ -207,7 +207,7 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
                         <th scope="col" className="px-4 py-3">Name</th>
                         <th scope="col" className="px-4 py-3">Course</th>
                         <th scope="col" className="px-4 py-3">Year</th>
-                        <th scope="col" className="px-4 py-3">Status</th>
+                        <th scope="col" className="px-4 py-3">Enrollment status</th>
                       </tr>
                     </thead>
                     <tbody>
