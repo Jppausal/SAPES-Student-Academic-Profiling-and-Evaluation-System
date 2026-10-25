@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Plus, Save, Search, Trash2 } from 'lucide-react';
+import { BookOpen, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
 import {
   AcademicSubject,
   AcademicTermRecord,
@@ -15,6 +15,7 @@ import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { AdminStudentProfileSetup } from './AdminStudentProfileSetup';
 import { AdminStudentReport } from './AdminStudentReport';
 import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
+import { BulkStudentImportModal } from './BulkStudentImportModal';
 
 const emptySubject = (): AcademicSubject => ({
   subjectCode: '', subjectName: '', units: 3, grade: 0, isMajor: false, status: 'Ongoing',
@@ -39,6 +40,7 @@ export const BackendAcademicRecordManager: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
 
   useEffect(() => {
     const query = institutionId.trim();
@@ -164,6 +166,15 @@ export const BackendAcademicRecordManager: React.FC = () => {
             <span className="admin-heading-icon"><BookOpen className="h-4 w-4" /></span>
             <div><h2>Shared academic record</h2><p>Search the authoritative MongoDB student record by institution ID.</p></div>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsBulkImportModalOpen(true)}
+            className="admin-secondary-button text-xs py-1.5 px-3 min-h-0 text-indigo-700 hover:text-indigo-900"
+            title="Import student masterlists and demographic profiles via CSV or Excel"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            <span>Bulk Import (CSV/Excel)</span>
+          </button>
         </div>
         <form onSubmit={async (event) => { event.preventDefault(); await loadReport(); }} className="mt-4 flex flex-col gap-2 sm:flex-row">
           <div className="relative min-w-0 flex-1">
@@ -324,6 +335,18 @@ export const BackendAcademicRecordManager: React.FC = () => {
 
         {activeTab === 'profile' && <div className="admin-profile-workspace mt-1"><AdminStudentProfileSetup identity={report.student} onSaved={async () => { await loadReport(); }} /></div>}
       </>}
+
+      {isBulkImportModalOpen && (
+        <BulkStudentImportModal
+          isOpen={isBulkImportModalOpen}
+          onClose={() => setIsBulkImportModalOpen(false)}
+          onSuccess={async () => {
+            if (institutionId.trim()) {
+              await loadReport();
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

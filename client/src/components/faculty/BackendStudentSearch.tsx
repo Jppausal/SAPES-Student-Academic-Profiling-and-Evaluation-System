@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, CheckCircle2, CheckCircle, Search, ShieldAlert, TriangleAlert } from 'lucide-react';
+import { BookOpen, CheckCircle2, CheckCircle, Search, ShieldAlert, TriangleAlert, Lock, Info } from 'lucide-react';
 import {
   fetchStudentReport,
   fetchStudentSuggestions,
@@ -7,6 +7,8 @@ import {
   StudentReport,
   StudentSuggestion,
   updateStudentStatus,
+  fetchActiveAcademicPeriod,
+  type ActiveAcademicPeriod,
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
@@ -60,6 +62,19 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const refreshing = useRef(false);
+  const [activePeriod, setActivePeriod] = useState<ActiveAcademicPeriod | null>(null);
+
+  useEffect(() => {
+    fetchActiveAcademicPeriod()
+      .then(setActivePeriod)
+      .catch((err) => console.error('Failed to load active academic period:', err));
+  }, []);
+
+  const isEvalWindowClosed = Boolean(
+    activePeriod &&
+    (!activePeriod.evaluationWindowOpen ||
+      (activePeriod.evaluationDeadline && new Date() > new Date(activePeriod.evaluationDeadline)))
+  );
 
   useEffect(() => {
     const query = institutionId.trim();
@@ -548,15 +563,66 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
           {displayMode === 'consolidated' && <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-200 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><BookOpen className="h-4 w-4 text-brand-600" /> Faculty evaluation</h3>
-              <select value={evaluationStatus} onChange={(event) => setEvaluationStatus(event.target.value)} className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><BookOpen className="h-4 w-4 text-brand-600" /> Faculty evaluation</h3>
+                {activePeriod && (
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Term: {activePeriod.schoolYear} · {activePeriod.semester}
+                  </span>
+                )}
+              </div>
+
+              {activePeriod?.announcementMessage && (
+                <div className="mt-2.5 rounded-lg border border-indigo-200 bg-indigo-50/70 p-2.5 text-xs text-indigo-900 flex items-start gap-2">
+                  <Info className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block">Advising Notice:</strong>
+                    <span>{activePeriod.announcementMessage}</span>
+                  </div>
+                </div>
+              )}
+
+              {isEvalWindowClosed && (
+                <div className="mt-2.5 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-900 flex items-start gap-2">
+                  <Lock className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block">Evaluation Window Closed</strong>
+                    <span>The advising window for this term is closed or expired. New evaluation submissions are currently blocked.</span>
+                  </div>
+                </div>
+              )}
+
+              <select
+                value={evaluationStatus}
+                onChange={(event) => setEvaluationStatus(event.target.value)}
+                disabled={isEvalWindowClosed}
+                className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100"
+              >
                 <option value="eligible">Eligible</option>
                 <option value="not_eligible">Not Eligible</option>
                 <option value="for_review">For review</option>
               </select>
-              <input value={reasons} onChange={(event) => setReasons(event.target.value)} placeholder="Reasons, separated by commas" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder="Evaluation remarks" className="mt-2 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <button onClick={saveEvaluation} disabled={loading} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> Save evaluation</button>
+              <input
+                value={reasons}
+                onChange={(event) => setReasons(event.target.value)}
+                disabled={isEvalWindowClosed}
+                placeholder="Reasons, separated by commas"
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100"
+              />
+              <textarea
+                value={remarks}
+                onChange={(event) => setRemarks(event.target.value)}
+                disabled={isEvalWindowClosed}
+                placeholder="Evaluation remarks"
+                className="mt-2 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100"
+              />
+              <button
+                onClick={saveEvaluation}
+                disabled={loading || isEvalWindowClosed}
+                className="mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Save evaluation
+              </button>
             </div>
             <div className="rounded-xl border border-slate-200 p-4">
               <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><ShieldAlert className="h-4 w-4 text-amber-600" /> Current status</h3>

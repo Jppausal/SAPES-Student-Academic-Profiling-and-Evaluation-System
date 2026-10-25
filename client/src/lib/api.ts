@@ -671,8 +671,11 @@ export interface InstitutionalStudentSummary {
   } | null;
 }
 
-export async function fetchInstitutionalStudentSummary(page = 1, limit = 25) {
+export async function fetchInstitutionalStudentSummary(page = 1, limit = 25, all = false) {
   const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (all) {
+    query.set('all', 'true');
+  }
   const response = await request<{
     success: true;
     data: {
@@ -865,3 +868,141 @@ export async function saveIntegrationSettings(integrations: Partial<Record<Integ
   const response = await request<{success: true; data: IntegrationSettings}>('/api/settings', { method: 'PUT', body: JSON.stringify({integrations}) });
   return response.data;
 }
+
+export interface ActiveAcademicPeriod {
+  schoolYear: string;
+  semester: string;
+  isTermGradesLocked: boolean;
+  evaluationWindowOpen: boolean;
+  evaluationDeadline: string | null;
+  announcementMessage: string;
+  updatedAt?: string | null;
+}
+
+export async function fetchActiveAcademicPeriod(): Promise<ActiveAcademicPeriod> {
+  const response = await request<{ success: true; data: ActiveAcademicPeriod }>('/api/academic-periods/active');
+  return response.data;
+}
+
+export async function saveActiveAcademicPeriod(
+  payload: Partial<ActiveAcademicPeriod>
+): Promise<ActiveAcademicPeriod> {
+  const response = await request<{ success: true; data: ActiveAcademicPeriod; message?: string }>(
+    '/api/academic-periods/active',
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }
+  );
+  return response.data;
+}
+
+export interface BulkImportStudentPayload {
+  institutionId: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  email?: string;
+  program?: string;
+  yearLevel?: number;
+  section?: string;
+  studentType?: string;
+  religion?: string;
+  isIP?: boolean | string;
+  isPWD?: boolean | string;
+  isShifter?: boolean | string;
+  isTransferee?: boolean | string;
+  academicStatus?: string;
+  academicYear?: string;
+  semester?: string;
+  subjects?: Array<{
+    subjectCode: string;
+    subjectName: string;
+    units: number;
+    grade: number;
+    isMajor: boolean;
+    status: string;
+  }>;
+}
+
+export interface BulkImportResults {
+  totalRows: number;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errors: Array<{ row: number; institutionId: string; error: string }>;
+}
+
+export async function bulkImportStudents(students: BulkImportStudentPayload[]): Promise<BulkImportResults> {
+  const response = await request<{
+    success: true;
+    message: string;
+    data: BulkImportResults;
+  }>('/api/students/bulk-import', {
+    method: 'POST',
+    body: JSON.stringify({ students }),
+  });
+  return response.data;
+}
+
+export interface ExecutiveAnalyticsData {
+  metrics: {
+    totalStudents: number;
+    totalEvaluated: number;
+    evaluationCompletionRate: number;
+    averageCollegeGwa: number;
+    probationCount: number;
+    ipCount: number;
+    pwdCount: number;
+    shifterCount: number;
+    transfereeCount: number;
+  };
+  evaluationProgress: {
+    evaluated: number;
+    pending: number;
+    completionRate: number;
+    breakdown: {
+      eligible: number;
+      forReview: number;
+      notEligible: number;
+      pending: number;
+    };
+  };
+  gwaDistribution: {
+    averageGwa: number;
+    gradedCount: number;
+    buckets: {
+      deansList: number;
+      goodStanding: number;
+      satisfactory: number;
+      atRisk: number;
+      deficient: number;
+      ungraded: number;
+    };
+  };
+  demographics: {
+    ip: number;
+    pwd: number;
+    shifter: number;
+    transferee: number;
+    probation: number;
+    regular: number;
+  };
+  programBreakdown: Array<{
+    program: string;
+    total: number;
+    probationCount: number;
+  }>;
+  yearLevelBreakdown: Array<{
+    yearLevel: number;
+    count: number;
+  }>;
+}
+
+export async function fetchExecutiveAnalytics(): Promise<ExecutiveAnalyticsData> {
+  const response = await request<{ success: true; data: ExecutiveAnalyticsData }>(
+    '/api/students/executive-analytics'
+  );
+  return response.data;
+}
+

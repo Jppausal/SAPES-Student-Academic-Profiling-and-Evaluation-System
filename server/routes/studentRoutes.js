@@ -14,6 +14,8 @@ const { DAYS, isTime, findScheduleConflicts } = require('../utils/scheduleConfli
 const { buildStudentSearchFilter } = require('../utils/studentSearch');
 const { getAcademicStatus } = require('../utils/academicStatus');
 const { getAccountModelName } = require('../utils/accountCollections');
+const { getActiveAcademicPeriod } = require('../utils/academicPeriodSettings');
+const { processBulkStudentImport } = require('../utils/bulkStudentImport');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -202,6 +204,14 @@ router.put(
         return res.status(400).json({
           success: false,
           message: 'remarks must be a string'
+        });
+      }
+
+      const activePeriod = await getActiveAcademicPeriod();
+      if (!activePeriod.evaluationWindowOpen || (activePeriod.evaluationDeadline && new Date() > new Date(activePeriod.evaluationDeadline))) {
+        return res.status(403).json({
+          success: false,
+          message: activePeriod.announcementMessage || 'The faculty evaluation window is currently closed for this academic term.'
         });
       }
 
@@ -404,6 +414,235 @@ router.get(
   }
 );
 
+// A115: Bulk student and academic record ingestion (admin only)
+router.post(
+  '/bulk-import',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizeAnyPermission('manage_academic_records', 'manage_users'),
+  async (req, res) => {
+    try {
+      const { students } = req.body || {};
+      if (!Array.isArray(students) || students.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'An array of student rows is required for bulk import.'
+        });
+      }
+
+      if (students.length > 2000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bulk import is limited to 2,000 records per upload.'
+        });
+      }
+
+      const results = await processBulkStudentImport(students, req.user.userId);
+
+      await AuditLog.create({
+        userId: req.user.userId,
+        userRole: 'admin',
+        userModel: 'AdminUser',
+        action: 'BULK_STUDENT_IMPORT',
+        targetType: 'student',
+        details: {
+          totalRows: results.totalRows,
+          createdCount: results.createdCount,
+          updatedCount: results.updatedCount,
+          skippedCount: results.skippedCount,
+          errorSample: results.errors.slice(0, 5)
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: `Import processed: ${results.createdCount} created, ${results.updatedCount} updated, ${results.skippedCount} skipped.`,
+        data: results
+      });
+    } catch (error) {
+      console.error('Bulk student import failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to process bulk student import.'
+      });
+    }
+  }
+);
+
+// A117: College executive dashboard & visual analytics (Dean's Overview)
+router.get(
+  '/executive-analytics',
+  authenticateToken,
+  authorizeRoles('admin', 'faculty'),
+  authorizeAnyPermission('view_reports', 'manage_users', 'submit_evaluations'),
+  async (_req, res) => {
+    try {
+      const [
+        totalStudents,
+        ipCount,
+        pwdCount,
+        probationCount,
+        shifterCount,
+        transfereeCount,
+        evaluations,
+        programsAggregation,
+        yearLevelsAggregation,
+        studentsWithRecords
+      ] = await Promise.all([
+        Student.countDocuments({}),
+        Student.countDocuments({ 'classification.isIP': true }),
+        Student.countDocuments({ 'classification.isPWD': true }),
+        Student.countDocuments({ 'academicStatus.isOnProbation': true }),
+        Student.countDocuments({ 'classification.isShifter': true }),
+        Student.countDocuments({ 'classification.isTransferee': true }),
+        FacultyEvaluation.find({}, { studentId: 1, evaluationStatus: 1 }).lean(),
+        Student.aggregate([
+          {
+            $group: {
+              _id: '$classification.program',
+              total: { $sum: 1 },
+              probationTotal: {
+                $sum: { $cond: [{ $eq: ['$academicStatus.isOnProbation', true] }, 1, 0] }
+              }
+            }
+          }
+        ]),
+        Student.aggregate([
+          {
+            $group: {
+              _id: '$yearLevel',
+              count: { $sum: 1 }
+            }
+          },
+          { $sort: { _id: 1 } }
+        ]),
+        AcademicRecord.aggregate([
+          {
+            $unwind: '$subjects'
+          },
+          {
+            $match: {
+              'subjects.units': { $gt: 0 },
+              'subjects.grade': { $gt: 0 }
+            }
+          },
+          {
+            $group: {
+              _id: '$studentId',
+              totalQualityPoints: { $sum: { $multiply: ['$subjects.units', '$subjects.grade'] } },
+              totalUnits: { $sum: '$subjects.units' }
+            }
+          }
+        ])
+      ]);
+
+      let eligibleCount = 0;
+      let notEligibleCount = 0;
+      let forReviewCount = 0;
+      const evaluatedStudentIds = new Set();
+
+      for (const ev of evaluations) {
+        evaluatedStudentIds.add(String(ev.studentId));
+        const status = (ev.evaluationStatus || '').toLowerCase();
+        if (status === 'eligible') eligibleCount++;
+        else if (status === 'not_eligible') notEligibleCount++;
+        else if (status === 'for_review') forReviewCount++;
+      }
+
+      const totalEvaluated = evaluatedStudentIds.size;
+      const pendingCount = Math.max(0, totalStudents - totalEvaluated);
+      const evaluationCompletionRate = totalStudents > 0
+        ? Number(((totalEvaluated / totalStudents) * 100).toFixed(1))
+        : 0;
+
+      const gwaBuckets = {
+        deansList: 0,
+        goodStanding: 0,
+        satisfactory: 0,
+        atRisk: 0,
+        deficient: 0,
+        ungraded: 0
+      };
+
+      let sumGwa = 0;
+      let gradedCount = 0;
+
+      for (const item of studentsWithRecords) {
+        if (item.totalUnits > 0) {
+          const gwa = Number((item.totalQualityPoints / item.totalUnits).toFixed(2));
+          sumGwa += gwa;
+          gradedCount++;
+
+          if (gwa <= 1.45) gwaBuckets.deansList++;
+          else if (gwa <= 2.00) gwaBuckets.goodStanding++;
+          else if (gwa <= 2.50) gwaBuckets.satisfactory++;
+          else if (gwa <= 3.00) gwaBuckets.atRisk++;
+          else gwaBuckets.deficient++;
+        }
+      }
+      gwaBuckets.ungraded = Math.max(0, totalStudents - gradedCount);
+      const averageCollegeGwa = gradedCount > 0 ? Number((sumGwa / gradedCount).toFixed(2)) : 0;
+
+      const programStats = (programsAggregation || []).map((p) => ({
+        program: p._id || 'Unassigned Program',
+        total: p.total,
+        probationCount: p.probationTotal
+      })).sort((a, b) => b.total - a.total);
+
+      const yearLevelStats = (yearLevelsAggregation || []).map((y) => ({
+        yearLevel: y._id || 1,
+        count: y.count
+      }));
+
+      return res.json({
+        success: true,
+        data: {
+          metrics: {
+            totalStudents,
+            totalEvaluated,
+            evaluationCompletionRate,
+            averageCollegeGwa,
+            probationCount,
+            ipCount,
+            pwdCount,
+            shifterCount,
+            transfereeCount
+          },
+          evaluationProgress: {
+            evaluated: totalEvaluated,
+            pending: pendingCount,
+            completionRate: evaluationCompletionRate,
+            breakdown: {
+              eligible: eligibleCount,
+              forReview: forReviewCount,
+              notEligible: notEligibleCount,
+              pending: pendingCount
+            }
+          },
+          gwaDistribution: {
+            averageGwa: averageCollegeGwa,
+            gradedCount,
+            buckets: gwaBuckets
+          },
+          demographics: {
+            ip: ipCount,
+            pwd: pwdCount,
+            shifter: shifterCount,
+            transferee: transfereeCount,
+            probation: probationCount,
+            regular: Math.max(0, totalStudents - probationCount)
+          },
+          programBreakdown: programStats,
+          yearLevelBreakdown: yearLevelStats
+        }
+      });
+    } catch (error) {
+      console.error('Failed to generate executive analytics:', error);
+      return res.status(500).json({ success: false, message: 'Server error generating executive analytics.' });
+    }
+  }
+);
+
 // Paginated institutional student summary (admin only)
 router.get(
   '/reports/summary',
@@ -412,9 +651,10 @@ router.get(
   authorizePermission('view_reports'),
   async (req, res) => {
     try {
+      const isExportAll = req.query.all === 'true' || req.query.export === 'true';
       const page = Number(req.query.page || 1);
-      const limit = Number(req.query.limit || 20);
-      if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+      const limit = isExportAll ? Math.min(Number(req.query.limit || 5000), 10000) : Number(req.query.limit || 20);
+      if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || (!isExportAll && limit > 100)) {
         return res.status(400).json({
           success: false,
           message: 'page must be positive and limit must be an integer from 1 to 100'
@@ -598,6 +838,16 @@ router.put(
       }
 
       const { academicYear, semester, subjects } = academicRecordUpdate.value;
+      const activePeriod = await getActiveAcademicPeriod();
+      if (
+        activePeriod.isTermGradesLocked &&
+        (academicYear !== activePeriod.schoolYear || semester !== activePeriod.semester)
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: `Academic records for historical terms are locked. The active term is ${activePeriod.schoolYear} - ${activePeriod.semester}.`
+        });
+      }
       const academicRecord = await AcademicRecord.findOneAndUpdate(
         { studentId: student._id, academicYear, semester },
         { $set: { subjects, isDemo: false } },

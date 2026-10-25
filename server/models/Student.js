@@ -250,7 +250,9 @@ studentSchema.pre('save', function (next) {
   if (this.personalInformation?.lastName) {
     this.lastName = this.personalInformation.lastName.trim();
   }
-  next();
+  if (typeof next === 'function') {
+    next();
+  }
 });
 
 module.exports = mongoose.model('Student', studentSchema);

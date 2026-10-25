@@ -1,9 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, FileCheck2, RefreshCw, Search, Users } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  FileCheck2,
+  FileSpreadsheet,
+  Printer,
+  RefreshCw,
+  Search,
+  Users,
+} from 'lucide-react';
 import { fetchInstitutionalStudentSummary, InstitutionalStudentSummary } from '../../lib/api';
 import { formatAcademicGwa } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { Modal } from '../common/Modal';
+import {
+  exportStudentsToCSV,
+  exportStudentsToExcel,
+  printOfficialStudentReport,
+} from '../../utils/reportExportUtils';
 
 export const AdminReportsView: React.FC = () => {
   const [students, setStudents] = useState<InstitutionalStudentSummary[]>([]);
@@ -15,6 +31,57 @@ export const AdminReportsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedEvaluationStudent, setSelectedEvaluationStudent] = useState<InstitutionalStudentSummary | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportScope, setExportScope] = useState<'filtered' | 'all'>('filtered');
+
+  const getExportData = async () => {
+    if (exportScope === 'all' && total > students.length) {
+      setExporting(true);
+      try {
+        const allRes = await fetchInstitutionalStudentSummary(1, 5000, true);
+        return allRes.students;
+      } finally {
+        setExporting(false);
+      }
+    }
+    return filteredStudents;
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const dataToExport = await getExportData();
+      exportStudentsToCSV(dataToExport, {
+        filterQuery: search,
+        stats: statistics,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to export CSV.');
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const dataToExport = await getExportData();
+      exportStudentsToExcel(dataToExport, {
+        filterQuery: search,
+        stats: statistics,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to export Excel.');
+    }
+  };
+
+  const handlePrintPDF = async () => {
+    try {
+      const dataToExport = await getExportData();
+      printOfficialStudentReport(dataToExport, {
+        filterQuery: search,
+        stats: statistics,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to prepare print report.');
+    }
+  };
 
   const loadReport = async () => {
     setLoading(true);
@@ -102,8 +169,8 @@ export const AdminReportsView: React.FC = () => {
       </section>
 
       <section className="admin-panel overflow-hidden">
-        <div className="admin-toolbar border-b border-slate-200">
-          <div className="admin-search-control">
+        <div className="admin-toolbar flex-wrap gap-3 border-b border-slate-200">
+          <div className="admin-search-control flex-1 min-w-[280px]">
             <Search />
             <label htmlFor="admin-report-search" className="sr-only">Filter students on this page</label>
             <input
@@ -113,9 +180,68 @@ export const AdminReportsView: React.FC = () => {
               placeholder="Filter this page by ID, name, status, remarks, or evaluation..."
             />
           </div>
-          <span className="admin-count">
-            <strong>{filteredStudents.length}</strong> records shown on this page
-          </span>
+
+          <div className="flex items-center flex-wrap gap-2">
+            <div className="flex items-center text-xs font-medium text-slate-600 bg-slate-100 rounded-lg p-1 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setExportScope('filtered')}
+                className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                  exportScope === 'filtered'
+                    ? 'bg-white font-semibold text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Export currently filtered view on this page"
+              >
+                Filtered ({filteredStudents.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setExportScope('all')}
+                className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                  exportScope === 'all'
+                    ? 'bg-white font-semibold text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Export overall enrolled student dataset from database"
+              >
+                All Enrolled ({total})
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void handleExportCSV()}
+              disabled={loading || exporting || filteredStudents.length === 0}
+              className="admin-secondary-button text-xs py-1.5 px-3 min-h-0"
+              title="Download standard CSV spreadsheet with BukSU header"
+            >
+              <Download className="h-3.5 w-3.5 text-slate-600" />
+              <span>Export as CSV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleExportExcel()}
+              disabled={loading || exporting || filteredStudents.length === 0}
+              className="admin-secondary-button text-xs py-1.5 px-3 min-h-0 text-emerald-800 hover:text-emerald-900"
+              title="Download Microsoft Excel formatted workbook (.xlsx) with BukSU header"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Export as Excel (.xlsx)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handlePrintPDF()}
+              disabled={loading || exporting || filteredStudents.length === 0}
+              className="admin-secondary-button text-xs py-1.5 px-3 min-h-0 text-indigo-700 hover:text-indigo-900 font-semibold"
+              title="Generate printable official report with BukSU header and Dean/Chairperson sign-offs"
+            >
+              <Printer className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Print Official PDF</span>
+            </button>
+          </div>
         </div>
         <div className="admin-table-wrap">
           <table className="admin-table" aria-label="Institutional student analytics">

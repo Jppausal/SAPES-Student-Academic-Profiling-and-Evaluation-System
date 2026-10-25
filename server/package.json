@@ -11,7 +11,8 @@
     "seed:student-test-records": "node scripts/seedStudentTestAcademicRecords.js",
     "seed:student-demo-record": "node scripts/seedStudentAcademicDemoRecord.js",
     "seed:bsit-students": "node scripts/seedBsitCurriculumStudents.js",
-    "db:indexes": "node scripts/syncIndexes.js"
+    "db:indexes": "node scripts/syncIndexes.js",
+    "seed:demo-eval": "node scripts/seedEvaluationForDemo.js"
   },
   "keywords": [],
   "author": "",

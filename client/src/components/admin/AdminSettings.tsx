@@ -4,14 +4,23 @@ import {
   saveIntegrationSettings,
   type IntegrationSettings,
   type IntegrationName,
+  fetchActiveAcademicPeriod,
+  saveActiveAcademicPeriod,
+  type ActiveAcademicPeriod,
 } from '../../lib/api';
 import {
   ShieldCheck,
   Server,
   Lock,
+  Unlock,
   GraduationCap,
   Sliders,
   CheckCircle2,
+  Calendar,
+  Clock,
+  Save,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 const descriptions: Record<IntegrationName, { title: string; description: string }> = {
@@ -40,6 +49,41 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
   const [message, setMessage] = useState('');
   const [health, setHealth] = useState('Checking server…');
   const [healthOk, setHealthOk] = useState(false);
+
+  // A116: Academic Period & Evaluation Window Lifecycle State
+  const [period, setPeriod] = useState<ActiveAcademicPeriod>({
+    schoolYear: '2025-2026',
+    semester: '1st Semester',
+    isTermGradesLocked: false,
+    evaluationWindowOpen: true,
+    evaluationDeadline: null,
+    announcementMessage: '',
+  });
+  const [savingPeriod, setSavingPeriod] = useState(false);
+  const [periodMessage, setPeriodMessage] = useState('');
+  const [periodError, setPeriodError] = useState('');
+
+  useEffect(() => {
+    fetchActiveAcademicPeriod()
+      .then(setPeriod)
+      .catch((reason) => console.error('Academic period load error:', reason));
+  }, []);
+
+  const handleSavePeriod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPeriod(true);
+    setPeriodError('');
+    setPeriodMessage('');
+    try {
+      const updated = await saveActiveAcademicPeriod(period);
+      setPeriod(updated);
+      setPeriodMessage('Active academic term & evaluation lifecycle policies saved successfully.');
+    } catch (reason) {
+      setPeriodError(reason instanceof Error ? reason.message : 'Unable to save academic period settings.');
+    } finally {
+      setSavingPeriod(false);
+    }
+  };
 
   useEffect(() => {
     fetchIntegrationSettings(true)
@@ -189,30 +233,198 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
       )}
 
       {section === 'Academic' && (
-        <section className="admin-panel admin-panel-body space-y-4">
-          <div className="flex items-center gap-2 text-slate-800">
-            <GraduationCap className="h-4 w-4 text-indigo-600" />
-            <h3 className="font-bold text-base">Academic Evaluation Rules &amp; GWA Policies</h3>
-          </div>
-          <p className="text-sm text-slate-600">
-            Academic calculations and evaluation eligibility rules enforced across student records.
-          </p>
+        <div className="space-y-4">
+          {/* A116: Academic Term Lifecycle Management Form */}
+          <section className="admin-panel admin-panel-body space-y-4">
+            <div className="flex items-center gap-2 text-slate-800">
+              <Calendar className="h-5 w-5 text-indigo-600" />
+              <div>
+                <h3 className="font-bold text-base">Academic Term &amp; Advising Window Lifecycle</h3>
+                <p className="text-xs text-slate-500">
+                  Configure the active institutional school year, semester, locked past records, and evaluation cutoff deadline.
+                </p>
+              </div>
+            </div>
 
-          <div className="space-y-3 mt-3 text-xs text-slate-700">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-              <strong className="block text-slate-900 mb-1">Unit-Weighted GWA Calculation</strong>
-              GWA = (Sum of Grade × Units) / (Total Units). Dropped, ungraded, and zero-unit subjects are strictly excluded from calculation.
+            {periodError && <p role="alert" className="admin-alert admin-alert-error">{periodError}</p>}
+            {periodMessage && <p role="status" className="admin-alert admin-alert-success">{periodMessage}</p>}
+
+            <form onSubmit={handleSavePeriod} className="space-y-4 pt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="academic-school-year" className="block text-xs font-semibold text-slate-700 mb-1">
+                    Active School Year (AY)
+                  </label>
+                  <input
+                    id="academic-school-year"
+                    type="text"
+                    value={period.schoolYear}
+                    onChange={(e) => setPeriod({ ...period, schoolYear: e.target.value })}
+                    placeholder="e.g. 2025-2026"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
+                    required
+                  />
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">Official academic calendar year</span>
+                </div>
+
+                <div>
+                  <label htmlFor="academic-semester" className="block text-xs font-semibold text-slate-700 mb-1">
+                    Active Term / Semester
+                  </label>
+                  <select
+                    id="academic-semester"
+                    value={period.semester}
+                    onChange={(e) => setPeriod({ ...period, semester: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-semibold"
+                  >
+                    <option value="1st Semester">1st Semester</option>
+                    <option value="2nd Semester">2nd Semester</option>
+                    <option value="Midyear">Midyear</option>
+                  </select>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">Current enrollment term</span>
+                </div>
+              </div>
+
+              {/* Toggles: Lock Past Terms + Open/Close Evaluation Window */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-start justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                      {period.isTermGradesLocked ? (
+                        <Lock className="h-4 w-4 text-amber-600" />
+                      ) : (
+                        <Unlock className="h-4 w-4 text-slate-500" />
+                      )}
+                      <span>Lock Historical Term Grades</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      When enabled, subjects for semesters older than {period.schoolYear} {period.semester} cannot be modified.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    id="lock-term-grades"
+                    checked={period.isTermGradesLocked}
+                    onChange={(e) => setPeriod({ ...period, isTermGradesLocked: e.target.checked })}
+                    className="mt-1 h-4 w-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-start justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                      <Clock className="h-4 w-4 text-indigo-600" />
+                      <span>Faculty Advising &amp; Evaluation Window</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      {period.evaluationWindowOpen
+                        ? 'Window is OPEN. Faculty can assign and update evaluations.'
+                        : 'Window is CLOSED. Faculty submissions are blocked.'}
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    id="eval-window-open"
+                    checked={period.evaluationWindowOpen}
+                    onChange={(e) => setPeriod({ ...period, evaluationWindowOpen: e.target.checked })}
+                    className="mt-1 h-4 w-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Deadline & Notice */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="eval-deadline" className="block text-xs font-semibold text-slate-700 mb-1">
+                    Evaluation Cutoff Deadline
+                  </label>
+                  <input
+                    id="eval-deadline"
+                    type="datetime-local"
+                    value={
+                      period.evaluationDeadline
+                        ? new Date(period.evaluationDeadline).toISOString().slice(0, 16)
+                        : ''
+                    }
+                    onChange={(e) =>
+                      setPeriod({
+                        ...period,
+                        evaluationDeadline: e.target.value ? new Date(e.target.value).toISOString() : null,
+                      })
+                    }
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    Optional cutoff date/time; alerts faculty of approaching evaluation closure
+                  </span>
+                </div>
+
+                <div>
+                  <label htmlFor="eval-announcement" className="block text-xs font-semibold text-slate-700 mb-1">
+                    Advising &amp; Evaluation Banner Notice
+                  </label>
+                  <input
+                    id="eval-announcement"
+                    type="text"
+                    value={period.announcementMessage}
+                    onChange={(e) => setPeriod({ ...period, announcementMessage: e.target.value })}
+                    placeholder="e.g. Advising window for 1st Sem AY 2025-2026 closes on Nov 15"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    Broadcasted to faculty evaluators on their evaluation screens
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={savingPeriod}
+                  className="admin-primary-button text-xs py-2 px-4"
+                >
+                  {savingPeriod ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      <span>Saving Lifecycle Settings...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5" />
+                      <span>Save Academic Period Policy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          {/* Reference GWA Rules */}
+          <section className="admin-panel admin-panel-body space-y-4">
+            <div className="flex items-center gap-2 text-slate-800">
+              <GraduationCap className="h-4 w-4 text-indigo-600" />
+              <h3 className="font-bold text-base">Academic Evaluation Rules &amp; GWA Policies</h3>
             </div>
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-              <strong className="block text-slate-900 mb-1">Major vs. Overall Subject GWA</strong>
-              Major subject GWA evaluates curriculum-flagged major courses separately to inform faculty evaluation of specialized competency.
+            <p className="text-sm text-slate-600">
+              Academic calculations and evaluation eligibility rules enforced across student records.
+            </p>
+
+            <div className="space-y-3 mt-3 text-xs text-slate-700">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <strong className="block text-slate-900 mb-1">Unit-Weighted GWA Calculation</strong>
+                GWA = (Sum of Grade × Units) / (Total Units). Dropped, ungraded, and zero-unit subjects are strictly excluded from calculation.
+              </div>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <strong className="block text-slate-900 mb-1">Major vs. Overall Subject GWA</strong>
+                Major subject GWA evaluates curriculum-flagged major courses separately to inform faculty evaluation of specialized competency.
+              </div>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <strong className="block text-slate-900 mb-1">Academic Status &amp; Probation Rules</strong>
+                Probation is tracked both historically and dynamically. Students with failing marks or incomplete statuses are highlighted for faculty review.
+              </div>
             </div>
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-              <strong className="block text-slate-900 mb-1">Academic Status &amp; Probation Rules</strong>
-              Probation is tracked both historically and dynamically. Students with failing marks or incomplete statuses are highlighted for faculty review.
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       )}
 
       {section === 'System & Audit' && (
