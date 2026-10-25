@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   ClipboardList,
   FileClock,
+  GraduationCap,
+  HeartPulse,
   MessageSquareText,
   Plus,
   Save,
@@ -24,12 +26,19 @@ import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 type EvaluationTab = 'gradebook' | 'attendance' | 'remarks' | 'history';
+type ProfileTab = 'information' | 'enrollment' | 'profiling';
 
 const tabItems: Array<{ id: EvaluationTab; label: string; icon: typeof Activity }> = [
   { id: 'gradebook', label: 'Gradebook & Assessment Breakdown', icon: ClipboardList },
   { id: 'attendance', label: 'Attendance & Participation Log', icon: CalendarCheck2 },
   { id: 'remarks', label: 'Faculty Remarks & Rubrics', icon: MessageSquareText },
   { id: 'history', label: 'Academic History', icon: FileClock },
+];
+
+const profileTabItems: Array<{ id: ProfileTab; label: string; icon: typeof UserRound }> = [
+  { id: 'information', label: 'Student Information', icon: UserRound },
+  { id: 'enrollment', label: 'Enrollment & Classification', icon: GraduationCap },
+  { id: 'profiling', label: 'Religion & Health Concerns', icon: HeartPulse },
 ];
 
 const emptyProgress = (): CourseEvaluationProgress => ({
@@ -100,6 +109,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
   const [evaluationRemarks, setEvaluationRemarks] = useState(initialWorkspace?.facultyEvaluation?.remarks || '');
   const [evaluationOpen, setEvaluationOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<EvaluationTab>('gradebook');
+  const [activeProfileTab, setActiveProfileTab] = useState<ProfileTab>('information');
   const [loading, setLoading] = useState(!initialWorkspace);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -246,6 +256,21 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
+  const handleProfileTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const currentIndex = profileTabItems.findIndex(({ id }) => id === activeProfileTab);
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % profileTabItems.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + profileTabItems.length) % profileTabItems.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = profileTabItems.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextTab = profileTabItems[nextIndex];
+    setActiveProfileTab(nextTab.id);
+    document.getElementById(`student-profile-tab-${nextTab.id}`)?.focus();
+  };
+
   return (
     <section aria-label="Student evaluation" className="space-y-4">
       {showStudentProfile && <section aria-label="Student profile" className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -278,109 +303,156 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
           </div>
         </div>
 
-        <div className="divide-y divide-slate-200">
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Personal information</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ProfileField label="First name" value={profileValue(workspace.student.personalInformation.firstName)} />
-              <ProfileField label="Middle name" value={profileValue(workspace.student.personalInformation.middleName)} />
-              <ProfileField label="Last name" value={profileValue(workspace.student.personalInformation.lastName)} />
-              <ProfileField label="Suffix" value={profileValue(workspace.student.personalInformation.suffix)} />
-              <ProfileField label="Date of birth" value={profileDate(workspace.student.personalInformation.birthDate)} />
-              <ProfileField label="Place of birth" value={profileValue(workspace.student.personalInformation.birthPlace)} />
-              <ProfileField label="Sex" value={profileValue(workspace.student.personalInformation.sex)} />
-              <ProfileField label="Civil status" value={profileValue(workspace.student.personalInformation.civilStatus)} />
-              <ProfileField label="Nationality" value={profileValue(workspace.student.personalInformation.nationality)} />
-              <ProfileField label="Citizenship" value={profileValue(workspace.student.personalInformation.citizenship)} />
-              <ProfileField label="Dual citizenship" value={profileValue(workspace.student.personalInformation.dualCitizenship)} />
-              <ProfileField label="Foreigner" value={profileValue(workspace.student.personalInformation.isForeigner)} />
-              <ProfileField label="Height" value={profileValue(workspace.student.personalInformation.height)} />
-              <ProfileField label="Weight" value={profileValue(workspace.student.personalInformation.weight)} />
-              <ProfileField label="Blood type" value={profileValue(workspace.student.personalInformation.bloodType)} />
-              <ProfileField label="Minority group" value={profileValue(workspace.student.personalInformation.minority)} />
-            </dl>
-          </section>
+        <div>
+          <div role="tablist" aria-label="Student profile sections" className="flex overflow-x-auto border-b border-slate-200 bg-slate-50 px-2">
+            {profileTabItems.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                id={`student-profile-tab-${id}`}
+                type="button"
+                role="tab"
+                aria-selected={activeProfileTab === id}
+                aria-controls={`student-profile-panel-${id}`}
+                tabIndex={activeProfileTab === id ? 0 : -1}
+                onClick={() => setActiveProfileTab(id)}
+                onKeyDown={handleProfileTabKeyDown}
+                className={`flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-semibold transition-colors sm:px-4 ${activeProfileTab === id ? 'border-brand-700 bg-white text-brand-800' : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'}`}
+              >
+                <Icon aria-hidden="true" className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </div>
 
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Enrollment and classification</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ProfileField label="Program" value={profileValue(workspace.student.classification.program)} />
-              <ProfileField label="Course" value={profileValue(workspace.student.enrollmentInformation.course)} />
-              <ProfileField label="Department" value={profileValue(workspace.student.enrollmentInformation.department)} />
-              <ProfileField label="Level" value={profileValue(workspace.student.enrollmentInformation.level)} />
-              <ProfileField label="Year level" value={profileValue(workspace.student.enrollmentInformation.yearLevel || workspace.student.yearLevel)} />
-              <ProfileField label="Section" value={profileValue(workspace.student.section)} />
-              <ProfileField label="Curriculum" value={profileValue(workspace.student.enrollmentInformation.curriculum)} />
-              <ProfileField label="Student type" value={profileValue(workspace.student.enrollmentInformation.studentType || workspace.student.classification.studentType)} />
-              <ProfileField label="Entry period" value={profileValue(workspace.student.enrollmentInformation.entryPeriod)} />
-              <ProfileField label="Entry date" value={profileDate(workspace.student.enrollmentInformation.entryDate)} />
-              <ProfileField label="Preferred modality" value={profileValue(workspace.student.enrollmentInformation.preferredModality)} />
-              <ProfileField label="Campus" value={profileValue(workspace.student.enrollmentInformation.campus)} />
-              <ProfileField label="Learner reference number" value={profileValue(workspace.student.enrollmentInformation.learnerReferenceNo)} />
-              <ProfileField label="NSTP number" value={profileValue(workspace.student.enrollmentInformation.nstpNumber)} />
-              <ProfileField label="Enrollment status" value={profileValue(workspace.student.enrollmentStatus.replace(/_/g, ' '))} />
-              <ProfileField label="Academic status" value={studentStatus} />
-              <ProfileField label="Indigenous Peoples classification" value={profileValue(workspace.student.classification.isIP)} />
-              <ProfileField label="Person with disability classification" value={profileValue(workspace.student.classification.isPWD)} />
-              <ProfileField label="Shifter classification" value={profileValue(workspace.student.classification.isShifter)} />
-              <ProfileField label="Transferee classification" value={profileValue(workspace.student.classification.isTransferee)} />
-              <ProfileField label="Indigenous group" value={profileValue(workspace.student.classification.indigenousGroup)} />
-            </dl>
-          </section>
-
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Contact information</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ProfileField label="Mobile number" value={profileValue(workspace.student.contactInformation.mobileNumber)} />
-              <ProfileField label="Alternate mobile" value={profileValue(workspace.student.contactInformation.alternateMobileNumber)} />
-              <ProfileField label="Telephone" value={profileValue(workspace.student.contactInformation.telephoneNumber)} />
-              <ProfileField label="Institutional email" value={profileValue(workspace.student.contactInformation.institutionalEmail)} />
-              <ProfileField label="Alternate email" value={profileValue(workspace.student.contactInformation.alternateEmail)} />
-            </dl>
-          </section>
-
-          <section className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Addresses</h3>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                <ProfileField label="Present address" value={formatAddress(workspace.student.addresses.presentAddress)} />
-                <ProfileField label="Home address" value={formatAddress(workspace.student.addresses.homeAddress)} />
+          <div
+            id="student-profile-panel-information"
+            role="tabpanel"
+            aria-labelledby="student-profile-tab-information"
+            tabIndex={0}
+            hidden={activeProfileTab !== 'information'}
+            className="divide-y divide-slate-200 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+          >
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Personal information</h3>
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                <ProfileField label="First name" value={profileValue(workspace.student.personalInformation.firstName)} />
+                <ProfileField label="Middle name" value={profileValue(workspace.student.personalInformation.middleName)} />
+                <ProfileField label="Last name" value={profileValue(workspace.student.personalInformation.lastName)} />
+                <ProfileField label="Suffix" value={profileValue(workspace.student.personalInformation.suffix)} />
+                <ProfileField label="Date of birth" value={profileDate(workspace.student.personalInformation.birthDate)} />
+                <ProfileField label="Place of birth" value={profileValue(workspace.student.personalInformation.birthPlace)} />
+                <ProfileField label="Sex" value={profileValue(workspace.student.personalInformation.sex)} />
+                <ProfileField label="Civil status" value={profileValue(workspace.student.personalInformation.civilStatus)} />
+                <ProfileField label="Nationality" value={profileValue(workspace.student.personalInformation.nationality)} />
+                <ProfileField label="Citizenship" value={profileValue(workspace.student.personalInformation.citizenship)} />
+                <ProfileField label="Dual citizenship" value={profileValue(workspace.student.personalInformation.dualCitizenship)} />
+                <ProfileField label="Foreigner" value={profileValue(workspace.student.personalInformation.isForeigner)} />
+                <ProfileField label="Height" value={profileValue(workspace.student.personalInformation.height)} />
+                <ProfileField label="Weight" value={profileValue(workspace.student.personalInformation.weight)} />
+                <ProfileField label="Blood type" value={profileValue(workspace.student.personalInformation.bloodType)} />
+                <ProfileField label="Minority group" value={profileValue(workspace.student.personalInformation.minority)} />
               </dl>
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Educational background</h3>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                <ProfileField label="Previous school" value={profileValue(workspace.student.educationalBackground.previousSchool)} />
-                <ProfileField label="Senior high school" value={profileValue(workspace.student.educationalBackground.seniorHigh)} />
-                <ProfileField label="Junior high school" value={profileValue(workspace.student.educationalBackground.juniorHigh)} />
-                <ProfileField label="Elementary school" value={profileValue(workspace.student.educationalBackground.elementary)} />
-              </dl>
-            </div>
-          </section>
+            </section>
 
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Student profiling</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-              <ProfileField label="Religion" value={profileValue(workspace.student.religiousInformation.religion)} />
-              <ProfileField label="Shared spiritual schedule" value={profileValue(workspace.student.religiousInformation.shareSpiritualSchedule)} />
-              <ProfileField
-                label="Shared unavailable times"
-                value={workspace.student.religiousInformation.shareSpiritualSchedule && workspace.student.religiousInformation.spiritualActivities.length
-                  ? workspace.student.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(', ')
-                  : 'Not shared'}
-              />
-              <ProfileField label="Relevant health concern" value={profileValue(workspace.student.healthInformation.hasRelevantHealthConcern)} />
-              <ProfileField label="Conditions" value={workspace.student.healthInformation.conditions?.join(', ')} />
-              <ProfileField label="Other condition" value={workspace.student.healthInformation.otherCondition} />
-              <ProfileField label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
-              <ProfileField label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
-              <ProfileField label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
-              <ProfileField label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
-              <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
-              <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />
-              <ProfileField label="Health information last updated" value={profileDate(workspace.student.healthInformation.lastUpdated || undefined)} />
-            </dl>
-          </section>
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Contact information</h3>
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                <ProfileField label="Mobile number" value={profileValue(workspace.student.contactInformation.mobileNumber)} />
+                <ProfileField label="Alternate mobile" value={profileValue(workspace.student.contactInformation.alternateMobileNumber)} />
+                <ProfileField label="Telephone" value={profileValue(workspace.student.contactInformation.telephoneNumber)} />
+                <ProfileField label="Institutional email" value={profileValue(workspace.student.contactInformation.institutionalEmail)} />
+                <ProfileField label="Alternate email" value={profileValue(workspace.student.contactInformation.alternateEmail)} />
+              </dl>
+            </section>
+
+            <section className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Addresses</h3>
+                <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <ProfileField label="Present address" value={formatAddress(workspace.student.addresses.presentAddress)} />
+                  <ProfileField label="Home address" value={formatAddress(workspace.student.addresses.homeAddress)} />
+                </dl>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Educational background</h3>
+                <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <ProfileField label="Previous school" value={profileValue(workspace.student.educationalBackground.previousSchool)} />
+                  <ProfileField label="Senior high school" value={profileValue(workspace.student.educationalBackground.seniorHigh)} />
+                  <ProfileField label="Junior high school" value={profileValue(workspace.student.educationalBackground.juniorHigh)} />
+                  <ProfileField label="Elementary school" value={profileValue(workspace.student.educationalBackground.elementary)} />
+                </dl>
+              </div>
+            </section>
+          </div>
+
+          <div
+            id="student-profile-panel-enrollment"
+            role="tabpanel"
+            aria-labelledby="student-profile-tab-enrollment"
+            tabIndex={0}
+            hidden={activeProfileTab !== 'enrollment'}
+            className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+          >
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Enrollment and classification</h3>
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                <ProfileField label="Program" value={profileValue(workspace.student.classification.program)} />
+                <ProfileField label="Course" value={profileValue(workspace.student.enrollmentInformation.course)} />
+                <ProfileField label="Department" value={profileValue(workspace.student.enrollmentInformation.department)} />
+                <ProfileField label="Level" value={profileValue(workspace.student.enrollmentInformation.level)} />
+                <ProfileField label="Year level" value={profileValue(workspace.student.enrollmentInformation.yearLevel || workspace.student.yearLevel)} />
+                <ProfileField label="Section" value={profileValue(workspace.student.section)} />
+                <ProfileField label="Curriculum" value={profileValue(workspace.student.enrollmentInformation.curriculum)} />
+                <ProfileField label="Student type" value={profileValue(workspace.student.enrollmentInformation.studentType || workspace.student.classification.studentType)} />
+                <ProfileField label="Entry period" value={profileValue(workspace.student.enrollmentInformation.entryPeriod)} />
+                <ProfileField label="Entry date" value={profileDate(workspace.student.enrollmentInformation.entryDate)} />
+                <ProfileField label="Preferred modality" value={profileValue(workspace.student.enrollmentInformation.preferredModality)} />
+                <ProfileField label="Campus" value={profileValue(workspace.student.enrollmentInformation.campus)} />
+                <ProfileField label="Learner reference number" value={profileValue(workspace.student.enrollmentInformation.learnerReferenceNo)} />
+                <ProfileField label="NSTP number" value={profileValue(workspace.student.enrollmentInformation.nstpNumber)} />
+                <ProfileField label="Enrollment status" value={profileValue(workspace.student.enrollmentStatus.replace(/_/g, ' '))} />
+                <ProfileField label="Academic status" value={studentStatus} />
+                <ProfileField label="Indigenous Peoples classification" value={profileValue(workspace.student.classification.isIP)} />
+                <ProfileField label="Person with disability classification" value={profileValue(workspace.student.classification.isPWD)} />
+                <ProfileField label="Shifter classification" value={profileValue(workspace.student.classification.isShifter)} />
+                <ProfileField label="Transferee classification" value={profileValue(workspace.student.classification.isTransferee)} />
+                <ProfileField label="Indigenous group" value={profileValue(workspace.student.classification.indigenousGroup)} />
+              </dl>
+            </section>
+          </div>
+
+          <div
+            id="student-profile-panel-profiling"
+            role="tabpanel"
+            aria-labelledby="student-profile-tab-profiling"
+            tabIndex={0}
+            hidden={activeProfileTab !== 'profiling'}
+            className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+          >
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Religion and health concerns</h3>
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                <ProfileField label="Religion" value={profileValue(workspace.student.religiousInformation.religion)} />
+                <ProfileField label="Shared spiritual schedule" value={profileValue(workspace.student.religiousInformation.shareSpiritualSchedule)} />
+                <ProfileField
+                  label="Shared unavailable times"
+                  value={workspace.student.religiousInformation.shareSpiritualSchedule && workspace.student.religiousInformation.spiritualActivities.length
+                    ? workspace.student.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(', ')
+                    : 'Not shared'}
+                />
+                <ProfileField label="Relevant health concern" value={profileValue(workspace.student.healthInformation.hasRelevantHealthConcern)} />
+                <ProfileField label="Conditions" value={workspace.student.healthInformation.conditions?.join(', ')} />
+                <ProfileField label="Other condition" value={workspace.student.healthInformation.otherCondition} />
+                <ProfileField label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
+                <ProfileField label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
+                <ProfileField label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
+                <ProfileField label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
+                <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
+                <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />
+                <ProfileField label="Health information last updated" value={profileDate(workspace.student.healthInformation.lastUpdated || undefined)} />
+              </dl>
+            </section>
+          </div>
         </div>
       </section>}
 

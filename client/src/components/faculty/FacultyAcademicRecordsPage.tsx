@@ -153,6 +153,30 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   const historicalFallbackGwas = resolveAcademicGwas(studentWorkspace?.academicRecords || []);
   const historicalOverallGwa = studentWorkspace?.overallGwa ?? historicalFallbackGwas.overallGwa;
 
+  const classFilters = (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-xs font-semibold text-slate-700">Year level
+          <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setSelectedSection(''); }} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800">
+            <option value="">Choose year level</option>
+            {yearOptions.map((year) => <option key={year.value} value={year.value}>{year.label}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-slate-700">Section
+          <select value={selectedSection} onChange={(event) => setSelectedSection(event.target.value)} disabled={!selectedYear} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 disabled:bg-slate-100 disabled:text-slate-400">
+            <option value="">{selectedYear ? 'Choose section' : 'Select a year first'}</option>
+            {availableSections.map((section) => <option key={section} value={section}>{section}</option>)}
+          </select>
+        </label>
+      </div>
+      <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
+        <Check className="h-4 w-4" /> View students
+      </button>
+      {error && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+      {loading && <p className="mt-3 text-xs text-slate-500">Loading course students…</p>}
+    </>
+  );
+
   const proceedToEnrollment = async () => {
     if (!studentWorkspace || studentWorkspace.student.enrollmentStatus === 'enrolled') return;
     setApprovingEnrollment(true);
@@ -180,63 +204,60 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   return (
     <div className="space-y-6">
       <BackendStudentSearch key={`quick-search-${step}`} displayMode="records" />
-
       {step === 'courses' && <section aria-labelledby="records-programs-heading" className="space-y-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">College of Technologies</p>
-          <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Select a course</h2>
+          {fixedProgram ? (
+            <>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Course</p>
+              <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Filter by year level and section</h2>
+              <p className="mt-1 text-sm text-slate-600">{selectedCourseLabel}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">College of Technologies</p>
+              <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Select a course</h2>
+            </>
+          )}
         </div>
 
-        <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {TECHNOLOGY_PROGRAMS.filter((program) => !fixedProgram || program.value === fixedProgram).map((program) => {
-            const details = programDetails[program.value];
-            const Icon = details.icon;
-            const isSelected = selectedProgram === program.value;
-            return (
-              <article key={program.value} className={`overflow-hidden rounded-lg border bg-white transition ${isSelected ? 'border-brand-600 ring-1 ring-brand-600 shadow-sm sm:col-span-2 xl:col-span-1' : 'border-slate-200'}`}>
-                <button
-                  type="button"
-                  aria-expanded={isSelected}
-                  onClick={() => toggleProgram(program.value)}
-                  className="flex min-h-28 w-full items-start justify-between gap-3 p-4 text-left hover:bg-slate-50"
-                >
-                  <span className="flex min-w-0 gap-3">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${details.color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold leading-snug text-slate-900">{program.label}</span>
-                      <span className="mt-1.5 block text-xs leading-relaxed text-slate-600">{details.description}</span>
+        {fixedProgram ? (
+          <div className="max-w-2xl rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+            {classFilters}
+          </div>
+        ) : (
+          <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {TECHNOLOGY_PROGRAMS.map((program) => {
+              const details = programDetails[program.value];
+              const Icon = details.icon;
+              const isSelected = selectedProgram === program.value;
+              return (
+                <article key={program.value} className={`overflow-hidden rounded-lg border bg-white transition ${isSelected ? 'border-brand-600 ring-1 ring-brand-600 shadow-sm sm:col-span-2 xl:col-span-1' : 'border-slate-200'}`}>
+                  <button
+                    type="button"
+                    aria-expanded={isSelected}
+                    onClick={() => toggleProgram(program.value)}
+                    className="flex min-h-28 w-full items-start justify-between gap-3 p-4 text-left hover:bg-slate-50"
+                  >
+                    <span className="flex min-w-0 gap-3">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${details.color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold leading-snug text-slate-900">{program.label}</span>
+                        <span className="mt-1.5 block text-xs leading-relaxed text-slate-600">{details.description}</span>
+                      </span>
                     </span>
-                  </span>
-                  <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-500 transition-transform ${isSelected ? 'rotate-180' : ''}`} />
-                </button>
+                    <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-500 transition-transform ${isSelected ? 'rotate-180' : ''}`} />
+                  </button>
 
-                {isSelected && (
-                  <div className="border-t border-slate-200 bg-slate-50/70 p-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="text-xs font-semibold text-slate-700">Year level
-                        <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setSelectedSection(''); }} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800">
-                          <option value="">Choose year level</option>
-                          {yearOptions.map((year) => <option key={year.value} value={year.value}>{year.label}</option>)}
-                        </select>
-                      </label>
-                      <label className="text-xs font-semibold text-slate-700">Section
-                        <select value={selectedSection} onChange={(event) => setSelectedSection(event.target.value)} disabled={!selectedYear} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 disabled:bg-slate-100 disabled:text-slate-400">
-                          <option value="">{selectedYear ? 'Choose section' : 'Select a year first'}</option>
-                          {availableSections.map((section) => <option key={section} value={section}>{section}</option>)}
-                        </select>
-                      </label>
+                  {isSelected && (
+                    <div className="border-t border-slate-200 bg-slate-50/70 p-4">
+                      {classFilters}
                     </div>
-                    <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
-                      <Check className="h-4 w-4" /> Confirm class
-                    </button>
-                    {error && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
-                    {loading && <p className="mt-3 text-xs text-slate-500">Loading course students…</p>}
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>}
 
       {step === 'roster' && (
