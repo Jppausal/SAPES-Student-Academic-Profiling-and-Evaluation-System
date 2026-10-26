@@ -132,6 +132,7 @@ const AppContent: React.FC = () => {
                           onNavigate={navigateFacultyPage}
                         />
                       : <FacultyDashboardPage
+                          facultyName={currentUser.fullName}
                           onNavigate={navigateFacultyPage}
                           onOpenEvaluation={(target) => {
                             setEvaluationTarget(target);

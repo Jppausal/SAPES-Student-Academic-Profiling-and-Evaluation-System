@@ -10,6 +10,7 @@ import {
   Search,
   UserRoundCheck,
 } from 'lucide-react';
+import campusBuilding from '../../assets/branding/cot building.jpg';
 import {
   DepartmentEnrollmentDashboard as DepartmentStats,
   fetchDepartmentEnrollmentDashboard,
@@ -124,16 +125,18 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Faculty Dashboard</h1>
+      <header className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="flex min-h-32 flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-7">
+          <div>
+          <p className="text-xs font-semibold text-brand-700">Faculty overview</p>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">Good day, {firstName}!</h1>
           <p className="mt-1 text-sm text-slate-600">
             {department
-              ? `Welcome back, ${firstName}. Here's the overview of your ${department.name} students.`
+              ? `Here’s an overview of your ${department.name} students and academic progress.`
               : 'Your assigned department enrollment and evaluation overview.'}
           </p>
           {department && (
-            <p className="mt-2 inline-flex rounded-md bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">
+            <p className="mt-3 inline-flex rounded-md bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">
               {programLabel}
             </p>
           )}
@@ -147,6 +150,8 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
           <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5${refreshing ? ' animate-spin' : ''}`} />
           Refresh dashboard
         </button>
+        </div>
+        <img src={campusBuilding} alt="College of Technologies campus building" className="hidden h-full min-h-32 w-full object-cover md:block" />
       </header>
 
       {loading && (
