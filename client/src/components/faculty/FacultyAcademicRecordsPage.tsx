@@ -68,6 +68,7 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   const [approvingEnrollment, setApprovingEnrollment] = useState(false);
   const [enrollmentMessage, setEnrollmentMessage] = useState('');
   const [error, setError] = useState('');
+  const [manualSearchActive, setManualSearchActive] = useState(false);
 
   useEffect(() => {
     if (!selectedProgram) {
@@ -248,8 +249,8 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
 
   return (
     <div className="space-y-6">
-      <BackendStudentSearch key={`quick-search-${step}`} displayMode="records" />
-      {step === 'courses' && <section aria-labelledby="records-programs-heading" className="space-y-3">
+      <BackendStudentSearch key={`quick-search-${step}`} displayMode="records" onReportChange={setManualSearchActive} />
+      {!manualSearchActive && step === 'courses' && <section aria-labelledby="records-programs-heading" className="space-y-3">
         <div>
           {fixedProgram ? (
             <>
@@ -305,7 +306,7 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
         )}
       </section>}
 
-      {step === 'roster' && (
+      {!manualSearchActive && step === 'roster' && (
         <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
           <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center">
             <div>
@@ -334,36 +335,42 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
         </section>
       )}
 
-      {step === 'student' && studentWorkspace && (
-        <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start">
+      {!manualSearchActive && step === 'student' && studentWorkspace && (
+        <section className="space-y-5">
+          <div className="flex flex-col justify-between gap-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
             <StudentProfilePhoto
               institutionId={studentWorkspace.student.institutionId}
               studentName={studentName || studentWorkspace.student.institutionId}
-              className="h-24 w-24 shrink-0 rounded-lg border border-slate-200 object-cover sm:h-28 sm:w-28"
+              className="h-16 w-16 shrink-0 rounded-full border border-slate-200 object-cover"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Report card grades</p>
-              <h2 className="mt-1 text-xl font-extrabold text-slate-900">{studentName || studentWorkspace.student.institutionId}</h2>
-              <p className="mt-1 font-mono text-xs text-slate-500">Student ID: {studentWorkspace.student.institutionId}</p>
-              <p className="mt-2 text-xs text-slate-600">{selectedCourseLabel} · {yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-900">{studentName || studentWorkspace.student.institutionId}</h2>
+                <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-[10px] font-semibold text-slate-600">{studentWorkspace.student.institutionId}</span>
+                <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${studentWorkspace.student.academicStatus.isOnProbation ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                  {studentWorkspace.student.academicStatus.isOnProbation ? 'Probationary' : 'Regular'}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-slate-600">{selectedCourseLabel}</p>
+              <p className="mt-1 text-xs text-slate-500">{yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
             <div className="flex flex-col items-start gap-3 sm:items-end lg:ml-auto">
-              <button type="button" onClick={() => setStep('roster')} className="inline-flex shrink-0 items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
-              <div className="min-w-64 rounded-lg bg-brand-700 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-brand-200">Latest-period GWA</p><div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-brand-200">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div><div><span className="text-[10px] text-brand-200">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div></div>{latestAcademicPeriod && <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}<p className="mt-1 text-[10px] text-brand-200">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(studentWorkspace.majorSubjectGwa)}</p></div>
+              <div className="min-w-56 rounded-lg bg-brand-700 px-4 py-3 text-white"><p className="text-[10px] font-semibold uppercase tracking-wider text-brand-200">Latest period</p><div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-brand-200">Overall</span><p className="text-xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div><div><span className="text-[10px] text-brand-200">Major</span><p className="text-xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div></div>{latestAcademicPeriod && <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}<p className="mt-2 border-t border-white/15 pt-2 text-[10px] text-brand-200">Cumulative · Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(studentWorkspace.majorSubjectGwa)}</p></div>
             </div>
           </div>
 
+          <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
           {studentWorkspace.academicRecords.length ? studentWorkspace.academicRecords.map((term) => (
             <section key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-md border border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3 py-2.5"><h3 className="text-xs font-bold text-slate-800">{term.academicYear} · {term.semester}</h3><span className="text-[10px] font-semibold text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} · Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>
               <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-xs">
-                <thead className="border-y border-slate-200 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Status</th></tr></thead>
+                <thead className="border-y border-slate-200 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Status</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">{term.subjects.map((subject) => <tr key={subject.subjectCode}>
-                  <td className="px-3 py-2"><span className="font-mono font-semibold">{subject.subjectCode}</span><span className="ml-2 text-slate-700">{subject.subjectName}</span></td>
-                  <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
+                  <td className="px-3 py-2 font-mono font-semibold">{subject.subjectCode}</td>
+                  <td className="px-3 py-2">{subject.subjectName}</td>
                   <td className="px-3 py-2">{subject.units}</td>
                   <td className="px-3 py-2 font-semibold">{subject.grade.toFixed(2)}</td>
+                  <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
                   <td className="px-3 py-2">{formatStatusLabel(subject.status)}</td>
                 </tr>)}</tbody>
               </table></div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, CheckCircle2, CheckCircle, Search, ShieldAlert, TriangleAlert } from 'lucide-react';
+import { BookOpen, CheckCircle2, CheckCircle, Download, Search, ShieldAlert, TriangleAlert } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import {
   fetchStudentReport,
   fetchStudentSuggestions,
@@ -15,6 +16,7 @@ import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 interface BackendStudentSearchProps {
   displayMode?: 'consolidated' | 'records';
   initialQuery?: string;
+  onReportChange?: (hasReport: boolean) => void;
 }
 
 const dateLabel = (value?: string) => {
@@ -43,7 +45,7 @@ const formatAddress = (address?: Record<string, string>) => {
   return value || 'Not provided';
 };
 
-export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated', initialQuery = '' }) => {
+export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ displayMode = 'consolidated', initialQuery = '', onReportChange }) => {
   const [institutionId, setInstitutionId] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<StudentSuggestion[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
@@ -276,11 +278,59 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   } : null;
   const historicalFallbackGwas = resolveAcademicGwas(report?.academicRecords || []);
   const historicalOverallGwa = report?.overallGwa ?? historicalFallbackGwas.overallGwa;
+  const academicSubjects = report?.academicRecords.flatMap((record) => record.subjects) || [];
+  const totalUnits = academicSubjects.reduce((total, subject) => total + Number(subject.units || 0), 0);
+  const completedSubjects = academicSubjects.filter((subject) => subject.status.toLowerCase() === 'completed').length;
   const academicStatus = report?.student.academicStatus;
   const isOnProbation = academicStatus?.isOnProbation === true
     || /probation/i.test(academicStatus?.currentStatus || '');
   const healthInformation = report?.student.healthInformation;
   const student = report?.student;
+  useEffect(() => {
+    onReportChange?.(Boolean(report));
+  }, [onReportChange, report]);
+
+  const downloadAcademicRecords = () => {
+    if (!report) return;
+    const document = new jsPDF();
+    const pageWidth = document.internal.pageSize.getWidth();
+    let cursorY = 20;
+    const addLine = (text: string, size = 10, bold = false) => {
+      document.setFont('helvetica', bold ? 'bold' : 'normal');
+      document.setFontSize(size);
+      const lines = document.splitTextToSize(text, pageWidth - 28);
+      document.text(lines, 14, cursorY);
+      cursorY += lines.length * (size * 0.5 + 2.5);
+      if (cursorY > 275) {
+        document.addPage();
+        cursorY = 20;
+      }
+    };
+
+    addLine('SAPES - Student Academic Record', 16, true);
+    addLine(studentName || report.student.institutionId, 12, true);
+    addLine(`Student ID: ${report.student.institutionId}`);
+    addLine(`Program: ${report.student.classification?.program || 'Not recorded'} - Year ${report.student.yearLevel || '—'} - Section ${report.student.section || 'Not recorded'}`);
+    cursorY += 4;
+    addLine('Summary', 12, true);
+    addLine(`Total units: ${totalUnits}`);
+    addLine(`Total subjects: ${academicSubjects.length}`);
+    addLine(`Completed subjects: ${completedSubjects}`);
+    addLine(`Academic status: ${formatStatusLabel(report.student.academicStatus?.currentStatus)}`);
+    addLine(`Cumulative overall GWA: ${formatAcademicGwa(historicalOverallGwa)}`);
+    cursorY += 4;
+
+    report.academicRecords.forEach((record) => {
+      addLine(`${record.academicYear} - ${record.semester}`, 11, true);
+      addLine(`Overall GWA: ${formatAcademicGwa(resolvePeriodGwas(record).overallGwa)} - Major GWA: ${formatAcademicGwa(resolvePeriodGwas(record).majorSubjectGwa)}`);
+      record.subjects.forEach((subject) => {
+        addLine(`${subject.subjectCode} - ${subject.subjectName} - ${subject.units} units - Grade ${Number(subject.grade).toFixed(2)} - ${formatStatusLabel(subject.status)}`);
+      });
+      cursorY += 3;
+    });
+
+    document.save(`sapes-academic-record-${report.student.institutionId}.pdf`);
+  };
   const spiritualSchedule = student?.religiousInformation?.shareSpiritualSchedule
     ? student.religiousInformation.spiritualActivities?.map((activity) =>
       `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`
@@ -470,7 +520,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
       {report && (
         <div className="space-y-5">
-          <div className="flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
+          <div className="flex flex-col justify-between gap-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
             <div className="flex min-w-0 items-center gap-4">
               <StudentProfilePhoto
                 institutionId={report.student.institutionId}
@@ -577,7 +627,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
           {displayMode === 'consolidated' && report.student.schedulingRestrictions && report.student.schedulingRestrictions.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>Scheduling restrictions</strong><p className="mt-1 text-xs">Do not enroll the student in meeting times that overlap: {report.student.schedulingRestrictions.map((slot) => `${slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`).join('; ')}.</p></div>}
 
           <div className="space-y-3">
-            {displayMode === 'consolidated' && <h3 className="text-sm font-bold text-slate-900">Academic records</h3>}
+            <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
             {report.academicRecords.length === 0 && (
               <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No academic records have been entered.</p>
             )}
@@ -604,6 +654,24 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
               </div>
             ))}
           </div>
+
+          {displayMode === 'records' && <>
+            <section aria-labelledby="search-academic-summary-heading" className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 id="search-academic-summary-heading" className="text-sm font-bold text-slate-900">Summary</h3>
+              <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div><dt className="text-[11px] text-slate-500">Total units</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{totalUnits}</dd></div>
+                <div><dt className="text-[11px] text-slate-500">Total subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{academicSubjects.length}</dd></div>
+                <div><dt className="text-[11px] text-slate-500">Completed subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{completedSubjects}</dd></div>
+                <div><dt className="text-[11px] text-slate-500">Academic status</dt><dd className="mt-1 text-sm font-bold text-slate-900">{formatStatusLabel(report.student.academicStatus?.currentStatus)}</dd></div>
+              </dl>
+            </section>
+            <div className="flex justify-end border-t border-slate-200 pt-4">
+              <button type="button" onClick={downloadAcademicRecords} className="inline-flex items-center gap-2 rounded-md bg-brand-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2">
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Download records
+              </button>
+            </div>
+          </>}
 
           {displayMode === 'consolidated' && <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Status history</h3>
