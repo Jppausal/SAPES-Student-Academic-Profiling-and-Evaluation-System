@@ -78,12 +78,22 @@ const formatAddress = (address?: FacultyStudentWorkspace['student']['addresses']
   return parts.length ? parts.join(', ') : 'Not provided';
 };
 
-const ProfileField: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-  <div className="min-w-0">
-    <dt className="text-xs text-slate-500">{label}</dt>
-    <dd className="mt-1 break-words text-sm font-medium text-slate-800">{value || 'Not provided'}</dd>
-  </div>
-);
+const ProfileField: React.FC<{ label: string; value: React.ReactNode; highlight?: boolean }> = ({ label, value, highlight }) => highlight
+  ? (
+    <div className="min-w-0 rounded-lg border border-amber-300 bg-amber-50 p-3">
+      <dt className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-amber-800">
+        {label}
+        <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">Needs consideration</span>
+      </dt>
+      <dd className="mt-1 break-words text-sm font-medium text-slate-800">{value || 'Not provided'}</dd>
+    </div>
+  )
+  : (
+    <div className="min-w-0">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-medium text-slate-800">{value || 'Not provided'}</dd>
+    </div>
+  );
 
 interface StudentEvaluationPanelProps {
   institutionId: string;
@@ -255,6 +265,13 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
     : (workspace.student.academicStatus.currentStatus || 'Not recorded')
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const religiousConsideration = workspace.student.religiousInformation.shareSpiritualSchedule === true;
+  const healthConsideration = workspace.student.healthInformation.hasRelevantHealthConcern === true
+    || workspace.student.healthInformation.accommodationRequired === true
+    || Boolean(workspace.student.healthInformation.conditions?.length)
+    || Boolean(workspace.student.healthInformation.allergyDetails?.trim())
+    || Boolean(workspace.student.healthInformation.otherCondition?.trim());
+  const hasPlacementConsideration = religiousConsideration || healthConsideration;
 
   const handleProfileTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     const currentIndex = profileTabItems.findIndex(({ id }) => id === activeProfileTab);
@@ -299,6 +316,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               {workspace.student.classification.isPWD && <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-800">Person with disability</span>}
               {workspace.student.classification.isShifter && <span className="rounded-full bg-accent-50 px-2.5 py-1 text-xs font-semibold text-accent-700">Shifter</span>}
               {workspace.student.classification.isTransferee && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">Transferee</span>}
+              {hasPlacementConsideration && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">Needs placement consideration</span>}
             </div>
           </div>
         </div>
@@ -320,6 +338,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               >
                 <Icon aria-hidden="true" className="h-4 w-4" />
                 {label}
+                {id === 'profiling' && hasPlacementConsideration && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">Needs consideration</span>}
               </button>
             ))}
           </div>
@@ -431,22 +450,24 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
           >
             <section className="p-5 sm:p-6">
               <h3 className="text-base font-bold text-slate-900">Religion and health concerns</h3>
-              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+              <p className="mt-1 text-xs text-slate-500">Highlighted items require consideration when evaluating this student's section placement.</p>
+              <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <ProfileField label="Religion" value={profileValue(workspace.student.religiousInformation.religion)} />
-                <ProfileField label="Shared spiritual schedule" value={profileValue(workspace.student.religiousInformation.shareSpiritualSchedule)} />
+                <ProfileField highlight={religiousConsideration} label="Shared spiritual schedule" value={profileValue(workspace.student.religiousInformation.shareSpiritualSchedule)} />
                 <ProfileField
+                  highlight={religiousConsideration}
                   label="Shared unavailable times"
                   value={workspace.student.religiousInformation.shareSpiritualSchedule && workspace.student.religiousInformation.spiritualActivities.length
                     ? workspace.student.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(', ')
                     : 'Not shared'}
                 />
-                <ProfileField label="Relevant health concern" value={profileValue(workspace.student.healthInformation.hasRelevantHealthConcern)} />
-                <ProfileField label="Conditions" value={workspace.student.healthInformation.conditions?.join(', ')} />
-                <ProfileField label="Other condition" value={workspace.student.healthInformation.otherCondition} />
-                <ProfileField label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
-                <ProfileField label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
-                <ProfileField label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
-                <ProfileField label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
+                <ProfileField highlight={workspace.student.healthInformation.hasRelevantHealthConcern === true} label="Relevant health concern" value={profileValue(workspace.student.healthInformation.hasRelevantHealthConcern)} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.conditions?.length)} label="Conditions" value={workspace.student.healthInformation.conditions?.join(', ')} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.otherCondition?.trim())} label="Other condition" value={workspace.student.healthInformation.otherCondition} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.allergyDetails?.trim())} label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.conditionDescription?.trim())} label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
+                <ProfileField highlight={workspace.student.healthInformation.accommodationRequired === true} label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.accommodationNotes?.trim())} label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
                 <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
                 <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />
                 <ProfileField label="Health information last updated" value={profileDate(workspace.student.healthInformation.lastUpdated || undefined)} />
