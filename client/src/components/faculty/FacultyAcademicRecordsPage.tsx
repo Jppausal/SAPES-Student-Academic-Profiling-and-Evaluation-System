@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Monitor, Search, Utensils } from 'lucide-react';
+import { ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Download, Monitor, Search, Utensils } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { BackendStudentSearch } from './BackendStudentSearch';
 import { approveStudentEnrollment, fetchFacultyEvaluationRoster, fetchFacultyStudentWorkspace, FacultyRosterStudent, FacultyStudentWorkspace } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
@@ -152,6 +153,50 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   } : null;
   const historicalFallbackGwas = resolveAcademicGwas(studentWorkspace?.academicRecords || []);
   const historicalOverallGwa = studentWorkspace?.overallGwa ?? historicalFallbackGwas.overallGwa;
+  const academicSubjects = studentWorkspace?.academicRecords.flatMap((record) => record.subjects) || [];
+  const totalUnits = academicSubjects.reduce((total, subject) => total + Number(subject.units || 0), 0);
+  const completedSubjects = academicSubjects.filter((subject) => subject.status.toLowerCase() === 'completed').length;
+
+  const downloadAcademicRecords = () => {
+    if (!studentWorkspace) return;
+    const document = new jsPDF();
+    const pageWidth = document.internal.pageSize.getWidth();
+    let cursorY = 20;
+    const addLine = (text: string, size = 10, bold = false) => {
+      document.setFont('helvetica', bold ? 'bold' : 'normal');
+      document.setFontSize(size);
+      const lines = document.splitTextToSize(text, pageWidth - 28);
+      document.text(lines, 14, cursorY);
+      cursorY += lines.length * (size * 0.5 + 2.5);
+      if (cursorY > 275) {
+        document.addPage();
+        cursorY = 20;
+      }
+    };
+
+    addLine('SAPES - Student Academic Record', 16, true);
+    addLine(studentName || studentWorkspace.student.institutionId, 12, true);
+    addLine(`Student ID: ${studentWorkspace.student.institutionId}`);
+    addLine(`Program: ${selectedCourseLabel} - ${yearOptions.find((year) => year.value === selectedYear)?.label || 'Year not recorded'} - Section ${selectedSection}`);
+    cursorY += 4;
+    addLine('Summary', 12, true);
+    addLine(`Total units: ${totalUnits}`);
+    addLine(`Total subjects: ${academicSubjects.length}`);
+    addLine(`Completed subjects: ${completedSubjects}`);
+    addLine(`Cumulative overall GWA: ${formatAcademicGwa(historicalOverallGwa)}`);
+    cursorY += 4;
+
+    studentWorkspace.academicRecords.forEach((record) => {
+      addLine(`${record.academicYear} - ${record.semester}`, 11, true);
+      addLine(`Overall GWA: ${formatAcademicGwa(resolvePeriodGwas(record).overallGwa)} - Major GWA: ${formatAcademicGwa(resolvePeriodGwas(record).majorSubjectGwa)}`);
+      record.subjects.forEach((subject) => {
+        addLine(`${subject.subjectCode} - ${subject.subjectName} - ${subject.units} units - Grade ${subject.grade.toFixed(2)} - ${formatStatusLabel(subject.status)}`);
+      });
+      cursorY += 3;
+    });
+
+    document.save(`sapes-academic-record-${studentWorkspace.student.institutionId}.pdf`);
+  };
 
   const classFilters = (
     <>
@@ -324,6 +369,23 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
               </table></div>
             </section>
           )) : <p className="rounded-md bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">No academic subjects are recorded for this student.</p>}
+
+          <section aria-labelledby="academic-record-summary-heading" className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <h3 id="academic-record-summary-heading" className="text-sm font-bold text-slate-900">Summary</h3>
+            <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div><dt className="text-[11px] text-slate-500">Total units</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{totalUnits}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Total subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{academicSubjects.length}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Completed subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{completedSubjects}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Academic status</dt><dd className="mt-1 text-sm font-bold text-slate-900">{formatStatusLabel(studentWorkspace.student.academicStatus.currentStatus || 'not recorded')}</dd></div>
+            </dl>
+          </section>
+
+          <div className="flex justify-end border-t border-slate-200 pt-4">
+            <button type="button" onClick={downloadAcademicRecords} className="inline-flex items-center gap-2 rounded-md bg-brand-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2">
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Download records
+            </button>
+          </div>
 
           {canApproveEnrollment && <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
             {enrollmentMessage && <p role="status" className="text-sm font-medium text-emerald-700">{enrollmentMessage}</p>}

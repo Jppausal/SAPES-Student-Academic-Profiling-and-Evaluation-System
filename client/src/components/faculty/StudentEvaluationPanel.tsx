@@ -5,6 +5,7 @@ import {
   CalendarCheck2,
   CheckCircle2,
   ClipboardList,
+  Download,
   FileClock,
   GraduationCap,
   HeartPulse,
@@ -14,6 +15,7 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import {
   CourseEvaluationProgress,
   FacultyStudentWorkspace,
@@ -272,6 +274,50 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
     || Boolean(workspace.student.healthInformation.allergyDetails?.trim())
     || Boolean(workspace.student.healthInformation.otherCondition?.trim());
   const hasPlacementConsideration = religiousConsideration || healthConsideration;
+  const academicSubjects = workspace.academicRecords.flatMap((record) => record.subjects);
+  const totalUnits = academicSubjects.reduce((total, subject) => total + Number(subject.units || 0), 0);
+  const completedSubjects = academicSubjects.filter((subject) => subject.status.toLowerCase() === 'completed').length;
+
+  const downloadAcademicRecords = () => {
+    const document = new jsPDF();
+    const pageWidth = document.internal.pageSize.getWidth();
+    let cursorY = 20;
+    const addLine = (text: string, size = 10, bold = false) => {
+      document.setFont('helvetica', bold ? 'bold' : 'normal');
+      document.setFontSize(size);
+      const lines = document.splitTextToSize(text, pageWidth - 28);
+      document.text(lines, 14, cursorY);
+      cursorY += lines.length * (size * 0.5 + 2.5);
+      if (cursorY > 275) {
+        document.addPage();
+        cursorY = 20;
+      }
+    };
+
+    addLine('SAPES — Student Academic Record', 16, true);
+    addLine(studentName || workspace.student.institutionId, 12, true);
+    addLine(`Student ID: ${workspace.student.institutionId}`);
+    addLine(`Program: ${profileValue(workspace.student.classification.program)} · Year ${workspace.student.yearLevel || '—'} · Section ${workspace.student.section}`);
+    cursorY += 4;
+    addLine('Summary', 12, true);
+    addLine(`Total units: ${totalUnits}`);
+    addLine(`Total subjects: ${academicSubjects.length}`);
+    addLine(`Completed subjects: ${completedSubjects}`);
+    addLine(`Academic status: ${studentStatus}`);
+    addLine(`Cumulative overall GWA: ${formatAcademicGwa(historicalOverall)}`);
+    cursorY += 4;
+
+    workspace.academicRecords.forEach((record) => {
+      addLine(`${record.academicYear} · ${record.semester}`, 11, true);
+      addLine(`Overall GWA: ${formatAcademicGwa(resolvePeriodGwas(record).overallGwa)} · Major GWA: ${formatAcademicGwa(resolvePeriodGwas(record).majorSubjectGwa)}`);
+      record.subjects.forEach((subject) => {
+        addLine(`${subject.subjectCode} — ${subject.subjectName} · ${subject.units} units · Grade ${subject.grade.toFixed(2)} · ${formatStatusLabel(subject.status)}`);
+      });
+      cursorY += 3;
+    });
+
+    document.save(`sapes-academic-record-${workspace.student.institutionId}.pdf`);
+  };
 
   const handleProfileTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     const currentIndex = profileTabItems.findIndex(({ id }) => id === activeProfileTab);
@@ -322,7 +368,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
         </div>
 
         <div>
-          <div role="tablist" aria-label="Student profile sections" className="flex overflow-x-auto border-b border-slate-200 bg-slate-50 px-2">
+          <div role="tablist" aria-label="Student profile sections" className="flex overflow-x-auto border-b border-slate-200 px-2">
             {profileTabItems.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -334,7 +380,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 tabIndex={activeProfileTab === id ? 0 : -1}
                 onClick={() => setActiveProfileTab(id)}
                 onKeyDown={handleProfileTabKeyDown}
-                className={`flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-semibold transition-colors sm:px-4 ${activeProfileTab === id ? 'border-brand-700 bg-white text-brand-800' : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'}`}
+                className={`flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-semibold transition-colors sm:px-4 ${activeProfileTab === id ? 'border-brand-700 text-brand-800' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
               >
                 <Icon aria-hidden="true" className="h-4 w-4" />
                 {label}
@@ -585,7 +631,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
       </div>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div role="tablist" aria-label="Student evaluation sections" className="flex overflow-x-auto border-b border-slate-200 px-2 pt-2">
+        <div role="tablist" aria-label="Student evaluation sections" className="flex overflow-x-auto border-b border-slate-200 px-2">
           {tabItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -593,7 +639,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               aria-selected={activeTab === id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-xs font-semibold ${activeTab === id ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-semibold ${activeTab === id ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
             >
               <Icon className="h-4 w-4" />{label}
             </button>
@@ -714,7 +760,22 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 })}</tbody></table></div>
               </section>
             ))}
+            <section aria-labelledby="academic-summary-heading" className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <h3 id="academic-summary-heading" className="text-sm font-bold text-slate-900">Summary</h3>
+            <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div><dt className="text-[11px] text-slate-500">Total units</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{totalUnits}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Total subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{academicSubjects.length}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Completed subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{completedSubjects}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Academic status</dt><dd className="mt-1 text-sm font-bold text-emerald-700">{studentStatus}</dd></div>
+            </dl>
+            </section>
             <div className="rounded-md border border-slate-200 p-3"><h3 className="text-xs font-bold text-slate-800">Current semester assessments</h3><div className="mt-2 flex flex-wrap gap-2">{draft.assessments.map((assessment, index) => <span key={assessment._id || index} className="rounded-md bg-slate-100 px-2 py-1 text-[10px] text-slate-700">{assessment.title || 'Untitled'} · {assessment.category}</span>)}{draft.assessments.length === 0 && <span className="text-xs text-slate-500">No current assessments recorded.</span>}</div></div>
+            <div className="flex justify-end border-t border-slate-200 pt-4">
+              <button type="button" onClick={downloadAcademicRecords} className="inline-flex items-center gap-2 rounded-md bg-brand-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2">
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Download records
+              </button>
+            </div>
           </div>
         )}
       </section>
