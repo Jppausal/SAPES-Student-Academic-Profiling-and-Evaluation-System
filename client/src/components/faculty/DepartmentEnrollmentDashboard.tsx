@@ -6,11 +6,10 @@ import {
   ClipboardCheck,
   Clock3,
   GraduationCap,
-  RefreshCw,
   Search,
   UserRoundCheck,
 } from 'lucide-react';
-import campusBuilding from '../../assets/branding/cot building.jpg';
+import dashboardHeader from '../../assets/branding/dashboard-header.png';
 import {
   DepartmentEnrollmentDashboard as DepartmentStats,
   fetchDepartmentEnrollmentDashboard,
@@ -57,12 +56,10 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
 }) => {
   const [department, setDepartment] = useState<DepartmentStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const loadDashboard = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
     setError('');
     try {
       setDepartment(await fetchDepartmentEnrollmentDashboard());
@@ -70,14 +67,13 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
       setError(requestError instanceof Error ? requestError.message : 'Unable to load department enrollment metrics.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     void loadDashboard();
     const refreshOnFocus = () => {
-      if (document.visibilityState === 'visible') void loadDashboard(true);
+      if (document.visibilityState === 'visible') void loadDashboard();
     };
     window.addEventListener('focus', refreshOnFocus);
     return () => window.removeEventListener('focus', refreshOnFocus);
@@ -125,7 +121,10 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
 
   return (
     <div className="space-y-5">
-      <header className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-[minmax(0,1fr)_220px]">
+      <header
+        className="overflow-hidden rounded-xl border border-slate-200 bg-cover bg-center shadow-sm"
+        style={{ backgroundImage: `url("${dashboardHeader}")` }}
+      >
         <div className="flex min-h-32 flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-7">
           <div>
           <p className="text-xs font-semibold text-brand-700">Faculty overview</p>
@@ -141,17 +140,7 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => void loadDashboard(true)}
-          disabled={loading || refreshing}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:cursor-wait disabled:opacity-60"
-        >
-          <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5${refreshing ? ' animate-spin' : ''}`} />
-          Refresh dashboard
-        </button>
         </div>
-        <img src={campusBuilding} alt="College of Technologies campus building" className="hidden h-full min-h-32 w-full object-cover md:block" />
       </header>
 
       {loading && (

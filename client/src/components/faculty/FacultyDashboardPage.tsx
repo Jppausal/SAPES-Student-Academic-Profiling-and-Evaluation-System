@@ -5,7 +5,7 @@ import { ATTENTION_THRESHOLD, average, buildAttentionRows, buildSectionRows } fr
 import { Badge } from '../common/Badge';
 import type { EvaluationTarget, FacultyPage } from '../../types';
 import { ArrowRight, BookOpen, ClipboardCheck, FileText, GraduationCap, Search, Users } from 'lucide-react';
-import campusBuilding from '../../assets/branding/cot building.jpg';
+import dashboardHeader from '../../assets/branding/dashboard-header.png';
 
 const formatMetric = (value: number | null) => (value === null ? '—' : `${value}%`);
 
@@ -77,7 +77,10 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
 
   return (
     <div className="space-y-6">
-      <header className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-[minmax(0,1fr)_220px]">
+      <header
+        className="overflow-hidden rounded-xl border border-slate-200 bg-cover bg-center shadow-sm"
+        style={{ backgroundImage: `url("${dashboardHeader}")` }}
+      >
         <div className="flex min-h-32 flex-col justify-center px-5 py-5 sm:px-7">
           <p className="text-xs font-semibold text-brand-700">Faculty overview</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">Good day, {firstName}!</h1>
@@ -87,7 +90,6 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
             {today}
           </p>
         </div>
-        <img src={campusBuilding} alt="College of Technologies campus building" className="hidden h-full min-h-32 w-full object-cover md:block" />
       </header>
 
       <section aria-label="Roster filters" className="flex flex-wrap items-end gap-2">
