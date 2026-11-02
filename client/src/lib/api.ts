@@ -12,6 +12,8 @@ export interface ApiUser {
   employeeId: string;
   department: string;
   designation?: string;
+  departmentCode?: string;
+  isVerifiedEnrollmentOfficer?: boolean;
   role: 'student' | 'faculty' | 'admin';
   accountStatus: 'active' | 'inactive' | 'suspended';
   createdAt?: string;
@@ -28,6 +30,8 @@ export interface SessionUser {
   employeeId?: string;
   department?: string;
   designation?: string;
+  departmentCode?: string;
+  isVerifiedEnrollmentOfficer?: boolean;
 }
 
 export interface ApiAuditLog {
@@ -592,7 +596,7 @@ export interface FacultyStudentWorkspace {
     evaluationStatus: string;
     reasons: string[];
     remarks?: string;
-    evaluatedAt: string;
+    evaluatedAt?: string;
   } | null;
   statusHistory: Array<{
     status: string;
@@ -613,11 +617,50 @@ export async function fetchFacultyEvaluationRoster(program: string) {
   return response.data.students;
 }
 
+export interface DepartmentEnrollmentDashboard {
+  code: string;
+  name: string;
+  program: string;
+  totalStudents: number;
+  profilesAwaitingEvaluation: number;
+  pendingEnrollmentDecisions: number;
+  evaluatedProfiles: number;
+  lastSyncedAt: string | null;
+  recentStudents: Array<{
+    institutionId: string;
+    name: string;
+    program: string;
+    yearLevel: number | null;
+    enrollmentStatus: string;
+  }>;
+  recentEvaluations: Array<{
+    institutionId: string;
+    name: string;
+    evaluationStatus: string;
+    evaluatedAt: string;
+  }>;
+}
+
+export async function fetchDepartmentEnrollmentDashboard() {
+  const response = await request<{ success: true; data: DepartmentEnrollmentDashboard }>(
+    '/api/faculty-evaluations/department-dashboard'
+  );
+  return response.data;
+}
+
 export async function fetchFacultyStudentWorkspace(institutionId: string) {
   const response = await request<{ success: true; data: FacultyStudentWorkspace }>(
     `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}`
   );
   return response.data;
+}
+
+export async function approveStudentEnrollment(institutionId: string) {
+  const response = await request<{ success: true; data: { enrollmentStatus: string } }>(
+    `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}/enrollment-approval`,
+    { method: 'POST' }
+  );
+  return response.data.enrollmentStatus;
 }
 
 export async function saveFacultyCourseEvaluation(institutionId: string, progress: CourseEvaluationProgress) {

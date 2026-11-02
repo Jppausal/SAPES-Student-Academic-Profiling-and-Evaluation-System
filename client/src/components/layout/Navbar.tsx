@@ -58,6 +58,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
     : currentUser?.role === 'faculty'
       ? 'bg-brand-50 text-brand-700 border-brand-200'
       : 'bg-amber-50 text-amber-700 border-amber-200';
+  const roleLabel = currentUser?.role === 'faculty' && currentUser.isVerifiedEnrollmentOfficer
+    ? currentUser.designation || 'Enrollment Officer'
+    : currentUser?.role.toUpperCase();
   const isFaculty = currentUser?.role === 'faculty';
   const navItemClass = (active: boolean) => `rounded-lg px-3 py-2 transition ${active
     ? 'bg-white/15 text-white'
@@ -155,7 +158,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
               <div className="hidden sm:block">
                 <div className="text-xs font-bold text-white">{currentUser.fullName}</div>
                 <span className={`mt-0.5 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${roleClass}`}>
-                  {roleIcon(currentUser.role)} {currentUser.role.toUpperCase()}
+                  {roleIcon(currentUser.role)} {roleLabel}
                 </span>
               </div>
               <ChevronDown className="h-3.5 w-3.5 text-brand-100" />

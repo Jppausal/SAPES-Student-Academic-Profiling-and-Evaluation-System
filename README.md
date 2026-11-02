@@ -122,21 +122,28 @@ npm --prefix server run db:indexes
 
 ## Running the Application
 
-### Start the backend
+### Start the application
+
+```bash
+npm run dev
+```
+
+This starts the API and waits for its MongoDB Atlas health check before starting
+Vite, so the client does not send requests while the API is still connecting.
+The API starts at `http://localhost:5001` (or the port in `server/.env`) and the
+client at `http://localhost:3000`.
+
+To run the services separately, start the backend first and wait for it to
+connect to Atlas before starting the client:
 
 ```bash
 npm --prefix server start
-```
-
-The server starts at `http://localhost:5001` (or the port in your `.env`).
-
-### Start the frontend
-
-```bash
 npm --prefix client run dev
 ```
 
-The Vite dev server starts at `http://localhost:5173` (default).
+The Vite dev server proxies `/api` requests to the local Express API. The API
+connects to the cloud database configured in `server/.env`; the browser must
+never connect to MongoDB Atlas directly.
 
 ---
 
@@ -220,8 +227,12 @@ Serve `client/dist/` as static files, or configure your server to serve it.
 | `SMTP_USER` | For email | SMTP authentication username |
 | `SMTP_PASSWORD` | For email | SMTP authentication password |
 | `SMTP_FROM` | For email | From address for outgoing emails |
+| `RECAPTCHA_SITE_KEY` | When enabled | Public Google reCAPTCHA v2 checkbox site key |
+| `RECAPTCHA_SECRET_KEY` | When enabled | Private Google reCAPTCHA secret key |
+| `RECAPTCHA_ALLOWED_HOSTNAMES` | When enabled | Comma-separated hostnames authorized for verification |
 
 > SMTP variables are required for password-reset email delivery. If not configured, email sending will fail and the password-reset flow will not complete.
+> When reCAPTCHA Verification is enabled in system settings, all three reCAPTCHA variables are required. Add the site key, secret key, and exact app hostnames to `server/.env`, then restart the API. Keep the secret key server-side; never add it to `client/.env`.
 
 ### Client (`client/.env`)
 
@@ -234,6 +245,7 @@ Serve `client/dist/` as static files, or configure your server to serve it.
 
 - Keep environment files in their own folders: use `server/.env` for `MONGO_URI`, `PORT`, `JWT_SECRET`, and `GOOGLE_CLIENT_ID`; use `client/.env` for `VITE_GOOGLE_CLIENT_ID` and optional `VITE_API_URL`. Never put server secrets in `client/.env`.
 - After changing any `VITE_*` value, stop and restart the Vite development server. Vite reads client environment variables at startup.
+- If password sign-in reports that human verification is not configured, add `RECAPTCHA_SITE_KEY`, `RECAPTCHA_SECRET_KEY`, and `RECAPTCHA_ALLOWED_HOSTNAMES` to `server/.env`, then restart the API. The hostname must match the address users open in their browser (for local development, for example, `localhost`).
 - For local Google sign-in, add the exact browser origin as an authorized JavaScript origin in Google Cloud Console, for example `http://localhost:3002` when Vite is running on port 3002. The Google client ID must be present in both `server/.env` and `client/.env` under their respective variable names.
 - Google sign-in accepts only the institutional domains `buksu.edu.ph` and `student.buksu.edu.ph`.
 - Start the backend on port `5001`. The Vite proxy in `client/vite.config.ts` forwards `/api` requests to `http://127.0.0.1:5001`.

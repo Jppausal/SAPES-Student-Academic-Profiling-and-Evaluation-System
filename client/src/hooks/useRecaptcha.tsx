@@ -123,7 +123,7 @@ export function useRecaptcha() {
       <div ref={containerRef} className="flex justify-center w-full min-h-[78px]" />
       {!setting.configured && (
         <p role="alert" className="mt-1.5 text-center text-xs text-rose-700">
-          Human verification is not configured. Contact an administrator.
+          Sign-in verification is enabled but not configured. An administrator must add the reCAPTCHA site key, secret key, and allowed hostnames to server/.env, then restart the API.
         </p>
       )}
       {error && (

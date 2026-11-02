@@ -405,7 +405,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
         <div className="min-w-0">
           <p className="text-sm font-semibold text-brand-700">Faculty workspace</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-950">{displayMode === 'records' ? 'Academic Records' : 'Student Search'}</h1>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600">{displayMode === 'records' ? 'Review a student’s academic standing, records, and evaluation details.' : 'Find a student by student number, name, or username.'}</p>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600">{displayMode === 'records' ? 'Search for a student to view their report card grades.' : 'Find a student by student number, name, or username.'}</p>
         </div>
         <form onSubmit={searchStudent} className="flex min-w-0 flex-col gap-2 sm:flex-row">
         <div className="relative min-w-0 flex-1">
@@ -500,6 +500,10 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xl font-extrabold tracking-tight text-slate-950">{studentName || 'Student record'}</p>
                   <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">{report.student.institutionId}</span>
+                  <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-bold ${isOnProbation ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                    {isOnProbation ? <TriangleAlert className="h-3 w-3" aria-hidden="true" /> : <CheckCircle className="h-3 w-3" aria-hidden="true" />}
+                    {isOnProbation ? 'Probationary' : 'Regular'}
+                  </span>
                 </div>
                 <p className="mt-2 text-sm text-slate-600">{report.student.enrollmentInformation?.course || report.student.classification?.program || 'Program not recorded'}</p>
                 {(report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level || report.student.section) && (
@@ -521,25 +525,32 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             </div>
           </div>
 
-          <div className="grid gap-3 text-sm sm:grid-cols-3">
+          {displayMode === 'consolidated' && <div className="grid gap-3 text-sm sm:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className="text-xs font-medium text-slate-500">Current status</span><strong className="mt-2 block text-slate-900">{formatStatusLabel(report.student.academicStatus?.currentStatus)}</strong></div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className="text-xs font-medium text-slate-500">Academic records</span><strong className="mt-2 block text-slate-900">{report.academicRecords.length}</strong></div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><span className="text-xs font-medium text-slate-500">Latest evaluation</span><strong className="mt-2 block text-slate-900">{formatStatusLabel(report.facultyEvaluation?.evaluationStatus || 'For review')}</strong></div>
-          </div>
-
-          <div className={`flex items-center gap-2 text-sm font-bold ${isOnProbation ? 'text-rose-800' : 'text-emerald-700'}`}>
-            {isOnProbation ? <TriangleAlert className="h-4 w-4" aria-hidden="true" /> : <CheckCircle className="h-4 w-4" aria-hidden="true" />}
-            <span>{isOnProbation ? 'Under academic probation' : 'Not under academic probation'}</span>
-          </div>
-          {isOnProbation && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-            <dl className="grid gap-3 text-xs text-slate-700 sm:grid-cols-3">
-              <div><dt className="font-semibold text-rose-900">Reason</dt><dd className="mt-1">{academicStatus?.probationReason || 'Not recorded'}</dd></div>
-              <div><dt className="font-semibold text-rose-900">Remarks</dt><dd className="mt-1">{academicStatus?.statusRemarks || 'Not recorded'}</dd></div>
-              <div><dt className="font-semibold text-rose-900">Effective date</dt><dd className="mt-1">{dateLabel(academicStatus?.effectiveDate)}</dd></div>
-            </dl>
           </div>}
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          {displayMode === 'consolidated' && <section aria-labelledby="probation-status-heading" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 id="probation-status-heading" className="text-sm font-bold text-slate-900">Academic probation</h3>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${isOnProbation ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                {isOnProbation ? <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" /> : <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />}
+                {isOnProbation ? 'Under academic probation' : 'Not under academic probation'}
+              </span>
+            </div>
+            {isOnProbation ? (
+              <dl className="mt-3 grid gap-3 text-xs text-slate-700 sm:grid-cols-3">
+                <div><dt className="font-semibold text-rose-900">Reason</dt><dd className="mt-1">{academicStatus?.probationReason || 'Not recorded'}</dd></div>
+                <div><dt className="font-semibold text-rose-900">Remarks</dt><dd className="mt-1">{academicStatus?.statusRemarks || 'Not recorded'}</dd></div>
+                <div><dt className="font-semibold text-rose-900">Effective date</dt><dd className="mt-1">{dateLabel(academicStatus?.effectiveDate)}</dd></div>
+              </dl>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">This student is currently in good standing &mdash; no probationary status is recorded.</p>
+            )}
+          </section>}
+
+          {displayMode === 'consolidated' && <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-slate-900">Student profiling information</h3>
               <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">Confidential student information</span>
@@ -559,7 +570,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                 </section>
               ))}
             </div>
-          </div>
+          </div>}
 
           {displayMode === 'consolidated' && <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-200 p-4">
@@ -633,10 +644,10 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             </div>
           </div>}
 
-          {report.student.schedulingRestrictions && report.student.schedulingRestrictions.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>Scheduling restrictions</strong><p className="mt-1 text-xs">Do not enroll the student in meeting times that overlap: {report.student.schedulingRestrictions.map((slot) => `${slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`).join('; ')}.</p></div>}
+          {displayMode === 'consolidated' && report.student.schedulingRestrictions && report.student.schedulingRestrictions.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>Scheduling restrictions</strong><p className="mt-1 text-xs">Do not enroll the student in meeting times that overlap: {report.student.schedulingRestrictions.map((slot) => `${slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`).join('; ')}.</p></div>}
 
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
+            {displayMode === 'consolidated' && <h3 className="text-sm font-bold text-slate-900">Academic records</h3>}
             {report.academicRecords.length === 0 && (
               <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No academic records have been entered.</p>
             )}
@@ -664,7 +675,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             ))}
           </div>
 
-          <div className="space-y-3">
+          {displayMode === 'consolidated' && <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Status history</h3>
             {report.statusHistory.length === 0 ? (
               <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No status history recorded.</p>
@@ -687,7 +698,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                 </table>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       )}
     </section>

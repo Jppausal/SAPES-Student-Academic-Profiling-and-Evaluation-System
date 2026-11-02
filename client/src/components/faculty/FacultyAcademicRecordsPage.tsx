@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Monitor, Search, Utensils } from 'lucide-react';
+import { ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Download, Monitor, Search, Utensils } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { BackendStudentSearch } from './BackendStudentSearch';
-import { fetchFacultyEvaluationRoster, fetchFacultyStudentWorkspace, FacultyRosterStudent, FacultyStudentWorkspace } from '../../lib/api';
+import { approveStudentEnrollment, fetchFacultyEvaluationRoster, fetchFacultyStudentWorkspace, FacultyRosterStudent, FacultyStudentWorkspace } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
-import { StudentEvaluationPanel } from './StudentEvaluationPanel';
+import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 const programDetails: Record<string, { icon: LucideIcon; description: string; color: string }> = {
   'Bachelor of Information Technology': {
@@ -47,15 +48,25 @@ const statusLabel = (student: FacultyRosterStudent) => student.isOnProbation
   ? 'Probationary'
   : student.currentStatus.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-export const FacultyAcademicRecordsPage: React.FC = () => {
+interface FacultyAcademicRecordsPageProps {
+  fixedProgram?: string;
+  canApproveEnrollment?: boolean;
+}
+
+export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProps> = ({
+  fixedProgram,
+  canApproveEnrollment = false,
+}) => {
   const [step, setStep] = useState<'courses' | 'roster' | 'student'>('courses');
-  const [selectedProgram, setSelectedProgram] = useState('');
+  const [selectedProgram, setSelectedProgram] = useState(fixedProgram || '');
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [roster, setRoster] = useState<FacultyRosterStudent[]>([]);
   const [studentWorkspace, setStudentWorkspace] = useState<FacultyStudentWorkspace | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingStudent, setLoadingStudent] = useState(false);
+  const [approvingEnrollment, setApprovingEnrollment] = useState(false);
+  const [enrollmentMessage, setEnrollmentMessage] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -99,6 +110,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
   ));
 
   const toggleProgram = (program: string) => {
+    if (fixedProgram) return;
     setSelectedProgram((current) => current === program ? '' : program);
     setSelectedYear('');
     setSelectedSection('');
@@ -115,6 +127,7 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
   const openStudent = async (student: FacultyRosterStudent) => {
     setLoadingStudent(true);
     setError('');
+    setEnrollmentMessage('');
     try {
       setStudentWorkspace(await fetchFacultyStudentWorkspace(student.institutionId));
       setStep('student');
@@ -140,67 +153,156 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
   } : null;
   const historicalFallbackGwas = resolveAcademicGwas(studentWorkspace?.academicRecords || []);
   const historicalOverallGwa = studentWorkspace?.overallGwa ?? historicalFallbackGwas.overallGwa;
+  const academicSubjects = studentWorkspace?.academicRecords.flatMap((record) => record.subjects) || [];
+  const totalUnits = academicSubjects.reduce((total, subject) => total + Number(subject.units || 0), 0);
+  const completedSubjects = academicSubjects.filter((subject) => subject.status.toLowerCase() === 'completed').length;
+
+  const downloadAcademicRecords = () => {
+    if (!studentWorkspace) return;
+    const document = new jsPDF();
+    const pageWidth = document.internal.pageSize.getWidth();
+    let cursorY = 20;
+    const addLine = (text: string, size = 10, bold = false) => {
+      document.setFont('helvetica', bold ? 'bold' : 'normal');
+      document.setFontSize(size);
+      const lines = document.splitTextToSize(text, pageWidth - 28);
+      document.text(lines, 14, cursorY);
+      cursorY += lines.length * (size * 0.5 + 2.5);
+      if (cursorY > 275) {
+        document.addPage();
+        cursorY = 20;
+      }
+    };
+
+    addLine('SAPES - Student Academic Record', 16, true);
+    addLine(studentName || studentWorkspace.student.institutionId, 12, true);
+    addLine(`Student ID: ${studentWorkspace.student.institutionId}`);
+    addLine(`Program: ${selectedCourseLabel} - ${yearOptions.find((year) => year.value === selectedYear)?.label || 'Year not recorded'} - Section ${selectedSection}`);
+    cursorY += 4;
+    addLine('Summary', 12, true);
+    addLine(`Total units: ${totalUnits}`);
+    addLine(`Total subjects: ${academicSubjects.length}`);
+    addLine(`Completed subjects: ${completedSubjects}`);
+    addLine(`Cumulative overall GWA: ${formatAcademicGwa(historicalOverallGwa)}`);
+    cursorY += 4;
+
+    studentWorkspace.academicRecords.forEach((record) => {
+      addLine(`${record.academicYear} - ${record.semester}`, 11, true);
+      addLine(`Overall GWA: ${formatAcademicGwa(resolvePeriodGwas(record).overallGwa)} - Major GWA: ${formatAcademicGwa(resolvePeriodGwas(record).majorSubjectGwa)}`);
+      record.subjects.forEach((subject) => {
+        addLine(`${subject.subjectCode} - ${subject.subjectName} - ${subject.units} units - Grade ${subject.grade.toFixed(2)} - ${formatStatusLabel(subject.status)}`);
+      });
+      cursorY += 3;
+    });
+
+    document.save(`sapes-academic-record-${studentWorkspace.student.institutionId}.pdf`);
+  };
+
+  const classFilters = (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-xs font-semibold text-slate-700">Year level
+          <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setSelectedSection(''); }} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800">
+            <option value="">Choose year level</option>
+            {yearOptions.map((year) => <option key={year.value} value={year.value}>{year.label}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-slate-700">Section
+          <select value={selectedSection} onChange={(event) => setSelectedSection(event.target.value)} disabled={!selectedYear} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 disabled:bg-slate-100 disabled:text-slate-400">
+            <option value="">{selectedYear ? 'Choose section' : 'Select a year first'}</option>
+            {availableSections.map((section) => <option key={section} value={section}>{section}</option>)}
+          </select>
+        </label>
+      </div>
+      <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
+        <Check className="h-4 w-4" /> View students
+      </button>
+      {error && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+      {loading && <p className="mt-3 text-xs text-slate-500">Loading course students…</p>}
+    </>
+  );
+
+  const proceedToEnrollment = async () => {
+    if (!studentWorkspace || studentWorkspace.student.enrollmentStatus === 'enrolled') return;
+    setApprovingEnrollment(true);
+    setError('');
+    setEnrollmentMessage('');
+    try {
+      const enrollmentStatus = await approveStudentEnrollment(studentWorkspace.student.institutionId);
+      setStudentWorkspace((current) => current ? {
+        ...current,
+        student: { ...current.student, enrollmentStatus },
+      } : current);
+      setRoster((current) => current.map((student) => (
+        student.institutionId === studentWorkspace.student.institutionId
+          ? { ...student, enrollmentStatus }
+          : student
+      )));
+      setEnrollmentMessage('Enrollment approved. The student status is now enrolled.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to approve this student for enrollment.');
+    } finally {
+      setApprovingEnrollment(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <BackendStudentSearch key={`quick-search-${step}`} displayMode="records" />
-
       {step === 'courses' && <section aria-labelledby="records-programs-heading" className="space-y-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">College of Technologies</p>
-          <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Select a course</h2>
+          {fixedProgram ? (
+            <>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Course</p>
+              <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Filter by year level and section</h2>
+              <p className="mt-1 text-sm text-slate-600">{selectedCourseLabel}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">College of Technologies</p>
+              <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Select a course</h2>
+            </>
+          )}
         </div>
 
-        <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {TECHNOLOGY_PROGRAMS.map((program) => {
-            const details = programDetails[program.value];
-            const Icon = details.icon;
-            const isSelected = selectedProgram === program.value;
-            return (
-              <article key={program.value} className={`overflow-hidden rounded-lg border bg-white transition ${isSelected ? 'border-brand-600 ring-1 ring-brand-600 shadow-sm sm:col-span-2 xl:col-span-1' : 'border-slate-200'}`}>
-                <button
-                  type="button"
-                  aria-expanded={isSelected}
-                  onClick={() => toggleProgram(program.value)}
-                  className="flex min-h-28 w-full items-start justify-between gap-3 p-4 text-left hover:bg-slate-50"
-                >
-                  <span className="flex min-w-0 gap-3">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${details.color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold leading-snug text-slate-900">{program.label}</span>
-                      <span className="mt-1.5 block text-xs leading-relaxed text-slate-600">{details.description}</span>
+        {fixedProgram ? (
+          <div className="max-w-2xl rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+            {classFilters}
+          </div>
+        ) : (
+          <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {TECHNOLOGY_PROGRAMS.map((program) => {
+              const details = programDetails[program.value];
+              const Icon = details.icon;
+              const isSelected = selectedProgram === program.value;
+              return (
+                <article key={program.value} className={`overflow-hidden rounded-lg border bg-white transition ${isSelected ? 'border-brand-600 ring-1 ring-brand-600 shadow-sm sm:col-span-2 xl:col-span-1' : 'border-slate-200'}`}>
+                  <button
+                    type="button"
+                    aria-expanded={isSelected}
+                    onClick={() => toggleProgram(program.value)}
+                    className="flex min-h-28 w-full items-start justify-between gap-3 p-4 text-left hover:bg-slate-50"
+                  >
+                    <span className="flex min-w-0 gap-3">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${details.color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold leading-snug text-slate-900">{program.label}</span>
+                        <span className="mt-1.5 block text-xs leading-relaxed text-slate-600">{details.description}</span>
+                      </span>
                     </span>
-                  </span>
-                  <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-500 transition-transform ${isSelected ? 'rotate-180' : ''}`} />
-                </button>
+                    <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-500 transition-transform ${isSelected ? 'rotate-180' : ''}`} />
+                  </button>
 
-                {isSelected && (
-                  <div className="border-t border-slate-200 bg-slate-50/70 p-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="text-xs font-semibold text-slate-700">Year level
-                        <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setSelectedSection(''); }} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800">
-                          <option value="">Choose year level</option>
-                          {yearOptions.map((year) => <option key={year.value} value={year.value}>{year.label}</option>)}
-                        </select>
-                      </label>
-                      <label className="text-xs font-semibold text-slate-700">Section
-                        <select value={selectedSection} onChange={(event) => setSelectedSection(event.target.value)} disabled={!selectedYear} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 disabled:bg-slate-100 disabled:text-slate-400">
-                          <option value="">{selectedYear ? 'Choose section' : 'Select a year first'}</option>
-                          {availableSections.map((section) => <option key={section} value={section}>{section}</option>)}
-                        </select>
-                      </label>
+                  {isSelected && (
+                    <div className="border-t border-slate-200 bg-slate-50/70 p-4">
+                      {classFilters}
                     </div>
-                    <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
-                      <Check className="h-4 w-4" /> Confirm class
-                    </button>
-                    {error && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
-                    {loading && <p className="mt-3 text-xs text-slate-500">Loading course students…</p>}
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>}
 
       {step === 'roster' && (
@@ -234,16 +336,21 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
 
       {step === 'student' && studentWorkspace && (
         <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-          <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Student profile</p>
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start">
+            <StudentProfilePhoto
+              institutionId={studentWorkspace.student.institutionId}
+              studentName={studentName || studentWorkspace.student.institutionId}
+              className="h-24 w-24 shrink-0 rounded-lg border border-slate-200 object-cover sm:h-28 sm:w-28"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Report card grades</p>
               <h2 className="mt-1 text-xl font-extrabold text-slate-900">{studentName || studentWorkspace.student.institutionId}</h2>
               <p className="mt-1 font-mono text-xs text-slate-500">Student ID: {studentWorkspace.student.institutionId}</p>
               <p className="mt-2 text-xs text-slate-600">{selectedCourseLabel} · {yearOptions.find((year) => year.value === selectedYear)?.label} · Section {selectedSection}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-start gap-3 sm:items-end lg:ml-auto">
+              <button type="button" onClick={() => setStep('roster')} className="inline-flex shrink-0 items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
               <div className="min-w-64 rounded-lg bg-brand-700 px-4 py-2.5 text-white"><p className="text-[10px] uppercase tracking-wide text-brand-200">Latest-period GWA</p><div className="mt-1 grid grid-cols-2 gap-4"><div><span className="text-[10px] text-brand-200">Overall</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div><div><span className="text-[10px] text-brand-200">Major</span><p className="text-2xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div></div>{latestAcademicPeriod && <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod.academicYear} · {latestAcademicPeriod.semester}</p>}<p className="mt-1 text-[10px] text-brand-200">Historical cumulative: Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(studentWorkspace.majorSubjectGwa)}</p></div>
-              <button type="button" onClick={() => setStep('roster')} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-4 w-4" /> Class list</button>
             </div>
           </div>
 
@@ -263,16 +370,36 @@ export const FacultyAcademicRecordsPage: React.FC = () => {
             </section>
           )) : <p className="rounded-md bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">No academic subjects are recorded for this student.</p>}
 
-        </section>
-      )}
+          <section aria-labelledby="academic-record-summary-heading" className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <h3 id="academic-record-summary-heading" className="text-sm font-bold text-slate-900">Summary</h3>
+            <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div><dt className="text-[11px] text-slate-500">Total units</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{totalUnits}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Total subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{academicSubjects.length}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Completed subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{completedSubjects}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Academic status</dt><dd className="mt-1 text-sm font-bold text-slate-900">{formatStatusLabel(studentWorkspace.student.academicStatus.currentStatus || 'not recorded')}</dd></div>
+            </dl>
+          </section>
 
-      {step === 'student' && studentWorkspace && (
-        <StudentEvaluationPanel
-          key={studentWorkspace.student.institutionId}
-          institutionId={studentWorkspace.student.institutionId}
-          initialWorkspace={studentWorkspace}
-          showStudentProfile={false}
-        />
+          <div className="flex justify-end border-t border-slate-200 pt-4">
+            <button type="button" onClick={downloadAcademicRecords} className="inline-flex items-center gap-2 rounded-md bg-brand-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2">
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Download records
+            </button>
+          </div>
+
+          {canApproveEnrollment && <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            {enrollmentMessage && <p role="status" className="text-sm font-medium text-emerald-700">{enrollmentMessage}</p>}
+            <button
+              type="button"
+              onClick={() => void proceedToEnrollment()}
+              disabled={approvingEnrollment || studentWorkspace.student.enrollmentStatus === 'enrolled'}
+              className="inline-flex items-center justify-center gap-2 self-start rounded-md bg-brand-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-emerald-700"
+            >
+              <Check className="h-4 w-4" />
+              {approvingEnrollment ? 'Approving enrollment…' : studentWorkspace.student.enrollmentStatus === 'enrolled' ? 'Enrollment approved' : 'Proceed to enrollment'}
+            </button>
+          </div>}
+        </section>
       )}
 
       {loadingStudent && <div role="status" className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-slate-500">Loading student profile and subjects…</div>}

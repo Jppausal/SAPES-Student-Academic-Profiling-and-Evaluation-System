@@ -98,7 +98,12 @@ test('faculty workspace returns the complete student profile including medical d
   AcademicRecord.find = () => queryResult([]);
   CourseEvaluation.findOne = () => queryResult(null);
   CourseEvaluation.find = () => queryResult([]);
-  FacultyEvaluation.findOne = () => queryResult(null);
+  FacultyEvaluation.findOne = () => queryResult({
+    evaluationStatus: 'eligible',
+    reasons: [],
+    remarks: 'Ready for enrollment.',
+    evaluatedAt: new Date('2026-10-22T08:00:00.000Z')
+  });
   StudentStatusHistory.find = () => queryResult([]);
   FacultyUser.findById = () => queryResult({
     username: 'faculty.user',
@@ -158,4 +163,10 @@ test('faculty workspace returns the complete student profile including medical d
   assert.equal(profile.healthInformation.emergencyContactName, 'Private Contact');
   assert.equal(profile.healthInformation.emergencyContactNumber, '09179999999');
   assert.equal(profile.healthInformation.accommodationNotes, 'Seat near the front');
+  assert.deepEqual(payload.data.facultyEvaluation, {
+    evaluationStatus: 'eligible',
+    reasons: [],
+    remarks: 'Ready for enrollment.',
+    evaluatedAt: '2026-10-22T08:00:00.000Z'
+  });
 });

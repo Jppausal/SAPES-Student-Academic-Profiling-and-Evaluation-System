@@ -17,6 +17,8 @@ export interface UserAccount {
   employeeId?: string;
   department: string;
   designation?: string;
+  departmentCode?: string;
+  isVerifiedEnrollmentOfficer?: boolean;
   isActive: boolean;
   accountStatus?: 'active' | 'inactive' | 'suspended';
   createdAt: string;

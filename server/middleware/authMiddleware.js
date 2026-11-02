@@ -35,7 +35,7 @@ const authenticateToken = async (req, res, next) => {
         expiresAt: { $gt: new Date() }
       }).select('_id').lean(),
       AccountModel.findById(req.user.userId)
-        .select('username role accountStatus')
+        .select('username role accountStatus department departmentCode designation isVerifiedEnrollmentOfficer')
         .lean(),
     ]);
 
@@ -59,6 +59,12 @@ const authenticateToken = async (req, res, next) => {
     // instead of trusting claims captured when the JWT was issued.
     req.user.role = account.role;
     req.user.username = account.username;
+    req.user.department = account.department || '';
+    if (account.role === 'faculty') {
+      req.user.departmentCode = account.departmentCode || '';
+      req.user.designation = account.designation || '';
+      req.user.isVerifiedEnrollmentOfficer = Boolean(account.isVerifiedEnrollmentOfficer);
+    }
 
     next();
   } catch (error) {

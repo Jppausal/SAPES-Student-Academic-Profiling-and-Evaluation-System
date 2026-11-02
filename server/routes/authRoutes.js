@@ -6,6 +6,7 @@ const { OAuth2Client } = require('google-auth-library');
 const Student = require('../models/Student');
 const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
+const verifyHuman = require('../middleware/recaptcha');
 const { sendPasswordResetCode } = require('../utils/email');
 const {
   findAccountByGoogleId,
@@ -98,14 +99,18 @@ const safeUser = (user) => ({
   employeeId: user.employeeId || '',
   department: user.department || '',
   ...(user.role === 'faculty'
-    ? { designation: user.designation || 'Verified enrollment officer' }
+    ? {
+        designation: user.designation || 'Verified enrollment officer',
+        departmentCode: user.departmentCode || '',
+        isVerifiedEnrollmentOfficer: Boolean(user.isVerifiedEnrollmentOfficer)
+      }
     : {}),
   ...((user.studentNumber || user.institutionId)
     ? { studentNumber: user.studentNumber || user.institutionId }
     : {})
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', verifyHuman, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || !password) {
@@ -323,7 +328,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/password-reset/request', async (req, res) => {
+router.post('/password-reset/request', verifyHuman, async (req, res) => {
   const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
     await require('../utils/systemSettings').requireIntegration('smtp');
@@ -519,7 +524,7 @@ router.get('/session', authenticateToken, async (req, res) => {
   try {
     const AccountModel = getAccountModel(req.user.role);
     const user = await AccountModel?.findById(req.user.userId)
-      .select('username role firstName lastName email studentNumber institutionId personalInformation employeeId department accountStatus')
+      .select('username role firstName lastName email studentNumber institutionId personalInformation employeeId department departmentCode designation isVerifiedEnrollmentOfficer accountStatus')
       .lean();
     if (!user || user.accountStatus !== 'active') {
       return res.status(401).json({ success: false, message: 'Account no longer exists or is inactive' });

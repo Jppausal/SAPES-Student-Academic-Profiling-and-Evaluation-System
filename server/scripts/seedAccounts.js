@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const FacultyUser = require('../models/FacultyUser');
 const Student = require('../models/Student');
 const { connectCloudDatabase } = require('../utils/database');
+const { DEPARTMENTS } = require('../utils/departmentAccess');
+const { syncAllDepartmentMetrics } = require('../utils/departmentMetrics');
 
 const STUDENTS = [
   {
@@ -44,15 +46,46 @@ const STUDENTS = [
 ];
 
 const FACULTY = [
-
   {
     institutionId: '2345678901',
     password: 'faculty123',
     firstName: 'Kurt',
     lastName: 'Santos',
-    email: 'santos@faculty.buksu.edu.ph'
+    email: 'santos@faculty.buksu.edu.ph',
+    departmentCode: 'IT'
   },
-  
+  {
+    institutionId: '8748861739',
+    password: 'faculty123',
+    firstName: 'Irene',
+    lastName: 'Valdez',
+    email: 'irene.valdez@faculty.buksu.edu.ph',
+    departmentCode: 'ELECTRONICS'
+  },
+  {
+    institutionId: '4176486035',
+    password: 'faculty123',
+    firstName: 'Paolo',
+    lastName: 'Mendoza',
+    email: 'paolo.mendoza@faculty.buksu.edu.ph',
+    departmentCode: 'FOODTECH'
+  },
+  {
+    institutionId: '5244096723',
+    password: 'faculty123',
+    firstName: 'Bianca',
+    lastName: 'Navarro',
+    email: 'bianca.navarro@faculty.buksu.edu.ph',
+    departmentCode: 'EMC'
+  },
+  {
+    institutionId: '6642374793',
+    password: 'faculty123',
+    firstName: 'Rafael',
+    lastName: 'Castillo',
+    email: 'rafael.castillo@faculty.buksu.edu.ph',
+    departmentCode: 'AUTOMOTIVE'
+  }
 ];
 
 async function seedAccounts() {
@@ -101,36 +134,40 @@ async function seedAccounts() {
     // Create faculty accounts
     console.log('\n=== Creating Faculty Accounts ===');
     for (const faculty of FACULTY) {
-      const existingUser = await FacultyUser.findOne({ username: faculty.institutionId });
-      if (existingUser) {
-        if (!existingUser.email) existingUser.email = faculty.email;
-        if (!existingUser.employeeId) existingUser.employeeId = faculty.institutionId;
-        if (!existingUser.firstName) existingUser.firstName = faculty.firstName;
-        if (!existingUser.lastName) existingUser.lastName = faculty.lastName;
-        await existingUser.save();
-        console.log(`✓ Faculty ${faculty.institutionId} already exists; missing profile fields were added`);
-        continue;
-      }
-
-      // Hash password
+      const department = DEPARTMENTS.find((item) => item.code === faculty.departmentCode);
+      if (!department) throw new Error(`No department configured for ${faculty.departmentCode}`);
       const passwordHash = await bcrypt.hash(faculty.password, 12);
-
-      // Create user account
-      await FacultyUser.create({
+      const officerFields = {
         username: faculty.institutionId,
         firstName: faculty.firstName,
         lastName: faculty.lastName,
         email: faculty.email,
         employeeId: faculty.institutionId,
+        department: department.name,
+        departmentCode: department.code,
+        designation: `${department.code}-Enrollment Officer`,
+        isVerifiedEnrollmentOfficer: true,
         passwordHash,
         role: 'faculty',
         accountStatus: 'active'
-      });
+      };
+      const existingUser = await FacultyUser.findOne({ username: faculty.institutionId });
+      if (existingUser) {
+        Object.assign(existingUser, officerFields);
+        await existingUser.save();
+        console.log(`✓ Updated ${faculty.institutionId} as verified ${department.code} enrollment officer`);
+        continue;
+      }
+
+      await FacultyUser.create(officerFields);
 
       console.log(`✓ Created faculty: ${faculty.institutionId}`);
       console.log(`  Email: ${faculty.email}`);
       console.log(`  Password: ${faculty.password}`);
     }
+
+    await syncAllDepartmentMetrics();
+    console.log('✓ Synchronized department student and enrollment metrics');
 
     console.log('\n=== Seeding Complete ===');
     console.log('\nYou can now log in with any of the following accounts:');
@@ -139,8 +176,8 @@ async function seedAccounts() {
       console.log(`  ${s.institutionId} / ${s.password} (${s.firstName} ${s.lastName})`);
     });
     console.log('\nFACULTY (ID Number / Password):');
-    FACULTY.forEach(f => {
-      console.log(`  ${f.institutionId} / ${f.password}`);
+    FACULTY.forEach((faculty) => {
+      console.log(`  ${faculty.institutionId} / ${faculty.password} (${faculty.departmentCode}-Enrollment Officer)`);
     });
 
   } catch (error) {

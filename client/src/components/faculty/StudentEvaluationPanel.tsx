@@ -3,31 +3,44 @@ import {
   Activity,
   BookOpenCheck,
   CalendarCheck2,
+  CheckCircle2,
   ClipboardList,
+  Download,
   FileClock,
+  GraduationCap,
+  HeartPulse,
   MessageSquareText,
   Plus,
   Save,
   Trash2,
   UserRound,
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import {
   CourseEvaluationProgress,
   FacultyStudentWorkspace,
   fetchFacultyStudentWorkspace,
   saveFacultyCourseEvaluation,
+  saveStudentEvaluation,
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 type EvaluationTab = 'gradebook' | 'attendance' | 'remarks' | 'history';
+type ProfileTab = 'information' | 'enrollment' | 'profiling';
 
 const tabItems: Array<{ id: EvaluationTab; label: string; icon: typeof Activity }> = [
   { id: 'gradebook', label: 'Gradebook & Assessment Breakdown', icon: ClipboardList },
   { id: 'attendance', label: 'Attendance & Participation Log', icon: CalendarCheck2 },
   { id: 'remarks', label: 'Faculty Remarks & Rubrics', icon: MessageSquareText },
   { id: 'history', label: 'Academic History', icon: FileClock },
+];
+
+const profileTabItems: Array<{ id: ProfileTab; label: string; icon: typeof UserRound }> = [
+  { id: 'information', label: 'Student Information', icon: UserRound },
+  { id: 'enrollment', label: 'Enrollment & Classification', icon: GraduationCap },
+  { id: 'profiling', label: 'Religion & Health Concerns', icon: HeartPulse },
 ];
 
 const emptyProgress = (): CourseEvaluationProgress => ({
@@ -67,12 +80,22 @@ const formatAddress = (address?: FacultyStudentWorkspace['student']['addresses']
   return parts.length ? parts.join(', ') : 'Not provided';
 };
 
-const ProfileField: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-  <div className="min-w-0">
-    <dt className="text-xs text-slate-500">{label}</dt>
-    <dd className="mt-1 break-words text-sm font-medium text-slate-800">{value || 'Not provided'}</dd>
-  </div>
-);
+const ProfileField: React.FC<{ label: string; value: React.ReactNode; highlight?: boolean }> = ({ label, value, highlight }) => highlight
+  ? (
+    <div className="min-w-0 rounded-lg border border-amber-300 bg-amber-50 p-3">
+      <dt className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-amber-800">
+        {label}
+        <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">Needs consideration</span>
+      </dt>
+      <dd className="mt-1 break-words text-sm font-medium text-slate-800">{value || 'Not provided'}</dd>
+    </div>
+  )
+  : (
+    <div className="min-w-0">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-medium text-slate-800">{value || 'Not provided'}</dd>
+    </div>
+  );
 
 interface StudentEvaluationPanelProps {
   institutionId: string;
@@ -89,7 +112,16 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
 }) => {
   const [workspace, setWorkspace] = useState<FacultyStudentWorkspace | null>(initialWorkspace || null);
   const [draft, setDraft] = useState<CourseEvaluationProgress | null>(initialWorkspace?.courseEvaluation || null);
+  const [enrollmentEligibility, setEnrollmentEligibility] = useState<'eligible' | 'not_eligible' | null>(
+    initialWorkspace?.facultyEvaluation?.evaluationStatus === 'eligible'
+      || initialWorkspace?.facultyEvaluation?.evaluationStatus === 'not_eligible'
+      ? initialWorkspace.facultyEvaluation.evaluationStatus
+      : null
+  );
+  const [evaluationRemarks, setEvaluationRemarks] = useState(initialWorkspace?.facultyEvaluation?.remarks || '');
+  const [evaluationOpen, setEvaluationOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<EvaluationTab>('gradebook');
+  const [activeProfileTab, setActiveProfileTab] = useState<ProfileTab>('information');
   const [loading, setLoading] = useState(!initialWorkspace);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -100,6 +132,13 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
     if (initialWorkspace) {
       setWorkspace(initialWorkspace);
       setDraft(initialWorkspace.courseEvaluation || emptyProgress());
+      setEnrollmentEligibility(
+        initialWorkspace.facultyEvaluation?.evaluationStatus === 'eligible'
+          || initialWorkspace.facultyEvaluation?.evaluationStatus === 'not_eligible'
+          ? initialWorkspace.facultyEvaluation.evaluationStatus
+          : null
+      );
+      setEvaluationRemarks(initialWorkspace.facultyEvaluation?.remarks || '');
       setLoading(false);
       setError('');
       return () => { active = false; };
@@ -112,6 +151,13 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
         if (!active) return;
         setWorkspace(result);
         setDraft(result.courseEvaluation || emptyProgress());
+        setEnrollmentEligibility(
+          result.facultyEvaluation?.evaluationStatus === 'eligible'
+            || result.facultyEvaluation?.evaluationStatus === 'not_eligible'
+            ? result.facultyEvaluation.evaluationStatus
+            : null
+        );
+        setEvaluationRemarks(result.facultyEvaluation?.remarks || '');
       })
       .catch((requestError) => {
         if (!active) return;
@@ -134,6 +180,30 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
       setMessage(successMessage);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to save evaluation data.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEligibilityEvaluation = async () => {
+    if (!enrollmentEligibility) return;
+    setSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      await saveStudentEvaluation(institutionId, {
+        evaluationStatus: enrollmentEligibility,
+        reasons: [],
+        remarks: evaluationRemarks,
+      });
+      const updatedWorkspace = await fetchFacultyStudentWorkspace(institutionId);
+      setWorkspace(updatedWorkspace);
+      setDraft(updatedWorkspace.courseEvaluation);
+      setEvaluationRemarks(updatedWorkspace.facultyEvaluation?.remarks || '');
+      setEvaluationOpen(false);
+      setMessage('Enrollment eligibility evaluation saved.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to save the enrollment evaluation.');
     } finally {
       setSaving(false);
     }
@@ -197,6 +267,72 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
     : (workspace.student.academicStatus.currentStatus || 'Not recorded')
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const religiousConsideration = workspace.student.religiousInformation.shareSpiritualSchedule === true;
+  const healthConsideration = workspace.student.healthInformation.hasRelevantHealthConcern === true
+    || workspace.student.healthInformation.accommodationRequired === true
+    || Boolean(workspace.student.healthInformation.conditions?.length)
+    || Boolean(workspace.student.healthInformation.allergyDetails?.trim())
+    || Boolean(workspace.student.healthInformation.otherCondition?.trim());
+  const hasPlacementConsideration = religiousConsideration || healthConsideration;
+  const academicSubjects = workspace.academicRecords.flatMap((record) => record.subjects);
+  const totalUnits = academicSubjects.reduce((total, subject) => total + Number(subject.units || 0), 0);
+  const completedSubjects = academicSubjects.filter((subject) => subject.status.toLowerCase() === 'completed').length;
+
+  const downloadAcademicRecords = () => {
+    const document = new jsPDF();
+    const pageWidth = document.internal.pageSize.getWidth();
+    let cursorY = 20;
+    const addLine = (text: string, size = 10, bold = false) => {
+      document.setFont('helvetica', bold ? 'bold' : 'normal');
+      document.setFontSize(size);
+      const lines = document.splitTextToSize(text, pageWidth - 28);
+      document.text(lines, 14, cursorY);
+      cursorY += lines.length * (size * 0.5 + 2.5);
+      if (cursorY > 275) {
+        document.addPage();
+        cursorY = 20;
+      }
+    };
+
+    addLine('SAPES — Student Academic Record', 16, true);
+    addLine(studentName || workspace.student.institutionId, 12, true);
+    addLine(`Student ID: ${workspace.student.institutionId}`);
+    addLine(`Program: ${profileValue(workspace.student.classification.program)} · Year ${workspace.student.yearLevel || '—'} · Section ${workspace.student.section}`);
+    cursorY += 4;
+    addLine('Summary', 12, true);
+    addLine(`Total units: ${totalUnits}`);
+    addLine(`Total subjects: ${academicSubjects.length}`);
+    addLine(`Completed subjects: ${completedSubjects}`);
+    addLine(`Academic status: ${studentStatus}`);
+    addLine(`Cumulative overall GWA: ${formatAcademicGwa(historicalOverall)}`);
+    cursorY += 4;
+
+    workspace.academicRecords.forEach((record) => {
+      addLine(`${record.academicYear} · ${record.semester}`, 11, true);
+      addLine(`Overall GWA: ${formatAcademicGwa(resolvePeriodGwas(record).overallGwa)} · Major GWA: ${formatAcademicGwa(resolvePeriodGwas(record).majorSubjectGwa)}`);
+      record.subjects.forEach((subject) => {
+        addLine(`${subject.subjectCode} — ${subject.subjectName} · ${subject.units} units · Grade ${subject.grade.toFixed(2)} · ${formatStatusLabel(subject.status)}`);
+      });
+      cursorY += 3;
+    });
+
+    document.save(`sapes-academic-record-${workspace.student.institutionId}.pdf`);
+  };
+
+  const handleProfileTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const currentIndex = profileTabItems.findIndex(({ id }) => id === activeProfileTab);
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % profileTabItems.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + profileTabItems.length) % profileTabItems.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = profileTabItems.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextTab = profileTabItems[nextIndex];
+    setActiveProfileTab(nextTab.id);
+    document.getElementById(`student-profile-tab-${nextTab.id}`)?.focus();
+  };
 
   return (
     <section aria-label="Student evaluation" className="space-y-4">
@@ -226,129 +362,253 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               {workspace.student.classification.isPWD && <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-800">Person with disability</span>}
               {workspace.student.classification.isShifter && <span className="rounded-full bg-accent-50 px-2.5 py-1 text-xs font-semibold text-accent-700">Shifter</span>}
               {workspace.student.classification.isTransferee && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">Transferee</span>}
+              {hasPlacementConsideration && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">Needs placement consideration</span>}
             </div>
           </div>
         </div>
 
-        <div className="divide-y divide-slate-200">
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Personal information</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ProfileField label="First name" value={profileValue(workspace.student.personalInformation.firstName)} />
-              <ProfileField label="Middle name" value={profileValue(workspace.student.personalInformation.middleName)} />
-              <ProfileField label="Last name" value={profileValue(workspace.student.personalInformation.lastName)} />
-              <ProfileField label="Suffix" value={profileValue(workspace.student.personalInformation.suffix)} />
-              <ProfileField label="Date of birth" value={profileDate(workspace.student.personalInformation.birthDate)} />
-              <ProfileField label="Place of birth" value={profileValue(workspace.student.personalInformation.birthPlace)} />
-              <ProfileField label="Sex" value={profileValue(workspace.student.personalInformation.sex)} />
-              <ProfileField label="Civil status" value={profileValue(workspace.student.personalInformation.civilStatus)} />
-              <ProfileField label="Nationality" value={profileValue(workspace.student.personalInformation.nationality)} />
-              <ProfileField label="Citizenship" value={profileValue(workspace.student.personalInformation.citizenship)} />
-              <ProfileField label="Dual citizenship" value={profileValue(workspace.student.personalInformation.dualCitizenship)} />
-              <ProfileField label="Foreigner" value={profileValue(workspace.student.personalInformation.isForeigner)} />
-              <ProfileField label="Height" value={profileValue(workspace.student.personalInformation.height)} />
-              <ProfileField label="Weight" value={profileValue(workspace.student.personalInformation.weight)} />
-              <ProfileField label="Blood type" value={profileValue(workspace.student.personalInformation.bloodType)} />
-              <ProfileField label="Minority group" value={profileValue(workspace.student.personalInformation.minority)} />
-            </dl>
-          </section>
+        <div>
+          <div role="tablist" aria-label="Student profile sections" className="flex overflow-x-auto border-b border-slate-200 px-2">
+            {profileTabItems.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                id={`student-profile-tab-${id}`}
+                type="button"
+                role="tab"
+                aria-selected={activeProfileTab === id}
+                aria-controls={`student-profile-panel-${id}`}
+                tabIndex={activeProfileTab === id ? 0 : -1}
+                onClick={() => setActiveProfileTab(id)}
+                onKeyDown={handleProfileTabKeyDown}
+                className={`flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-semibold transition-colors sm:px-4 ${activeProfileTab === id ? 'border-brand-700 text-brand-800' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+              >
+                <Icon aria-hidden="true" className="h-4 w-4" />
+                {label}
+                {id === 'profiling' && hasPlacementConsideration && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">Needs consideration</span>}
+              </button>
+            ))}
+          </div>
 
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Enrollment and classification</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ProfileField label="Program" value={profileValue(workspace.student.classification.program)} />
-              <ProfileField label="Course" value={profileValue(workspace.student.enrollmentInformation.course)} />
-              <ProfileField label="Department" value={profileValue(workspace.student.enrollmentInformation.department)} />
-              <ProfileField label="Level" value={profileValue(workspace.student.enrollmentInformation.level)} />
-              <ProfileField label="Year level" value={profileValue(workspace.student.enrollmentInformation.yearLevel || workspace.student.yearLevel)} />
-              <ProfileField label="Section" value={profileValue(workspace.student.section)} />
-              <ProfileField label="Curriculum" value={profileValue(workspace.student.enrollmentInformation.curriculum)} />
-              <ProfileField label="Student type" value={profileValue(workspace.student.enrollmentInformation.studentType || workspace.student.classification.studentType)} />
-              <ProfileField label="Entry period" value={profileValue(workspace.student.enrollmentInformation.entryPeriod)} />
-              <ProfileField label="Entry date" value={profileDate(workspace.student.enrollmentInformation.entryDate)} />
-              <ProfileField label="Preferred modality" value={profileValue(workspace.student.enrollmentInformation.preferredModality)} />
-              <ProfileField label="Campus" value={profileValue(workspace.student.enrollmentInformation.campus)} />
-              <ProfileField label="Learner reference number" value={profileValue(workspace.student.enrollmentInformation.learnerReferenceNo)} />
-              <ProfileField label="NSTP number" value={profileValue(workspace.student.enrollmentInformation.nstpNumber)} />
-              <ProfileField label="Enrollment status" value={profileValue(workspace.student.enrollmentStatus.replace(/_/g, ' '))} />
-              <ProfileField label="Academic status" value={studentStatus} />
-              <ProfileField label="Indigenous Peoples classification" value={profileValue(workspace.student.classification.isIP)} />
-              <ProfileField label="Person with disability classification" value={profileValue(workspace.student.classification.isPWD)} />
-              <ProfileField label="Shifter classification" value={profileValue(workspace.student.classification.isShifter)} />
-              <ProfileField label="Transferee classification" value={profileValue(workspace.student.classification.isTransferee)} />
-              <ProfileField label="Indigenous group" value={profileValue(workspace.student.classification.indigenousGroup)} />
-            </dl>
-          </section>
-
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Contact information</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-              <ProfileField label="Mobile number" value={profileValue(workspace.student.contactInformation.mobileNumber)} />
-              <ProfileField label="Alternate mobile" value={profileValue(workspace.student.contactInformation.alternateMobileNumber)} />
-              <ProfileField label="Telephone" value={profileValue(workspace.student.contactInformation.telephoneNumber)} />
-              <ProfileField label="Institutional email" value={profileValue(workspace.student.contactInformation.institutionalEmail)} />
-              <ProfileField label="Alternate email" value={profileValue(workspace.student.contactInformation.alternateEmail)} />
-            </dl>
-          </section>
-
-          <section className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Addresses</h3>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                <ProfileField label="Present address" value={formatAddress(workspace.student.addresses.presentAddress)} />
-                <ProfileField label="Home address" value={formatAddress(workspace.student.addresses.homeAddress)} />
+          <div
+            id="student-profile-panel-information"
+            role="tabpanel"
+            aria-labelledby="student-profile-tab-information"
+            tabIndex={0}
+            hidden={activeProfileTab !== 'information'}
+            className="divide-y divide-slate-200 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+          >
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Personal information</h3>
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                <ProfileField label="First name" value={profileValue(workspace.student.personalInformation.firstName)} />
+                <ProfileField label="Middle name" value={profileValue(workspace.student.personalInformation.middleName)} />
+                <ProfileField label="Last name" value={profileValue(workspace.student.personalInformation.lastName)} />
+                <ProfileField label="Suffix" value={profileValue(workspace.student.personalInformation.suffix)} />
+                <ProfileField label="Date of birth" value={profileDate(workspace.student.personalInformation.birthDate)} />
+                <ProfileField label="Place of birth" value={profileValue(workspace.student.personalInformation.birthPlace)} />
+                <ProfileField label="Sex" value={profileValue(workspace.student.personalInformation.sex)} />
+                <ProfileField label="Civil status" value={profileValue(workspace.student.personalInformation.civilStatus)} />
+                <ProfileField label="Nationality" value={profileValue(workspace.student.personalInformation.nationality)} />
+                <ProfileField label="Citizenship" value={profileValue(workspace.student.personalInformation.citizenship)} />
+                <ProfileField label="Dual citizenship" value={profileValue(workspace.student.personalInformation.dualCitizenship)} />
+                <ProfileField label="Foreigner" value={profileValue(workspace.student.personalInformation.isForeigner)} />
+                <ProfileField label="Height" value={profileValue(workspace.student.personalInformation.height)} />
+                <ProfileField label="Weight" value={profileValue(workspace.student.personalInformation.weight)} />
+                <ProfileField label="Blood type" value={profileValue(workspace.student.personalInformation.bloodType)} />
+                <ProfileField label="Minority group" value={profileValue(workspace.student.personalInformation.minority)} />
               </dl>
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Educational background</h3>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                <ProfileField label="Previous school" value={profileValue(workspace.student.educationalBackground.previousSchool)} />
-                <ProfileField label="Senior high school" value={profileValue(workspace.student.educationalBackground.seniorHigh)} />
-                <ProfileField label="Junior high school" value={profileValue(workspace.student.educationalBackground.juniorHigh)} />
-                <ProfileField label="Elementary school" value={profileValue(workspace.student.educationalBackground.elementary)} />
-              </dl>
-            </div>
-          </section>
+            </section>
 
-          <section className="p-5 sm:p-6">
-            <h3 className="text-base font-bold text-slate-900">Student profiling</h3>
-            <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-              <ProfileField label="Religion" value={profileValue(workspace.student.religiousInformation.religion)} />
-              <ProfileField label="Shared spiritual schedule" value={profileValue(workspace.student.religiousInformation.shareSpiritualSchedule)} />
-              <ProfileField
-                label="Shared unavailable times"
-                value={workspace.student.religiousInformation.shareSpiritualSchedule && workspace.student.religiousInformation.spiritualActivities.length
-                  ? workspace.student.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(', ')
-                  : 'Not shared'}
-              />
-              <ProfileField label="Relevant health concern" value={profileValue(workspace.student.healthInformation.hasRelevantHealthConcern)} />
-              <ProfileField label="Conditions" value={workspace.student.healthInformation.conditions?.join(', ')} />
-              <ProfileField label="Other condition" value={workspace.student.healthInformation.otherCondition} />
-              <ProfileField label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
-              <ProfileField label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
-              <ProfileField
-                label="Physical activity clearance"
-                value={
-                  workspace.student.healthInformation.physicalActivityClearance === 'can_attend_all'
-                    ? 'Cleared for all physical activities & PE'
-                    : workspace.student.healthInformation.physicalActivityClearance === 'restricted'
-                    ? 'Restricted — Light physical activities only'
-                    : workspace.student.healthInformation.physicalActivityClearance === 'cannot_attend'
-                    ? 'Excused — Not cleared for physical activities'
-                    : 'No restriction specified'
-                }
-              />
-              <ProfileField label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
-              <ProfileField label="Assistance needs" value={workspace.student.healthInformation.assistanceNeeds?.join(', ')} />
-              <ProfileField label="Other assistance details" value={workspace.student.healthInformation.otherAssistanceDetails} />
-              <ProfileField label="Medical proof / Certificate" value={workspace.student.healthInformation.medicalCertificate?.fileName ? `Attached: ${workspace.student.healthInformation.medicalCertificate.fileName}` : 'None uploaded'} />
-              <ProfileField label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
-              <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
-              <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />
-              <ProfileField label="Health information last updated" value={profileDate(workspace.student.healthInformation.lastUpdated || undefined)} />
-            </dl>
-          </section>
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Contact information</h3>
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                <ProfileField label="Mobile number" value={profileValue(workspace.student.contactInformation.mobileNumber)} />
+                <ProfileField label="Alternate mobile" value={profileValue(workspace.student.contactInformation.alternateMobileNumber)} />
+                <ProfileField label="Telephone" value={profileValue(workspace.student.contactInformation.telephoneNumber)} />
+                <ProfileField label="Institutional email" value={profileValue(workspace.student.contactInformation.institutionalEmail)} />
+                <ProfileField label="Alternate email" value={profileValue(workspace.student.contactInformation.alternateEmail)} />
+              </dl>
+            </section>
+
+            <section className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Addresses</h3>
+                <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <ProfileField label="Present address" value={formatAddress(workspace.student.addresses.presentAddress)} />
+                  <ProfileField label="Home address" value={formatAddress(workspace.student.addresses.homeAddress)} />
+                </dl>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Educational background</h3>
+                <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <ProfileField label="Previous school" value={profileValue(workspace.student.educationalBackground.previousSchool)} />
+                  <ProfileField label="Senior high school" value={profileValue(workspace.student.educationalBackground.seniorHigh)} />
+                  <ProfileField label="Junior high school" value={profileValue(workspace.student.educationalBackground.juniorHigh)} />
+                  <ProfileField label="Elementary school" value={profileValue(workspace.student.educationalBackground.elementary)} />
+                </dl>
+              </div>
+            </section>
+          </div>
+
+          <div
+            id="student-profile-panel-enrollment"
+            role="tabpanel"
+            aria-labelledby="student-profile-tab-enrollment"
+            tabIndex={0}
+            hidden={activeProfileTab !== 'enrollment'}
+            className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+          >
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Enrollment and classification</h3>
+              <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                <ProfileField label="Program" value={profileValue(workspace.student.classification.program)} />
+                <ProfileField label="Course" value={profileValue(workspace.student.enrollmentInformation.course)} />
+                <ProfileField label="Department" value={profileValue(workspace.student.enrollmentInformation.department)} />
+                <ProfileField label="Level" value={profileValue(workspace.student.enrollmentInformation.level)} />
+                <ProfileField label="Year level" value={profileValue(workspace.student.enrollmentInformation.yearLevel || workspace.student.yearLevel)} />
+                <ProfileField label="Section" value={profileValue(workspace.student.section)} />
+                <ProfileField label="Curriculum" value={profileValue(workspace.student.enrollmentInformation.curriculum)} />
+                <ProfileField label="Student type" value={profileValue(workspace.student.enrollmentInformation.studentType || workspace.student.classification.studentType)} />
+                <ProfileField label="Entry period" value={profileValue(workspace.student.enrollmentInformation.entryPeriod)} />
+                <ProfileField label="Entry date" value={profileDate(workspace.student.enrollmentInformation.entryDate)} />
+                <ProfileField label="Preferred modality" value={profileValue(workspace.student.enrollmentInformation.preferredModality)} />
+                <ProfileField label="Campus" value={profileValue(workspace.student.enrollmentInformation.campus)} />
+                <ProfileField label="Learner reference number" value={profileValue(workspace.student.enrollmentInformation.learnerReferenceNo)} />
+                <ProfileField label="NSTP number" value={profileValue(workspace.student.enrollmentInformation.nstpNumber)} />
+                <ProfileField label="Enrollment status" value={profileValue(workspace.student.enrollmentStatus.replace(/_/g, ' '))} />
+                <ProfileField label="Academic status" value={studentStatus} />
+                <ProfileField label="Indigenous Peoples classification" value={profileValue(workspace.student.classification.isIP)} />
+                <ProfileField label="Person with disability classification" value={profileValue(workspace.student.classification.isPWD)} />
+                <ProfileField label="Shifter classification" value={profileValue(workspace.student.classification.isShifter)} />
+                <ProfileField label="Transferee classification" value={profileValue(workspace.student.classification.isTransferee)} />
+                <ProfileField label="Indigenous group" value={profileValue(workspace.student.classification.indigenousGroup)} />
+              </dl>
+            </section>
+          </div>
+
+          <div
+            id="student-profile-panel-profiling"
+            role="tabpanel"
+            aria-labelledby="student-profile-tab-profiling"
+            tabIndex={0}
+            hidden={activeProfileTab !== 'profiling'}
+            className="outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+          >
+            <section className="p-5 sm:p-6">
+              <h3 className="text-base font-bold text-slate-900">Religion and health concerns</h3>
+              <p className="mt-1 text-xs text-slate-500">Highlighted items require consideration when evaluating this student's section placement.</p>
+              <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <ProfileField label="Religion" value={profileValue(workspace.student.religiousInformation.religion)} />
+                <ProfileField highlight={religiousConsideration} label="Shared spiritual schedule" value={profileValue(workspace.student.religiousInformation.shareSpiritualSchedule)} />
+                <ProfileField
+                  highlight={religiousConsideration}
+                  label="Shared unavailable times"
+                  value={workspace.student.religiousInformation.shareSpiritualSchedule && workspace.student.religiousInformation.spiritualActivities.length
+                    ? workspace.student.religiousInformation.spiritualActivities.map((activity) => `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`).join(', ')
+                    : 'Not shared'}
+                />
+                <ProfileField highlight={workspace.student.healthInformation.hasRelevantHealthConcern === true} label="Relevant health concern" value={profileValue(workspace.student.healthInformation.hasRelevantHealthConcern)} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.conditions?.length)} label="Conditions" value={workspace.student.healthInformation.conditions?.join(', ')} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.otherCondition?.trim())} label="Other condition" value={workspace.student.healthInformation.otherCondition} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.allergyDetails?.trim())} label="Allergy details" value={workspace.student.healthInformation.allergyDetails} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.conditionDescription?.trim())} label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
+                <ProfileField highlight={workspace.student.healthInformation.accommodationRequired === true} label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
+                <ProfileField highlight={Boolean(workspace.student.healthInformation.accommodationNotes?.trim())} label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
+                <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
+                <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />
+                <ProfileField label="Health information last updated" value={profileDate(workspace.student.healthInformation.lastUpdated || undefined)} />
+              </dl>
+            </section>
+          </div>
         </div>
+      </section>}
+
+      {!showEvaluationDetails && <section aria-label="Enrollment eligibility evaluation" className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Enrollment eligibility</h3>
+            <p className="mt-1 text-sm text-slate-600">Record whether this student is eligible for enrollment and add supporting remarks.</p>
+          </div>
+          {!evaluationOpen && <button
+            type="button"
+            onClick={() => setEvaluationOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {workspace.facultyEvaluation ? 'Edit evaluation' : 'Evaluate student'}
+          </button>}
+        </div>
+
+        {error && <p role="alert" className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {message && <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
+
+        {!evaluationOpen && workspace.facultyEvaluation && <div className="mt-4 rounded-lg bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-700">Decision</p>
+          <p className={`mt-1 text-sm font-bold ${workspace.facultyEvaluation.evaluationStatus === 'eligible' ? 'text-emerald-700' : workspace.facultyEvaluation.evaluationStatus === 'not_eligible' ? 'text-rose-700' : 'text-amber-700'}`}>
+            {workspace.facultyEvaluation.evaluationStatus === 'eligible'
+              ? 'Eligible for enrollment'
+              : workspace.facultyEvaluation.evaluationStatus === 'not_eligible'
+                ? 'Not eligible for enrollment'
+                : 'For review'}
+          </p>
+          <p className="mt-3 text-sm font-semibold text-slate-700">Remarks</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{workspace.facultyEvaluation.remarks?.trim() || 'No remarks provided.'}</p>
+        </div>}
+
+        {evaluationOpen && <div className="mt-4 space-y-4">
+          <fieldset>
+            <legend className="text-sm font-semibold text-slate-700">Is this student eligible for enrollment?</legend>
+            <div role="group" aria-label="Enrollment eligibility decision" className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={enrollmentEligibility === 'eligible'}
+                onClick={() => setEnrollmentEligibility('eligible')}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold ${enrollmentEligibility === 'eligible' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                Eligible
+              </button>
+              <button
+                type="button"
+                aria-pressed={enrollmentEligibility === 'not_eligible'}
+                onClick={() => setEnrollmentEligibility('not_eligible')}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold ${enrollmentEligibility === 'not_eligible' ? 'border-rose-700 bg-rose-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+              >
+                Not eligible
+              </button>
+            </div>
+          </fieldset>
+          <label className="block text-sm font-semibold text-slate-700">
+            Remarks
+            <textarea
+              value={evaluationRemarks}
+              onChange={(event) => setEvaluationRemarks(event.target.value)}
+              rows={4}
+              maxLength={2000}
+              placeholder="Add remarks about the enrollment eligibility decision."
+              className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            />
+          </label>
+          <p className="text-xs text-slate-500">This evaluation records a recommendation and does not change the student's enrollment status.</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => {
+              setEnrollmentEligibility(
+                workspace.facultyEvaluation?.evaluationStatus === 'eligible'
+                  || workspace.facultyEvaluation?.evaluationStatus === 'not_eligible'
+                  ? workspace.facultyEvaluation.evaluationStatus
+                  : null
+              );
+              setEvaluationRemarks(workspace.facultyEvaluation?.remarks || '');
+              setEvaluationOpen(false);
+              setError('');
+              setMessage('');
+            }} disabled={saving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+              Cancel
+            </button>
+            <button type="button" onClick={() => void saveEligibilityEvaluation()} disabled={saving || !enrollmentEligibility} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">
+              <Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save evaluation'}
+            </button>
+          </div>
+        </div>}
       </section>}
 
       {showEvaluationDetails && <>
@@ -371,7 +631,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
       </div>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div role="tablist" aria-label="Student evaluation sections" className="flex overflow-x-auto border-b border-slate-200 px-2 pt-2">
+        <div role="tablist" aria-label="Student evaluation sections" className="flex overflow-x-auto border-b border-slate-200 px-2">
           {tabItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -379,7 +639,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
               aria-selected={activeTab === id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-xs font-semibold ${activeTab === id ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-xs font-semibold ${activeTab === id ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
             >
               <Icon className="h-4 w-4" />{label}
             </button>
@@ -500,7 +760,22 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 })}</tbody></table></div>
               </section>
             ))}
+            <section aria-labelledby="academic-summary-heading" className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <h3 id="academic-summary-heading" className="text-sm font-bold text-slate-900">Summary</h3>
+            <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div><dt className="text-[11px] text-slate-500">Total units</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{totalUnits}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Total subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{academicSubjects.length}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Completed subjects</dt><dd className="mt-1 text-lg font-extrabold text-slate-900">{completedSubjects}</dd></div>
+              <div><dt className="text-[11px] text-slate-500">Academic status</dt><dd className="mt-1 text-sm font-bold text-emerald-700">{studentStatus}</dd></div>
+            </dl>
+            </section>
             <div className="rounded-md border border-slate-200 p-3"><h3 className="text-xs font-bold text-slate-800">Current semester assessments</h3><div className="mt-2 flex flex-wrap gap-2">{draft.assessments.map((assessment, index) => <span key={assessment._id || index} className="rounded-md bg-slate-100 px-2 py-1 text-[10px] text-slate-700">{assessment.title || 'Untitled'} · {assessment.category}</span>)}{draft.assessments.length === 0 && <span className="text-xs text-slate-500">No current assessments recorded.</span>}</div></div>
+            <div className="flex justify-end border-t border-slate-200 pt-4">
+              <button type="button" onClick={downloadAcademicRecords} className="inline-flex items-center gap-2 rounded-md bg-brand-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2">
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Download records
+              </button>
+            </div>
           </div>
         )}
       </section>
