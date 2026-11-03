@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, CheckCircle2, CheckCircle, Download, Search, ShieldAlert, TriangleAlert } from 'lucide-react';
+import { BookOpen, CheckCircle2, CheckCircle, Download, Search, ShieldAlert, TriangleAlert, Lock, Info } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import {
   fetchStudentReport,
@@ -8,6 +8,8 @@ import {
   StudentReport,
   StudentSuggestion,
   updateStudentStatus,
+  fetchActiveAcademicPeriod,
+  type ActiveAcademicPeriod,
 } from '../../lib/api';
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
@@ -62,6 +64,19 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const refreshing = useRef(false);
+  const [activePeriod, setActivePeriod] = useState<ActiveAcademicPeriod | null>(null);
+
+  useEffect(() => {
+    fetchActiveAcademicPeriod()
+      .then(setActivePeriod)
+      .catch((err) => console.error('Failed to load active academic period:', err));
+  }, []);
+
+  const isEvalWindowClosed = Boolean(
+    activePeriod &&
+    (!activePeriod.evaluationWindowOpen ||
+      (activePeriod.evaluationDeadline && new Date() > new Date(activePeriod.evaluationDeadline)))
+  );
 
   useEffect(() => {
     const query = institutionId.trim();
@@ -310,7 +325,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
     addLine('SAPES - Student Academic Record', 16, true);
     addLine(studentName || report.student.institutionId, 12, true);
     addLine(`Student ID: ${report.student.institutionId}`);
-    addLine(`Program: ${report.student.classification?.program || 'Not recorded'} - Year ${report.student.yearLevel || '—'} - Section ${report.student.section || 'Not recorded'}`);
+    addLine(`Program: ${report.student.classification?.program || 'Not recorded'} - Year ${report.student.yearLevel || 'â€”'} - Section ${report.student.section || 'Not recorded'}`);
     cursorY += 4;
     addLine('Summary', 12, true);
     addLine(`Total units: ${totalUnits}`);
@@ -333,7 +348,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
   };
   const spiritualSchedule = student?.religiousInformation?.shareSpiritualSchedule
     ? student.religiousInformation.spiritualActivities?.map((activity) =>
-      `${activity.dayOfWeek} ${activity.startTime}–${activity.endTime}`
+      `${activity.dayOfWeek} ${activity.startTime}â€“${activity.endTime}`
     ).join(', ')
     : 'Not shared';
   const profileSections = student ? [
@@ -421,7 +436,11 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
         ['Other condition', profileValue(healthInformation?.otherCondition)],
         ['Allergy details', profileValue(healthInformation?.allergyDetails)],
         ['Condition description', profileValue(healthInformation?.conditionDescription)],
+        ['Physical activity clearance', healthInformation?.physicalActivityClearance === 'can_attend_all' ? 'Cleared for all physical activities & PE' : healthInformation?.physicalActivityClearance === 'restricted' ? 'Restricted â€” Light physical activities only' : healthInformation?.physicalActivityClearance === 'cannot_attend' ? 'Excused â€” Not cleared for physical activities' : 'No restriction specified'],
         ['Accommodation required', profileValue(healthInformation?.accommodationRequired)],
+        ['Assistance needs', healthInformation?.assistanceNeeds?.join(', ') || 'None specified'],
+        ['Other assistance details', profileValue(healthInformation?.otherAssistanceDetails)],
+        ['Medical proof / Certificate', healthInformation?.medicalCertificate?.fileName ? `Attached: ${healthInformation.medicalCertificate.fileName}` : 'None uploaded'],
         ['Accommodation notes', profileValue(healthInformation?.accommodationNotes)],
         ['Emergency contact', profileValue(healthInformation?.emergencyContactName)],
         ['Emergency contact number', profileValue(healthInformation?.emergencyContactNumber)],
@@ -478,7 +497,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
           <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           {suggestionsOpen && (
             <ul id="student-search-suggestions" role="listbox" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
-              {suggestionsLoading && <li className="px-3 py-2 text-xs text-slate-500">Searching students…</li>}
+              {suggestionsLoading && <li className="px-3 py-2 text-xs text-slate-500">Searching studentsâ€¦</li>}
               {!suggestionsLoading && suggestionsError && <li role="alert" className="px-3 py-2 text-xs text-rose-600">{suggestionsError}</li>}
               {!suggestionsLoading && !suggestionsError && suggestions.length === 0 && <li className="px-3 py-2 text-xs text-slate-500">No matching students.</li>}
               {suggestions.map((student, index) => (
@@ -508,13 +527,13 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
           )}
         </div>
         <button type="submit" disabled={loading} className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60">
-          <Search className="h-4 w-4" /> {loading ? 'Loading…' : 'Search Student'}
+          <Search className="h-4 w-4" /> {loading ? 'Loadingâ€¦' : 'Search Student'}
         </button>
       </form>
       </div>
 
       {!report && !loading && !error && <p aria-live="polite" className="text-sm text-slate-500">Search for a student to view their records.</p>}
-      {loading && <p aria-live="polite" className="text-sm text-slate-500">Loading student report…</p>}
+      {loading && <p aria-live="polite" className="text-sm text-slate-500">Loading student reportâ€¦</p>}
       {error && <p role="alert" aria-live="assertive" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       {message && <p role="status" aria-live="polite" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
 
@@ -540,7 +559,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                 {(report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level || report.student.section) && (
                   <p className="mt-1 text-xs text-slate-500">
                     {report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level ? `Year ${report.student.yearLevel || report.student.enrollmentInformation?.yearLevel || report.student.enrollmentInformation?.level}` : null}
-                    {report.student.section ? ` · Section ${report.student.section}` : null}
+                    {report.student.section ? ` Â· Section ${report.student.section}` : null}
                   </p>
                 )}
               </div>
@@ -551,8 +570,8 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                 <div><span className="text-[10px] text-brand-200">Overall</span><p className="text-xl font-black">{formatAcademicGwa(latestAcademicPeriod?.overallGwa)}</p></div>
                 <div><span className="text-[10px] text-brand-200">Major</span><p className="text-xl font-black">{formatAcademicGwa(latestAcademicPeriod?.majorSubjectGwa)}</p></div>
               </div>
-              <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod ? `${latestAcademicPeriod.academicYear} · ${latestAcademicPeriod.semester}` : 'Not recorded'}</p>
-              <p className="mt-2 border-t border-white/15 pt-2 text-[10px] text-brand-200">Cumulative · Overall {formatAcademicGwa(historicalOverallGwa)} · Major {formatAcademicGwa(report.majorSubjectGwa)}</p>
+              <p className="mt-1 text-[10px] text-brand-100">{latestAcademicPeriod ? `${latestAcademicPeriod.academicYear} Â· ${latestAcademicPeriod.semester}` : 'Not recorded'}</p>
+              <p className="mt-2 border-t border-white/15 pt-2 text-[10px] text-brand-200">Cumulative Â· Overall {formatAcademicGwa(historicalOverallGwa)} Â· Major {formatAcademicGwa(report.majorSubjectGwa)}</p>
             </div>
           </div>
 
@@ -605,15 +624,66 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
 
           {displayMode === 'consolidated' && <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-200 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><BookOpen className="h-4 w-4 text-brand-600" /> Faculty evaluation</h3>
-              <select value={evaluationStatus} onChange={(event) => setEvaluationStatus(event.target.value)} className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><BookOpen className="h-4 w-4 text-brand-600" /> Faculty evaluation</h3>
+                {activePeriod && (
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Term: {activePeriod.schoolYear} Â· {activePeriod.semester}
+                  </span>
+                )}
+              </div>
+
+              {activePeriod?.announcementMessage && (
+                <div className="mt-2.5 rounded-lg border border-indigo-200 bg-indigo-50/70 p-2.5 text-xs text-indigo-900 flex items-start gap-2">
+                  <Info className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block">Advising Notice:</strong>
+                    <span>{activePeriod.announcementMessage}</span>
+                  </div>
+                </div>
+              )}
+
+              {isEvalWindowClosed && (
+                <div className="mt-2.5 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-900 flex items-start gap-2">
+                  <Lock className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block">Evaluation Window Closed</strong>
+                    <span>The advising window for this term is closed or expired. New evaluation submissions are currently blocked.</span>
+                  </div>
+                </div>
+              )}
+
+              <select
+                value={evaluationStatus}
+                onChange={(event) => setEvaluationStatus(event.target.value)}
+                disabled={isEvalWindowClosed}
+                className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100"
+              >
                 <option value="eligible">Eligible</option>
                 <option value="not_eligible">Not Eligible</option>
                 <option value="for_review">For review</option>
               </select>
-              <input value={reasons} onChange={(event) => setReasons(event.target.value)} placeholder="Reasons, separated by commas" className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder="Evaluation remarks" className="mt-2 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <button onClick={saveEvaluation} disabled={loading} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> Save evaluation</button>
+              <input
+                value={reasons}
+                onChange={(event) => setReasons(event.target.value)}
+                disabled={isEvalWindowClosed}
+                placeholder="Reasons, separated by commas"
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100"
+              />
+              <textarea
+                value={remarks}
+                onChange={(event) => setRemarks(event.target.value)}
+                disabled={isEvalWindowClosed}
+                placeholder="Evaluation remarks"
+                className="mt-2 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100"
+              />
+              <button
+                onClick={saveEvaluation}
+                disabled={loading || isEvalWindowClosed}
+                className="mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Save evaluation
+              </button>
             </div>
             <div className="rounded-xl border border-slate-200 p-4">
               <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><ShieldAlert className="h-4 w-4 text-amber-600" /> Current status</h3>
@@ -624,7 +694,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             </div>
           </div>}
 
-          {displayMode === 'consolidated' && report.student.schedulingRestrictions && report.student.schedulingRestrictions.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>Scheduling restrictions</strong><p className="mt-1 text-xs">Do not enroll the student in meeting times that overlap: {report.student.schedulingRestrictions.map((slot) => `${slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`).join('; ')}.</p></div>}
+          {displayMode === 'consolidated' && report.student.schedulingRestrictions && report.student.schedulingRestrictions.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><strong>Scheduling restrictions</strong><p className="mt-1 text-xs">Do not enroll the student in meeting times that overlap: {report.student.schedulingRestrictions.map((slot) => `${slot.dayOfWeek} ${slot.startTime}â€“${slot.endTime}`).join('; ')}.</p></div>}
 
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-slate-900">Academic records</h3>
@@ -633,7 +703,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
             )}
             {report.academicRecords.map((term) => (
               <div key={`${term.academicYear}-${term.semester}`} className="overflow-hidden rounded-xl border border-slate-200">
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700"><span>{term.academicYear} · {term.semester}</span><span className="font-medium text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} · Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700"><span>{term.academicYear} Â· {term.semester}</span><span className="font-medium text-slate-500">Overall {formatAcademicGwa(resolvePeriodGwas(term).overallGwa)} Â· Major {formatAcademicGwa(resolvePeriodGwas(term).majorSubjectGwa)}</span></div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="border-y border-slate-200 text-slate-500"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Status</th></tr></thead>
@@ -643,7 +713,7 @@ export const BackendStudentSearch: React.FC<BackendStudentSearchProps> = ({ disp
                           <td className="px-3 py-2 font-mono font-semibold">{subject.subjectCode}</td>
                           <td className="px-3 py-2">{subject.subjectName}</td>
                           <td className="px-3 py-2">{subject.units}</td>
-                          <td className="px-3 py-2 font-semibold">{subject.grade || '—'}</td>
+                          <td className="px-3 py-2 font-semibold">{subject.grade || 'â€”'}</td>
                           <td className="px-3 py-2">{subject.isMajor ? 'Major' : 'Non-major'}</td>
                           <td className="px-3 py-2">{formatStatusLabel(subject.status)}</td>
                         </tr>

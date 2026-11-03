@@ -1,1 +1,1 @@
-﻿module.exports = require('../controllers/userController');
+module.exports = require('../controllers/userController');

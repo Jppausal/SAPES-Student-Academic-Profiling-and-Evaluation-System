@@ -1,1 +1,1 @@
-﻿module.exports = require('../controllers/studentController');
+module.exports = require('../controllers/studentController');

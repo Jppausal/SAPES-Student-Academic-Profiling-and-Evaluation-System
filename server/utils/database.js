@@ -42,17 +42,19 @@ const getCloudMongoUri = () => {
   const isLocal = localhostHosts.includes(candidate.hostname) || candidate.hostname.endsWith('.local');
 
   if (isLocal) {
-    if (!rawAtlas) {
+    if (process.env.ALLOW_LOCAL_MONGO === 'true') {
+      // Allowed for local development
+    } else if (!rawAtlas) {
       throw new Error('MONGO_URI must point to the cloud database, not a local MongoDB server');
-    }
+    } else {
+      const atlasCandidate = parseCandidate(rawAtlas);
+      if (!atlasCandidate) {
+        throw new Error('ATLAS_URI is present but invalid');
+      }
 
-    const atlasCandidate = parseCandidate(rawAtlas);
-    if (!atlasCandidate) {
-      throw new Error('ATLAS_URI is present but invalid');
+      candidate = atlasCandidate;
+      console.warn('MONGO_URI pointed to localhost; falling back to ATLAS_URI');
     }
-
-    candidate = atlasCandidate;
-    console.warn('MONGO_URI pointed to localhost; falling back to ATLAS_URI');
   }
 
   // If the chosen URI doesn't include an explicit database, append the expected database name.

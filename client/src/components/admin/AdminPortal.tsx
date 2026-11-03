@@ -7,6 +7,8 @@ import { AdminReportsView } from './AdminReportsView';
 import { SystemAuditLogsView } from './SystemAuditLogsView';
 import { RolePermissionsPanel } from './RolePermissionsPanel';
 import { AdminSettings } from './AdminSettings';
+import { ExecutiveAnalyticsDashboard } from './ExecutiveAnalyticsDashboard';
+import { BulkStudentImportModal } from './BulkStudentImportModal';
 import './admin-ui.css';
 import {
   Users,
@@ -21,6 +23,8 @@ import {
   UserCheck,
   Search,
   AlertTriangle,
+  BarChart3,
+  Upload,
 } from 'lucide-react';
 
 export const AdminPortal: React.FC = () => {
@@ -33,7 +37,7 @@ export const AdminPortal: React.FC = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
-    'users' | 'permissions' | 'academic-records' | 'reports' | 'logs' | 'settings'
+    'users' | 'permissions' | 'academic-records' | 'reports' | 'executive-dashboard' | 'logs' | 'settings'
   >('users');
 
   // User Management Modal State
@@ -41,6 +45,7 @@ export const AdminPortal: React.FC = () => {
   const [userToEdit, setUserToEdit] = useState<UserAccount | null>(null);
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState('');
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
 
   // User search
   const [userSearch, setUserSearch] = useState('');
@@ -108,27 +113,57 @@ export const AdminPortal: React.FC = () => {
           </p>
         </div>
 
-        {activeTab === 'users' && <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              setUserToEdit(null);
-              setIsUserModalOpen(true);
-            }}
-            className="admin-primary-button"
+            onClick={() => setIsBulkImportModalOpen(true)}
+            className="admin-secondary-button"
+            title="Import student masterlists and demographic profiles via CSV or Excel"
           >
-            <Plus className="w-4 h-4" />
-            Create User Account
+            <Upload className="w-4 h-4 text-indigo-600" />
+            Bulk Import (CSV/Excel)
           </button>
-        </div>}
+          {activeTab === 'users' && (
+            <button
+              type="button"
+              onClick={() => {
+                setUserToEdit(null);
+                setIsUserModalOpen(true);
+              }}
+              className="admin-primary-button"
+            >
+              <Plus className="w-4 h-4" />
+              Create User Account
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="admin-navigation-layout">
         <nav className="admin-sidebar" aria-label="Administration">
           {[
-            { title: 'Student records', items: [{ id: 'academic-records', label: 'Academic records', icon: GraduationCap }, { id: 'reports', label: 'Reports & analytics', icon: FileCheck2 }] },
-            { title: 'Access management', items: [{ id: 'users', label: 'User accounts', icon: Users }, { id: 'permissions', label: 'Roles & permissions', icon: KeyRound }] },
-            { title: 'System', items: [{ id: 'settings', label: 'System settings', icon: Settings }, { id: 'logs', label: 'Audit logs', icon: Activity }] },
+            {
+              title: 'Student records',
+              items: [
+                { id: 'academic-records', label: 'Academic records', icon: GraduationCap },
+                { id: 'reports', label: 'Reports & masterlist', icon: FileCheck2 },
+                { id: 'executive-dashboard', label: 'Executive analytics', icon: BarChart3 },
+              ],
+            },
+            {
+              title: 'Access management',
+              items: [
+                { id: 'users', label: 'User accounts', icon: Users },
+                { id: 'permissions', label: 'Roles & permissions', icon: KeyRound },
+              ],
+            },
+            {
+              title: 'System',
+              items: [
+                { id: 'settings', label: 'System settings', icon: Settings },
+                { id: 'logs', label: 'Audit logs', icon: Activity },
+              ],
+            },
           ].map(group => <div className="admin-nav-group" key={group.title}>
             <p>{group.title}</p>
             {group.items.map(item => <button key={item.id} type="button" aria-current={activeTab === item.id ? 'page' : undefined} className={activeTab === item.id ? 'is-active' : ''} onClick={() => setActiveTab(item.id as typeof activeTab)}><item.icon aria-hidden="true" /><span>{item.label}</span>{item.id === 'users' && <small>{users.length}</small>}</button>)}
@@ -296,8 +331,10 @@ export const AdminPortal: React.FC = () => {
       {activeTab === 'academic-records' && <BackendAcademicRecordManager />}
       {/* TAB 3: INSTITUTIONAL REPORTS */}
       {activeTab === 'reports' && <AdminReportsView />}
+      {/* TAB 4: EXECUTIVE ANALYTICS (DEAN'S OVERVIEW) */}
+      {activeTab === 'executive-dashboard' && <ExecutiveAnalyticsDashboard />}
 
-      {/* TAB 4: SECURITY AUDIT TRAIL */}
+      {/* TAB 5: SECURITY AUDIT TRAIL */}
       {activeTab === 'logs' && <SystemAuditLogsView />}
 
       </main>
@@ -311,6 +348,13 @@ export const AdminPortal: React.FC = () => {
             setUserToEdit(null);
           }}
           userToEdit={userToEdit}
+        />
+      )}
+
+      {isBulkImportModalOpen && (
+        <BulkStudentImportModal
+          isOpen={isBulkImportModalOpen}
+          onClose={() => setIsBulkImportModalOpen(false)}
         />
       )}
 

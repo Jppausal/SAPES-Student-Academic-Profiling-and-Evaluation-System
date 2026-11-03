@@ -5,6 +5,8 @@ const { getCloudMongoUri } = require('../utils/database');
 function setMongoUri(t, uri) {
   const previous = process.env.MONGO_URI;
   const previousAtlas = process.env.ATLAS_URI;
+  const previousAllowLocal = process.env.ALLOW_LOCAL_MONGO;
+  delete process.env.ALLOW_LOCAL_MONGO;
   delete process.env.ATLAS_URI;
   if (uri === undefined) delete process.env.MONGO_URI;
   else process.env.MONGO_URI = uri;
@@ -13,6 +15,8 @@ function setMongoUri(t, uri) {
     else process.env.MONGO_URI = previous;
     if (previousAtlas === undefined) delete process.env.ATLAS_URI;
     else process.env.ATLAS_URI = previousAtlas;
+    if (previousAllowLocal === undefined) delete process.env.ALLOW_LOCAL_MONGO;
+    else process.env.ALLOW_LOCAL_MONGO = previousAllowLocal;
   });
 }
 

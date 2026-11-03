@@ -276,6 +276,8 @@ router.post(
         role,
         accountStatus,
         email: normalizedEmail,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         contactInformation: { institutionalEmail: normalizedEmail },
         personalInformation: {
           firstName: firstName.trim(),
@@ -499,8 +501,14 @@ router.put(
       const normalizedValues = { firstName, lastName, email, studentNumber, employeeId, department };
       if (lookup.role === 'student') {
         user.personalInformation = user.personalInformation || {};
-        if (firstName !== undefined) user.personalInformation.firstName = firstName.trim();
-        if (lastName !== undefined) user.personalInformation.lastName = lastName.trim();
+        if (firstName !== undefined) {
+          user.personalInformation.firstName = firstName.trim();
+          user.firstName = firstName.trim();
+        }
+        if (lastName !== undefined) {
+          user.personalInformation.lastName = lastName.trim();
+          user.lastName = lastName.trim();
+        }
       } else {
         for (const field of ['firstName', 'lastName', 'employeeId', 'department']) {
           if (normalizedValues[field] !== undefined) user[field] = normalizedValues[field].trim();
