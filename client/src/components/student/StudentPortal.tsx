@@ -3,11 +3,9 @@ import {
   AlertCircle,
   Bell,
   BookOpen,
-  Contact,
   FileText,
   GraduationCap,
   ShieldCheck,
-  Sliders,
   User,
   X,
 } from 'lucide-react';
@@ -24,7 +22,6 @@ import {
   StudentIdentity,
   StudentReport,
 } from '../../lib/api';
-import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 import { UserSettingsModal } from '../layout/UserSettingsModal';
 import { BackendStudentWorkspace } from './BackendStudentWorkspace';
 import { StudentDashboard } from './StudentDashboard';
@@ -152,61 +149,8 @@ export const StudentPortal: React.FC = () => {
     !identity.contactInformation?.mobileNumber?.trim()
   );
 
-  const name = [identity.personalInformation?.firstName, identity.personalInformation?.middleName, identity.personalInformation?.lastName].filter(Boolean).join(' ');
-  const program = identity.enrollmentInformation?.course || identity.classification?.program || 'Bachelor of Science in Information Technology';
-  const yearLevel = identity.enrollmentInformation?.yearLevel || '2nd Year';
-
   return (
     <div className="student-workspace">
-      <header className="student-identity">
-        <div className="flex min-w-0 items-center gap-4">
-          <StudentProfilePhoto
-            institutionId={identity.institutionId}
-            studentName={name || 'Student'}
-            className="h-16 w-16 shrink-0 rounded-full border-2 border-white object-cover shadow-sm"
-          />
-          <div className="student-identity-info min-w-0">
-            <h1 className="student-name">{name || 'Alex Rivera'}</h1>
-            <p className="student-subdetail">{program} • {yearLevel}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="student-institution-card">
-            <div className="student-institution-icon-tile">
-              <Contact className="w-5 h-5 text-brand-600" />
-            </div>
-            <div className="student-institution-meta">
-              <span className="student-institution-label">Institution ID</span>
-              <span className="student-institution-id">{identity.institutionId || 'TEST-BSIT-0001'}</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsInitialTab('preferences');
-              setShowSettingsModal(true);
-            }}
-            className="student-header-action-btn"
-            title="Configure compact records view, GWA privacy shield, and date format"
-          >
-            <Sliders className="h-4 w-4 text-brand-600" />
-            <span>Portal Preferences</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsInitialTab('notifications');
-              setShowSettingsModal(true);
-            }}
-            className="student-header-action-btn"
-            title="Configure academic alerts, profiling reminders, and security alerts"
-          >
-            <Bell className="h-4 w-4 text-amber-600" />
-            <span>Notifications</span>
-          </button>
-        </div>
-      </header>
-
       {/* STUDENT NOTIFICATIONS & ALERTS DECK */}
       <div className="student-notifications-deck">
         {/* 1. Academic & Evaluation Notifications */}
@@ -361,6 +305,18 @@ export const StudentPortal: React.FC = () => {
           <User className="student-tab-icon" />
           <span>Personal profile</span>
           {!profileComplete && <span className="student-incomplete">Incomplete</span>}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSettingsInitialTab('notifications');
+            setShowSettingsModal(true);
+          }}
+          className="student-navigation-notifications"
+          title="Configure academic alerts, profiling reminders, and security alerts"
+        >
+          <Bell className="student-tab-icon" />
+          <span>Notifications</span>
         </button>
       </nav>
 

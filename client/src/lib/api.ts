@@ -755,6 +755,7 @@ export interface MedicalCertificateAttachment {
   fileType: string;
   fileSize: number;
   uploadedAt?: string;
+  cloudinaryPublicId?: string;
 }
 
 export interface StudentIdentity {
@@ -1048,4 +1049,3 @@ export async function fetchExecutiveAnalytics(): Promise<ExecutiveAnalyticsData>
   );
   return response.data;
 }
-

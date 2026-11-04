@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { StudentIdentity, StudentReport } from '../../lib/api';
 import { calculateStudentProfileCompletion } from '../../utils/studentProfileCompletion';
+import dashboardHeader from '../../assets/branding/dashboard-header.png';
 
 interface StudentDashboardProps {
   identity: StudentIdentity;
@@ -109,16 +110,31 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   return (
     <section className="student-dashboard" aria-labelledby="student-dashboard-title">
-      <div className="student-dashboard-heading">
-        <div>
-          <h2 id="student-dashboard-title">Student Dashboard</h2>
-          <p>{greeting}{firstName ? `, ${firstName}` : ''}. Here's your academic overview.</p>
+      <header
+        className="student-dashboard-hero"
+        style={{ backgroundImage: `url("${dashboardHeader}")` }}
+      >
+        <div className="student-dashboard-hero-content">
+          <p className="student-dashboard-hero-label">Student overview</p>
+          <h2 id="student-dashboard-title">
+            {greeting}{firstName ? `, ${firstName}` : ''}!
+          </h2>
+          <p className="student-dashboard-hero-description">
+            Here’s an overview of your academic profile and progress.
+          </p>
+          <div className="student-dashboard-hero-meta">
+            <span className="student-dashboard-program">{displayValue(course)}</span>
+            <span className="student-dashboard-institution-id">
+              <span>Institution ID</span>
+              {identity.institutionId || 'TEST-BSIT-0001'}
+            </span>
+          </div>
         </div>
         <button type="button" className="student-dashboard-edit-link" onClick={onEditProfile}>
           <PencilLine aria-hidden="true" />
           <span>Edit profile</span>
         </button>
-      </div>
+      </header>
 
       {reportError && (
         <p role="alert" className="student-notice student-notice-error student-dashboard-error">

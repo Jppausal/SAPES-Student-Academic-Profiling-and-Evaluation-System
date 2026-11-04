@@ -97,6 +97,34 @@ const ProfileField: React.FC<{ label: string; value: React.ReactNode; highlight?
     </div>
   );
 
+const MedicalCertificateField: React.FC<{
+  certificate: FacultyStudentWorkspace['student']['healthInformation']['medicalCertificate'];
+}> = ({ certificate }) => {
+  if (!certificate?.fileData) {
+    return <ProfileField label="Medical proof / certificate" value="Not uploaded" />;
+  }
+
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-slate-500">Medical proof / certificate</dt>
+      <dd className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-slate-800">
+        <span className="max-w-full truncate" title={certificate.fileName}>
+          {certificate.fileName || 'Uploaded document'}
+        </span>
+        <a
+          href={certificate.fileData}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-brand-200 px-2 py-1 text-xs font-bold text-brand-700 hover:bg-brand-50"
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          View file
+        </a>
+      </dd>
+    </div>
+  );
+};
+
 interface StudentEvaluationPanelProps {
   institutionId: string;
   initialWorkspace?: FacultyStudentWorkspace;
@@ -514,6 +542,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 <ProfileField highlight={Boolean(workspace.student.healthInformation.conditionDescription?.trim())} label="Condition description" value={workspace.student.healthInformation.conditionDescription} />
                 <ProfileField highlight={workspace.student.healthInformation.accommodationRequired === true} label="Accommodation required" value={profileValue(workspace.student.healthInformation.accommodationRequired)} />
                 <ProfileField highlight={Boolean(workspace.student.healthInformation.accommodationNotes?.trim())} label="Accommodation notes" value={workspace.student.healthInformation.accommodationNotes} />
+                <MedicalCertificateField certificate={workspace.student.healthInformation.medicalCertificate} />
                 <ProfileField label="Emergency contact" value={workspace.student.healthInformation.emergencyContactName} />
                 <ProfileField label="Emergency contact number" value={workspace.student.healthInformation.emergencyContactNumber} />
                 <ProfileField label="Health information last updated" value={profileDate(workspace.student.healthInformation.lastUpdated || undefined)} />
