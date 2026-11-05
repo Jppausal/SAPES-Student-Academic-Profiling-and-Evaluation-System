@@ -393,6 +393,16 @@ router.get(
               conditionDescription: student.healthInformation?.conditionDescription || '',
               accommodationRequired: Boolean(student.healthInformation?.accommodationRequired),
               accommodationNotes: student.healthInformation?.accommodationNotes || '',
+              medicalCertificate: student.healthInformation?.medicalCertificate
+                ? {
+                    fileName: student.healthInformation.medicalCertificate.fileName || '',
+                    fileData: student.healthInformation.medicalCertificate.fileData || '',
+                    fileType: student.healthInformation.medicalCertificate.fileType || '',
+                    fileSize: student.healthInformation.medicalCertificate.fileSize || 0,
+                    uploadedAt: student.healthInformation.medicalCertificate.uploadedAt || null,
+                    cloudinaryPublicId: student.healthInformation.medicalCertificate.cloudinaryPublicId || ''
+                  }
+                : null,
               emergencyContactName: student.healthInformation?.emergencyContactName || '',
               emergencyContactNumber: student.healthInformation?.emergencyContactNumber || '',
               lastUpdated: student.healthInformation?.lastUpdated || null

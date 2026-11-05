@@ -9,9 +9,54 @@ const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { getAccountModelName } = require('../utils/accountCollections');
+const cloudinary = require('cloudinary').v2;
 
 const router = express.Router();
 const studentAccountFilter = (userId) => ({ _id: userId });
+const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+
+const uploadMedicalCertificate = async (certificate, userId) => {
+  if (!certificate?.fileData?.startsWith('data:')) return certificate;
+
+  if (certificate.fileSize > MAX_UPLOAD_SIZE) {
+    throw new Error('Uploaded file is too large. Please choose a file no larger than 50MB.');
+  }
+
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+  const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+  const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+  const cloudinaryConfigured = cloudName && apiKey && apiSecret;
+  if (!cloudinaryConfigured && certificate.fileSize <= 5 * 1024 * 1024) {
+    return certificate;
+  }
+  if (!cloudinaryConfigured) {
+    throw new Error('Cloudinary storage is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.');
+  }
+
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret
+  });
+
+  let uploaded;
+  try {
+    uploaded = await cloudinary.uploader.upload(certificate.fileData, {
+      folder: 'sapes/student-medical-certificates',
+      public_id: `${userId}-${Date.now()}`,
+      resource_type: 'auto'
+    });
+  } catch (error) {
+    const providerMessage = error?.error?.message || error?.message || 'Cloudinary upload failed.';
+    throw new Error(`Cloudinary upload failed: ${providerMessage}`);
+  }
+
+  return {
+    ...certificate,
+    fileData: uploaded.secure_url,
+    cloudinaryPublicId: uploaded.public_id
+  };
+};
 
 router.get(
   '/student',
@@ -86,6 +131,13 @@ router.put(
         return res.status(404).json({ success: false, message: 'Student profile not found' });
       }
 
+      if (profileUpdate.value.healthInformation?.medicalCertificate?.fileData?.startsWith('data:')) {
+        profileUpdate.value.healthInformation.medicalCertificate = await uploadMedicalCertificate(
+          profileUpdate.value.healthInformation.medicalCertificate,
+          req.user.userId
+        );
+      }
+
       for (const sectionName of Object.keys(profileUpdate.value)) {
         if (!student[sectionName]) student[sectionName] = {};
         Object.assign(student[sectionName], profileUpdate.value[sectionName]);
@@ -133,7 +185,17 @@ router.put(
       });
     } catch (error) {
       console.error('Error updating authenticated student profile:', error);
-      return res.status(500).json({ success: false, message: 'Server error' });
+      if (
+        error?.message?.includes('Cloudinary storage is not configured')
+        || error?.message?.startsWith('Cloudinary upload failed:')
+        || error?.message?.includes('Uploaded file is too large')
+      ) {
+        return res.status(502).json({ success: false, message: error.message });
+      }
+      return res.status(500).json({
+        success: false,
+        message: error?.message || 'Unable to save student profile.'
+      });
     }
   }
 );

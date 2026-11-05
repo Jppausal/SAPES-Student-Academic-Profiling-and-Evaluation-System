@@ -91,6 +91,8 @@ const formatFileSize = (bytes?: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
+const MAX_MEDICAL_CERTIFICATE_SIZE = 50 * 1024 * 1024;
+
 export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
   identity,
   isOnboarding = false,
@@ -201,8 +203,8 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File size must not exceed 5MB.');
+    if (file.size > MAX_MEDICAL_CERTIFICATE_SIZE) {
+      setError('File size must not exceed 50MB.');
       return;
     }
 
@@ -1054,7 +1056,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
                         Medical Certificate &amp; Health Proof
                       </p>
                       <p className="text-[11px] text-slate-500">
-                        Upload official medical certificate, doctor&apos;s diagnosis, or clinic clearance (PDF, JPG, or PNG up to 5MB).
+                        Upload official medical certificate, doctor&apos;s diagnosis, or clinic clearance (PDF, JPG, or PNG up to 50MB).
                       </p>
                     </div>
 
@@ -1118,7 +1120,7 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
                             Click to upload medical certificate or proof
                           </p>
                           <p className="text-[11px] text-slate-500 mt-0.5">
-                            PDF, PNG, JPG, or JPEG up to 5MB
+                            PDF, PNG, JPG, or JPEG up to 50MB
                           </p>
                           <input
                             type="file"

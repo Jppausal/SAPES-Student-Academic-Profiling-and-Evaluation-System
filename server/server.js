@@ -13,9 +13,10 @@ const permissionRoutes = require('./routes/permissionRoutes');
 const { syncAllDepartmentMetrics } = require('./utils/departmentMetrics');
 
 const app = express();
+const JSON_BODY_LIMIT = '70mb';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 app.get('/api/health', (req, res) => {
   const databaseConnected = mongoose.connection.readyState === 1;
@@ -34,6 +35,16 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
+
+app.use((error, req, res, next) => {
+  if (error?.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      message: 'Uploaded file is too large. Please choose a file no larger than 5MB.'
+    });
+  }
+  return next(error);
+});
 
 const startServer = async () => {
   if (!process.env.JWT_SECRET?.trim()) {

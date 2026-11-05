@@ -215,6 +215,7 @@ const studentSchema = new mongoose.Schema(
         fileData: String,
         fileType: String,
         fileSize: Number,
+        cloudinaryPublicId: String,
         uploadedAt: { type: Date, default: Date.now }
       },
       emergencyContactName: String,

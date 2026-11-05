@@ -177,8 +177,8 @@ const validateAndNormalizeStudentProfile = (body, {
         if (!fileName || typeof fileName !== 'string' || !fileData || typeof fileData !== 'string') {
           return { error: 'healthInformation.medicalCertificate must include fileName and fileData' };
         }
-        if (fileData.length > 8 * 1024 * 1024) {
-          return { error: 'healthInformation.medicalCertificate file exceeds size limit' };
+        if (fileData.length > 68 * 1024 * 1024) {
+          return { error: 'healthInformation.medicalCertificate file must not exceed 50MB' };
         }
         normalized[sectionName].medicalCertificate = {
           fileName: fileName.slice(0, 255).trim(),
