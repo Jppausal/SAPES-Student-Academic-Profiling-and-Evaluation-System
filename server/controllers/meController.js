@@ -41,10 +41,12 @@ const uploadMedicalCertificate = async (certificate, userId) => {
 
   let uploaded;
   try {
+    const isPdf = certificate.fileType === 'application/pdf';
+    const extension = isPdf ? '.pdf' : '';
     uploaded = await cloudinary.uploader.upload(certificate.fileData, {
       folder: 'sapes/student-medical-certificates',
-      public_id: `${userId}-${Date.now()}`,
-      resource_type: 'auto'
+      public_id: `${userId}-${Date.now()}${extension}`,
+      resource_type: isPdf ? 'raw' : 'image'
     });
   } catch (error) {
     const providerMessage = error?.error?.message || error?.message || 'Cloudinary upload failed.';

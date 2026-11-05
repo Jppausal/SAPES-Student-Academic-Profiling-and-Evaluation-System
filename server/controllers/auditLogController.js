@@ -61,6 +61,72 @@ const CATEGORY_ACTIONS = {
 };
 
 router.get(
+  '/mine',
+  authenticateToken,
+  authorizeRoles('student'),
+  async (req, res) => {
+    try {
+      const page = Number(req.query.page || 1);
+      const limit = Number(req.query.limit || 20);
+
+      if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+        return res.status(400).json({
+          success: false,
+          message: `page must be a positive integer and limit must be an integer from 1 to ${MAX_LIMIT}`
+        });
+      }
+
+      const filter = {
+        $or: [
+          { userId: req.user.userId },
+          { targetId: req.user.userId }
+        ]
+      };
+
+      const [total, auditLogs] = await Promise.all([
+        AuditLog.countDocuments(filter),
+        AuditLog.find(
+          filter,
+          {
+            _id: 1,
+            userId: 1,
+            userRole: 1,
+            action: 1,
+            targetType: 1,
+            targetId: 1,
+            timestamp: 1,
+            details: 1
+          }
+        )
+          .sort({ timestamp: -1, _id: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean()
+      ]);
+
+      return res.json({
+        success: true,
+        data: {
+          auditLogs: auditLogs.map((auditLog) => ({
+            ...auditLog,
+            details: sanitizeDetails(auditLog.details)
+          })),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching student audit logs:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+  }
+);
+
+router.get(
   '/',
   authenticateToken,
   authorizeRoles('admin'),

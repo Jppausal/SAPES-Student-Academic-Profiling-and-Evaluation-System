@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Bell,
   BookOpen,
+  History,
   FileText,
   GraduationCap,
   ShieldCheck,
@@ -26,6 +27,7 @@ import { UserSettingsModal } from '../layout/UserSettingsModal';
 import { BackendStudentWorkspace } from './BackendStudentWorkspace';
 import { StudentDashboard } from './StudentDashboard';
 import { StudentProfileSetup } from './StudentProfileSetup';
+import { StudentAuditLogs } from './StudentAuditLogs';
 import './student-workspace.css';
 
 const statusLabel = (status?: string) => typeof status === 'string' && status.trim()
@@ -38,7 +40,7 @@ export const StudentPortal: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [reportError, setReportError] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'records' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'records' | 'profile' | 'audit'>('dashboard');
   const [savedMessage, setSavedMessage] = useState('');
   const previousTab = useRef(activeTab);
 
@@ -308,6 +310,15 @@ export const StudentPortal: React.FC = () => {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('audit')}
+          aria-current={activeTab === 'audit' ? 'page' : undefined}
+          className={activeTab === 'audit' ? 'active' : ''}
+        >
+          <History className="student-tab-icon" />
+          <span>Audit logs</span>
+        </button>
+        <button
+          type="button"
           onClick={() => {
             setSettingsInitialTab('notifications');
             setShowSettingsModal(true);
@@ -348,6 +359,8 @@ export const StudentPortal: React.FC = () => {
           }}
         />
       )}
+
+      {activeTab === 'audit' && <StudentAuditLogs />}
 
       {showSettingsModal && (
         <UserSettingsModal

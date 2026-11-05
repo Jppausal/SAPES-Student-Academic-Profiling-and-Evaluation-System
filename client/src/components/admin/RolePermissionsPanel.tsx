@@ -6,6 +6,7 @@ const permissionLabels: Record<string, string> = {
   view_own_profile: 'View own profile',
   edit_own_profile: 'Edit own profile',
   view_own_academic_record: 'View own academic record',
+  view_own_audit_logs: 'View own audit logs',
   view_student_records: 'View student records',
   submit_evaluations: 'Submit evaluations',
   manage_users: 'Manage user accounts',
