@@ -12,9 +12,11 @@ client/.env
 client/.env.*
 !client/.env.example
 
-# Build output
+# Build output & Bundler caches
 client/dist/
 client/build/
+.vite/
+**/.vite/
 
 # Logs
 *.log
@@ -24,6 +26,8 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Editor
+# Editor & temporary tools
 .vscode/
 .idea/
+.tsupgrader/
+update_search.py
