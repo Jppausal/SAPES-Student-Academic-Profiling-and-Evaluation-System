@@ -50,6 +50,8 @@ export const StudentPortal: React.FC = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<'overview' | 'security' | 'notifications' | 'preferences'>('preferences');
   const [dismissedBanners, setDismissedBanners] = useState<Record<string, boolean>>({});
+  const [readNotifications, setReadNotifications] = useState<Record<string, boolean>>({});
+  const [showNotificationPopover, setShowNotificationPopover] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -150,134 +152,186 @@ export const StudentPortal: React.FC = () => {
     !identity.healthInformation?.emergencyContactName?.trim() ||
     !identity.contactInformation?.mobileNumber?.trim()
   );
+  const activeNotificationIds = [
+    notifications.profileAndAcademicUpdates && !dismissedBanners.academic ? 'academic' : '',
+    notifications.emailAlerts && !dismissedBanners.profile ? 'profile' : '',
+    notifications.securityAlerts && !dismissedBanners.security ? 'security' : '',
+  ].filter(Boolean);
+  const unreadNotificationCount = activeNotificationIds.filter((id) => !readNotifications[id]).length;
+
+  const toggleNotificationPopover = () => {
+    const opening = !showNotificationPopover;
+    if (opening && activeNotificationIds.length > 0) {
+      setReadNotifications((previous) => ({
+        ...previous,
+        ...Object.fromEntries(activeNotificationIds.map((id) => [id, true])),
+      }));
+    }
+    setShowNotificationPopover(opening);
+  };
 
   return (
     <div className="student-workspace">
-      {/* STUDENT NOTIFICATIONS & ALERTS DECK */}
-      <div className="student-notifications-deck">
-        {/* 1. Academic & Evaluation Notifications */}
-        {notifications.profileAndAcademicUpdates && !dismissedBanners.academic && (
-          <div className="student-notification-banner student-banner-academic" role="status">
-            <div className="student-banner-left">
-              <div className="student-banner-icon-box">
-                {identity.academicStatus?.isOnProbation ? (
-                  <AlertCircle className="w-4 h-4 text-rose-600" />
-                ) : (
-                  <GraduationCap className="w-4 h-4 text-brand-600" />
-                )}
-              </div>
-              <div>
-                <h4 className="student-banner-title">
-                  {identity.academicStatus?.isOnProbation
-                    ? 'Academic Standing Notice: Recorded Probation'
-                    : report?.facultyEvaluation?.evaluationStatus
-                      ? `Academic Evaluation: ${statusLabel(report.facultyEvaluation.evaluationStatus)}`
-                      : 'Academic & Evaluation Notifications Active'}
-                </h4>
-                <p className="student-banner-desc">
-                  {identity.academicStatus?.isOnProbation
-                    ? (identity.academicStatus.probationReason || 'Your record reflects an at-risk academic standing. Please consult your academic adviser for guidance.')
-                    : report?.facultyEvaluation?.evaluationStatus
-                      ? `Faculty evaluation recorded on ${formatPortalDate(report.facultyEvaluation.evaluatedAt, dateFormat)}. View remarks in the evaluation panel.`
-                      : 'You are subscribed to alerts when grades are finalized, evaluation periods open, or standing updates.'}
-                </p>
-              </div>
+      <div className="student-navigation-shell">
+      {/* STUDENT NOTIFICATIONS & ALERTS POPOVER */}
+      {showNotificationPopover && (
+        <div id="student-notifications-popover" className="student-notifications-popover" role="region" aria-label="Notifications">
+          <div className="student-notifications-popover-header">
+            <div>
+              <h2>Notifications</h2>
+              <p>Updates about your profile, academics, and account.</p>
             </div>
-            <div className="student-banner-actions">
-              <button
-                type="button"
-                onClick={() => setDismissedBanners((prev) => ({ ...prev, academic: true }))}
-                className="student-banner-dismiss"
-                aria-label="Dismiss academic notification"
-                title="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowNotificationPopover(false)}
+              className="student-notifications-close"
+              aria-label="Close notifications"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        )}
 
-        {/* 2. Profile & Document Reminders */}
-        {notifications.emailAlerts && !dismissedBanners.profile && (
-          <div className="student-notification-banner student-banner-profile" role="status">
-            <div className="student-banner-left">
-              <div className="student-banner-icon-box">
-                <FileText className="w-4 h-4 text-amber-600" />
+          <div className="student-notifications-deck">
+            {/* 1. Academic & Evaluation Notifications */}
+            {notifications.profileAndAcademicUpdates && !dismissedBanners.academic && (
+              <div className="student-notification-banner student-banner-academic" role="status">
+                <div className="student-banner-left">
+                  <div className="student-banner-icon-box">
+                    {identity.academicStatus?.isOnProbation ? (
+                      <AlertCircle className="w-4 h-4 text-rose-600" />
+                    ) : (
+                      <GraduationCap className="w-4 h-4 text-brand-600" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="student-banner-title">
+                      {identity.academicStatus?.isOnProbation
+                        ? 'Academic Standing Notice: Recorded Probation'
+                        : report?.facultyEvaluation?.evaluationStatus
+                          ? `Academic Evaluation: ${statusLabel(report.facultyEvaluation.evaluationStatus)}`
+                          : 'Academic & Evaluation Notifications Active'}
+                    </h4>
+                    <p className="student-banner-desc">
+                      {identity.academicStatus?.isOnProbation
+                        ? (identity.academicStatus.probationReason || 'Your record reflects an at-risk academic standing. Please consult your academic adviser for guidance.')
+                        : report?.facultyEvaluation?.evaluationStatus
+                          ? `Faculty evaluation recorded on ${formatPortalDate(report.facultyEvaluation.evaluatedAt, dateFormat)}. View remarks in the evaluation panel.`
+                          : 'You are subscribed to alerts when grades are finalized, evaluation periods open, or standing updates.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="student-banner-actions">
+                  <button
+                    type="button"
+                    onClick={() => setDismissedBanners((prev) => ({ ...prev, academic: true }))}
+                    className="student-banner-dismiss"
+                    aria-label="Dismiss academic notification"
+                    title="Dismiss"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <h4 className="student-banner-title">
-                  {!profileComplete || missingEmergencyOrContact
-                    ? 'Profile & Document Reminder: Review Your Profiling Details'
-                    : 'Profile & Document Reminders Active'}
-                </h4>
-                <p className="student-banner-desc">
-                  {!profileComplete || missingEmergencyOrContact
-                    ? 'Please review your profiling information, religious observances, emergency contacts, and contact numbers to keep institutional records current.'
-                    : 'Your contact numbers, emergency details, and profiling records are verified for this academic period.'}
-                </p>
-              </div>
-            </div>
-            <div className="student-banner-actions">
-              {(!profileComplete || missingEmergencyOrContact) && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('profile')}
-                  className="student-banner-btn student-banner-btn-primary"
-                >
-                  Review Profile
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setDismissedBanners((prev) => ({ ...prev, profile: true }))}
-                className="student-banner-dismiss"
-                aria-label="Dismiss profile reminder"
-                title="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* 3. Security & Account Alerts */}
-        {notifications.securityAlerts && !dismissedBanners.security && (
-          <div className="student-notification-banner student-banner-security" role="status">
-            <div className="student-banner-left">
-              <div className="student-banner-icon-box">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            {/* 2. Profile & Document Reminders */}
+            {notifications.emailAlerts && !dismissedBanners.profile && (
+              <div className="student-notification-banner student-banner-profile" role="status">
+                <div className="student-banner-left">
+                  <div className="student-banner-icon-box">
+                    <FileText className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="student-banner-title">
+                      {!profileComplete || missingEmergencyOrContact
+                        ? 'Profile & Document Reminder: Review Your Profiling Details'
+                        : 'Profile & Document Reminders Active'}
+                    </h4>
+                    <p className="student-banner-desc">
+                      {!profileComplete || missingEmergencyOrContact
+                        ? 'Please review your profiling information, religious observances, emergency contacts, and contact numbers to keep institutional records current.'
+                        : 'Your contact numbers, emergency details, and profiling records are verified for this academic period.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="student-banner-actions">
+                  {(!profileComplete || missingEmergencyOrContact) && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('profile')}
+                      className="student-banner-btn student-banner-btn-primary"
+                    >
+                      Review Profile
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDismissedBanners((prev) => ({ ...prev, profile: true }))}
+                    className="student-banner-dismiss"
+                    aria-label="Dismiss profile reminder"
+                    title="Dismiss"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <h4 className="student-banner-title">Security &amp; Account Protection Active</h4>
-                <p className="student-banner-desc">
-                  Session authenticated via BukSU institutional credentials. Password updates, new sign-ins, and critical security announcements are monitored.
-                </p>
+            )}
+
+            {/* 3. Security & Account Alerts */}
+            {notifications.securityAlerts && !dismissedBanners.security && (
+              <div className="student-notification-banner student-banner-security" role="status">
+                <div className="student-banner-left">
+                  <div className="student-banner-icon-box">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h4 className="student-banner-title">Security &amp; Account Protection Active</h4>
+                    <p className="student-banner-desc">
+                      Session authenticated via BukSU institutional credentials. Password updates, new sign-ins, and critical security announcements are monitored.
+                    </p>
+                  </div>
+                </div>
+                <div className="student-banner-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsInitialTab('security');
+                      setShowSettingsModal(true);
+                      setShowNotificationPopover(false);
+                    }}
+                    className="student-banner-btn student-banner-btn-outline"
+                  >
+                    Security Settings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDismissedBanners((prev) => ({ ...prev, security: true }))}
+                    className="student-banner-dismiss"
+                    aria-label="Dismiss security alert"
+                    title="Dismiss"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="student-banner-actions">
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsInitialTab('security');
-                  setShowSettingsModal(true);
-                }}
-                className="student-banner-btn student-banner-btn-outline"
-              >
-                Security Settings
-              </button>
-              <button
-                type="button"
-                onClick={() => setDismissedBanners((prev) => ({ ...prev, security: true }))}
-                className="student-banner-dismiss"
-                aria-label="Dismiss security alert"
-                title="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            )}
+            {activeNotificationIds.length === 0 && (
+              <p className="student-notifications-empty">You're all caught up.</p>
+            )}
           </div>
-        )}
-      </div>
+          <button
+            type="button"
+            className="student-notifications-settings"
+            onClick={() => {
+              setSettingsInitialTab('notifications');
+              setShowSettingsModal(true);
+              setShowNotificationPopover(false);
+            }}
+          >
+            Manage notification settings
+          </button>
+        </div>
+      )}
 
       <nav className="student-navigation" aria-label="Student workspace">
         <button
@@ -320,16 +374,25 @@ export const StudentPortal: React.FC = () => {
         <button
           type="button"
           onClick={() => {
-            setSettingsInitialTab('notifications');
-            setShowSettingsModal(true);
+            toggleNotificationPopover();
           }}
           className="student-navigation-notifications"
-          title="Configure academic alerts, profiling reminders, and security alerts"
+          aria-expanded={showNotificationPopover}
+          aria-controls="student-notifications-popover"
+          title="View notifications"
         >
-          <Bell className="student-tab-icon" />
+          <span className="student-notification-icon">
+            <Bell className="student-tab-icon" />
+            {unreadNotificationCount > 0 && (
+              <span className="student-notification-count" aria-label={`${unreadNotificationCount} unread notification${unreadNotificationCount === 1 ? '' : 's'}`}>
+                {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+              </span>
+            )}
+          </span>
           <span>Notifications</span>
         </button>
       </nav>
+      </div>
 
       {savedMessage && <p role="status" className="student-notice student-notice-success">{savedMessage}</p>}
 

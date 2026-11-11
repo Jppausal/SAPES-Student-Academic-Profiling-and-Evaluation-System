@@ -195,6 +195,10 @@
 /* ----------------------------------------------------
    NAVIGATION TABS
 ---------------------------------------------------- */
+.student-navigation-shell {
+  position: relative;
+}
+
 .student-navigation {
   padding: 5px 15px 0px;
   display: flex;
@@ -240,6 +244,30 @@
 
 .student-navigation-notifications svg {
   color: #d97706;
+}
+
+.student-notification-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.student-notification-count {
+  position: absolute;
+  top: -9px;
+  right: -10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 2px solid var(--student-surface);
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .student-incomplete {
@@ -2545,8 +2573,81 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 14px;
-  margin-bottom: 20px;
+  margin: 0;
+}
+
+.student-notifications-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  width: min(520px, calc(100vw - 32px));
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--student-primary-border);
+  border-radius: 14px;
+  background: var(--student-surface);
+  box-shadow: 0 14px 34px rgba(7, 52, 116, 0.14);
+}
+
+.student-notifications-popover-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--student-line-soft);
+  margin-bottom: 12px;
+}
+
+.student-notifications-popover-header h2 {
+  font-size: 16px;
+}
+
+.student-notifications-popover-header p {
+  margin-top: 3px;
+  color: var(--student-muted);
+  font-size: 12px;
+}
+
+.student-notifications-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--student-muted);
+}
+
+.student-notifications-close:hover {
+  background: var(--student-primary-soft);
+  color: var(--student-navy);
+}
+
+.student-notifications-settings {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--student-line);
+  border-radius: 8px;
+  background: var(--student-surface-soft);
+  color: var(--student-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.student-notifications-settings:hover {
+  border-color: var(--student-primary-border);
+  background: var(--student-primary-soft);
+}
+
+.student-notifications-empty {
+  padding: 18px 8px;
+  color: var(--student-muted);
+  font-size: 13px;
+  text-align: center;
 }
 
 .student-notification-banner {
