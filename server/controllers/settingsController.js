@@ -5,6 +5,8 @@ const authenticate = require('../middleware/authMiddleware');
 const roles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { readSettings, configuration } = require('../utils/systemSettings');
+const { generatePassword } = require('../utils/passwordGenerator');
+
 router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 // Public projection contains only feature flags and configuration booleans.
@@ -12,11 +14,23 @@ router.get('/public', async (_req, res) => {
   try { res.json({ success: true, data: await readSettings() }); }
   catch { res.status(503).json({ success: false, message: 'Integration settings are unavailable.' }); }
 });
+
 router.use(authenticate, roles('admin'), authorizePermission('manage_users'));
+
 router.get('/', async (_req, res) => {
   try { res.json({ success: true, data: await readSettings() }); }
   catch { res.status(503).json({ success: false, message: 'Unable to load settings.' }); }
 });
+
+router.post('/generate-password', async (req, res) => {
+  try {
+    const result = await generatePassword({ length: req.query.length });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || 'Failed to generate password.' });
+  }
+});
+
 router.put('/', async (req, res) => {
   try {
     const body = req.body;
@@ -45,4 +59,5 @@ router.put('/', async (req, res) => {
     res.json({ success: true, data: await readSettings() });
   } catch { res.status(500).json({ success: false, message: 'Unable to save settings. Reload to check current values.' }); }
 });
+
 module.exports = router;

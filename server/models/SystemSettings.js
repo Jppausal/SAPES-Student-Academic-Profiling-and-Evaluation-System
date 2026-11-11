@@ -5,7 +5,8 @@ module.exports = mongoose.model('SystemSettings', new mongoose.Schema({
   integrations: {
     googleAuth: { enabled: { type: Boolean, default: true } },
     recaptcha: { enabled: { type: Boolean, default: false } },
-    smtp: { enabled: { type: Boolean, default: true } }
+    smtp: { enabled: { type: Boolean, default: true } },
+    passwordGenerator: { enabled: { type: Boolean, default: true } }
   },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' }
 }, { timestamps: true, collection: 'system_settings' }));

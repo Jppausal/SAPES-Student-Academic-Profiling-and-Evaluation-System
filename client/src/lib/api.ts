@@ -910,7 +910,7 @@ export async function checkServerHealth(): Promise<boolean> {
   }
 }
 
-export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp';
+export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp' | 'passwordGenerator';
 export interface IntegrationSettings { integrations: Record<IntegrationName, { enabled: boolean; configured: boolean; available: boolean; siteKey?: string }> }
 export async function fetchIntegrationSettings(admin = false): Promise<IntegrationSettings> {
   const response = await request<{success: true; data: IntegrationSettings}>(admin ? '/api/settings' : '/api/settings/public');
@@ -918,6 +918,20 @@ export async function fetchIntegrationSettings(admin = false): Promise<Integrati
 }
 export async function saveIntegrationSettings(integrations: Partial<Record<IntegrationName, {enabled: boolean}>>): Promise<IntegrationSettings> {
   const response = await request<{success: true; data: IntegrationSettings}>('/api/settings', { method: 'PUT', body: JSON.stringify({integrations}) });
+  return response.data;
+}
+
+export interface GeneratePasswordResult {
+  password: string;
+  source: 'api-ninjas' | 'fallback' | 'local';
+  message: string;
+}
+
+export async function generateApiPassword(length = 12): Promise<GeneratePasswordResult> {
+  const response = await request<{ success: true; data: GeneratePasswordResult }>(
+    `/api/settings/generate-password?length=${encodeURIComponent(length)}`,
+    { method: 'POST' }
+  );
   return response.data;
 }
 

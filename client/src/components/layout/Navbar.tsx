@@ -9,12 +9,12 @@ import { Modal } from '../common/Modal';
 import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 
 interface NavbarProps {
-  activePage: FacultyPage;
-  onNavigate: (page: FacultyPage) => void;
+  activePage?: FacultyPage;
+  onNavigate?: (page: FacultyPage) => void;
   onStudentSearch: (query: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStudentSearch }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onStudentSearch }) => {
   const { currentUser, logout, resetAllData } = useApp();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -62,9 +62,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
     ? currentUser.designation || 'Enrollment Officer'
     : currentUser?.role.toUpperCase();
   const isFaculty = currentUser?.role === 'faculty';
-  const navItemClass = (active: boolean) => `rounded-lg px-3 py-2 transition ${active
-    ? 'bg-white/15 text-white'
-    : 'text-brand-100 hover:bg-white/10 hover:text-white'}`;
 
   useEffect(() => {
     const query = studentSearchQuery.trim();
@@ -134,13 +131,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activePage, onNavigate, onStuden
             </p>
           </div>
         </div>
-
-        {currentUser && currentUser.role === 'admin' && (
-          <nav aria-label="Role navigation" className="hidden items-center gap-3 text-xs font-semibold text-brand-100 lg:flex">
-            <button type="button" onClick={() => onNavigate('dashboard')} aria-current={activePage === 'dashboard' ? 'page' : undefined} className={navItemClass(activePage === 'dashboard')}>Dashboard</button>
-            {currentUser.role === 'admin' && <span className="text-brand-200">Administrator workspace</span>}
-          </nav>
-        )}
 
         {currentUser && (
           <div className="flex items-center gap-2">

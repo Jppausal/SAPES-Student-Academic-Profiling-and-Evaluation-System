@@ -39,6 +39,11 @@ const descriptions: Record<IntegrationName, { title: string; description: string
     description:
       'Sends password reset verification codes. When disabled, email-based password changes are unavailable.',
   },
+  passwordGenerator: {
+    title: 'API Ninjas Password Generator',
+    description:
+      'Generates high-entropy passwords via the API Ninjas Password Generator API when creating new accounts. When disabled or unconfigured, the system uses the secure built-in cryptographic generator.',
+  },
 };
 
 export function AdminSettings({ onAudit }: { onAudit: () => void }) {
@@ -467,7 +472,14 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
           {!settings && !error && <p role="status">Loading app settings…</p>}
           {settings &&
             (Object.keys(descriptions) as IntegrationName[]).map((name) => {
-              const setting = settings.integrations[name];
+              const setting = settings?.integrations?.[name] ?? {
+                enabled: true,
+                configured: true,
+                available: true,
+              };
+              const isConfigured = Boolean(setting.configured);
+              const isEnabled = Boolean(setting.enabled);
+              const isAvailable = setting.available !== false;
               return (
                 <div key={name} className="admin-integration-row">
                   <label className="flex items-center justify-between gap-4 font-semibold">
@@ -476,15 +488,15 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
                       type="checkbox"
                       role="switch"
                       aria-label={descriptions[name].title}
-                      checked={setting.enabled && setting.configured}
-                      disabled={saving || !setting.available || !setting.configured}
+                      checked={isEnabled && isConfigured}
+                      disabled={saving || !isAvailable || !isConfigured}
                       onChange={(event) => void toggle(name, event.target.checked)}
                     />
                   </label>
                   <p className="mt-2 text-sm">
-                    Status: {setting.configured ? 'Configured' : 'Not configured'}
-                    {!setting.available ? ' · Unavailable' : ''}
-                    {setting.configured && setting.enabled ? ' · Active' : ' · Disabled'}
+                    Status: {isConfigured ? 'Configured' : 'Not configured'}
+                    {!isAvailable ? ' · Unavailable' : ''}
+                    {isConfigured && isEnabled ? ' · Active' : ' · Disabled'}
                   </p>
                   <p className="mt-1 text-sm text-slate-600">{descriptions[name].description}</p>
                 </div>
