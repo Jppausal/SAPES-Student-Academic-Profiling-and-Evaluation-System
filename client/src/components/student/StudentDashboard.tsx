@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
   ArrowRight,
+  BarChart3,
   BookOpen,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   Download,
   FileCheck2,
   GraduationCap,
   PencilLine,
+  FileText,
   UserRound,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -176,7 +179,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const hasEnrollmentRisk = enrollmentStatus?.toLowerCase() === 'not_enrolled';
   const evaluationStatus = report?.facultyEvaluation?.evaluationStatus?.toLowerCase();
   const isEnrollmentEligible = isEnrolled || evaluationStatus === 'eligible';
-  const eligibilityLabel = isEnrollmentEligible ? 'Eligible for enrollment' : evaluationStatus === 'for_review' ? 'For review' : 'Not yet eligible';
 
   useEffect(() => () => {
     if (clearancePreviewUrl) URL.revokeObjectURL(clearancePreviewUrl);
@@ -206,7 +208,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         style={{ backgroundImage: `url("${dashboardHeader}")` }}
       >
         <div className="student-dashboard-hero-content">
-          <p className="student-dashboard-hero-label">Student overview</p>
+          <span className="student-dashboard-hero-accent" aria-hidden="true" />
           <h2 id="student-dashboard-title">
             {greeting}{firstName ? `, ${firstName}` : ''}!
           </h2>
@@ -214,7 +216,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             Here’s an overview of your academic profile and progress.
           </p>
           <div className="student-dashboard-hero-meta">
+            <GraduationCap aria-hidden="true" />
             <span className="student-dashboard-program">{displayValue(course)}</span>
+            <span className="student-dashboard-hero-meta-divider" aria-hidden="true" />
             <span className="student-dashboard-institution-id">
               <span>Institution ID</span>
               {identity.institutionId || 'TEST-BSIT-0001'}
@@ -235,11 +239,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
       <div className="student-dashboard-summary">
         <article className="student-dashboard-card student-dashboard-status-card">
-          <div className="student-dashboard-card-label">Enrollment status</div>
-          <span className={`student-dashboard-badge${isEnrolled ? ' student-dashboard-badge-success' : hasEnrollmentRisk ? ' student-dashboard-badge-warning' : ''}`}>
-            {isEnrolled && <CheckCircle2 aria-hidden="true" />}
-            {formatStatus(enrollmentStatus)}
-          </span>
+          <div className="student-dashboard-card-topline">
+            <span className="student-dashboard-card-icon"><CalendarDays aria-hidden="true" /></span>
+            <div className="student-dashboard-card-label">Enrollment status</div>
+            <span className={`student-dashboard-badge${isEnrolled ? ' student-dashboard-badge-success' : hasEnrollmentRisk ? ' student-dashboard-badge-warning' : ''}`}>
+              {isEnrolled && <CheckCircle2 aria-hidden="true" />}
+              {isEnrolled ? 'Active' : formatStatus(enrollmentStatus)}
+            </span>
+          </div>
+          <strong className="student-dashboard-card-value">{formatStatus(enrollmentStatus)}</strong>
+          <span className="student-dashboard-card-watermark"><FileText aria-hidden="true" /></span>
           <p className="student-dashboard-card-detail">
             {displayValue(latestPeriod?.academicYear)}{latestPeriod?.semester ? ` · ${latestPeriod.semester}` : ''}
           </p>
@@ -249,10 +258,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </article>
 
         <article className="student-dashboard-card student-dashboard-standing-card">
-          <div className="student-dashboard-card-label">Academic standing</div>
+          <div className="student-dashboard-card-topline">
+            <span className="student-dashboard-card-icon"><BarChart3 aria-hidden="true" /></span>
+            <div className="student-dashboard-card-label">Academic standing</div>
+          </div>
           <span className={`student-dashboard-badge${identity.academicStatus?.isOnProbation ? ' student-dashboard-badge-warning' : academicStatus?.toLowerCase() === 'regular' ? ' student-dashboard-badge-success' : ''}`}>
+            {academicStatus?.toLowerCase() === 'regular' && <CheckCircle2 aria-hidden="true" />}
             {formatStatus(academicStatus)}
           </span>
+          <span className="student-dashboard-card-watermark"><GraduationCap aria-hidden="true" /></span>
           <p className="student-dashboard-card-detail">
             {identity.academicStatus?.isOnProbation ? 'Contact your adviser for support.' : 'Current recorded standing'}
           </p>
@@ -262,8 +276,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </article>
 
         <article className="student-dashboard-card student-dashboard-course-card">
-          <div className="student-dashboard-card-label">Course / year level / section</div>
-          <p className="student-dashboard-course">{displayValue(course)}</p>
+          <div className="student-dashboard-card-topline">
+            <span className="student-dashboard-card-icon"><FileText aria-hidden="true" /></span>
+            <div className="student-dashboard-card-label">Course / Year Level / Section</div>
+          </div>
+          <strong className="student-dashboard-card-value">{displayValue(course)}</strong>
+          <span className="student-dashboard-card-watermark"><FileText aria-hidden="true" /></span>
           <p className="student-dashboard-card-detail">
             {displayValue(yearLevel)}{section ? ` · Section ${section}` : ''}
           </p>
@@ -273,19 +291,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </article>
 
         <article className="student-dashboard-card student-dashboard-profile-card">
-          <div className="student-dashboard-card-label">Profile completion</div>
-          <div
-            className="student-dashboard-progress"
-            role="progressbar"
-            aria-label="Profile completion"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={completion}
-            style={{ background: `conic-gradient(var(--student-success) ${completion * 3.6}deg, var(--student-line) 0)` }}
-          >
-            <span>{completion}%</span>
+          <div className="student-dashboard-card-topline">
+            <span className="student-dashboard-card-icon"><UserRound aria-hidden="true" /></span>
+            <div className="student-dashboard-card-label">Profile completion</div>
           </div>
-          <p className="student-dashboard-card-detail">Complete your profile for a more complete record.</p>
+          <div className="student-dashboard-profile-content">
+            <div
+              className="student-dashboard-progress"
+              role="progressbar"
+              aria-label="Profile completion"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={completion}
+              style={{ background: `conic-gradient(var(--student-success) ${completion * 3.6}deg, var(--student-line) 0)` }}
+            >
+              <span>{completion}%</span>
+            </div>
+            <p className="student-dashboard-card-detail">Complete your profile for a more complete record.</p>
+          </div>
           <button type="button" className="student-dashboard-card-link" onClick={onEditProfile}>
             Complete profile <ArrowRight aria-hidden="true" />
           </button>
@@ -302,26 +325,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <h3 id="student-clearance-heading">Enrollment clearance</h3>
               <p>Check your enrollment eligibility and download your clearance slip.</p>
             </div>
-            <span className={`student-dashboard-badge student-dashboard-badge-compact${isEnrollmentEligible ? ' student-dashboard-badge-success' : ' student-dashboard-badge-warning'}`}>
-              {isEnrollmentEligible && <CheckCircle2 aria-hidden="true" />}
-              {eligibilityLabel}
-            </span>
-          </div>
-          {!isEnrollmentEligible && (
-            <div className="student-dashboard-clearance-flag" role="status">
-              <span>Not yet eligible</span>
-              <p>You cannot view or download a clearance slip until your enrollment eligibility is approved.</p>
-            </div>
-          )}
-          <div className="student-dashboard-clearance-body">
-            <p>
-              {isEnrollmentEligible
-                ? 'Your account is currently cleared to proceed with enrollment.'
-                : evaluationStatus === 'for_review'
-                  ? 'Your enrollment eligibility is still being reviewed.'
-                  : 'Complete the required review steps before downloading a clearance slip.'}
-            </p>
-            <div className="student-dashboard-clearance-actions">
+            <div className="student-dashboard-clearance-header-actions">
               <button
                 type="button"
                 className="student-dashboard-secondary-button"
@@ -340,6 +344,32 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <Download aria-hidden="true" />
                 Download clearance slip
               </button>
+            </div>
+          </div>
+          {!isEnrollmentEligible && (
+            <div className="student-dashboard-clearance-flag" role="status">
+              <span className="student-dashboard-clearance-flag-icon">!</span>
+              <span>Not yet eligible</span>
+              <span className="student-dashboard-clearance-flag-divider" aria-hidden="true" />
+              <p>You cannot view or download a clearance slip until your enrollment eligibility is approved.</p>
+            </div>
+          )}
+          <div className="student-dashboard-clearance-body">
+            <div className="student-dashboard-clearance-steps" aria-label="Clearance progress">
+              <div className="student-dashboard-clearance-step is-current">
+                <span>1</span>
+                <strong>Enrollment<br />Review</strong>
+              </div>
+              <span className="student-dashboard-clearance-step-line" aria-hidden="true" />
+              <div className={`student-dashboard-clearance-step${evaluationStatus === 'for_review' || isEnrollmentEligible ? ' is-current' : ''}`}>
+                <span>2</span>
+                <strong>Eligibility<br />Check</strong>
+              </div>
+              <span className="student-dashboard-clearance-step-line" aria-hidden="true" />
+              <div className={`student-dashboard-clearance-step${isEnrollmentEligible ? ' is-current' : ''}`}>
+                <span>3</span>
+                <strong>Approval</strong>
+              </div>
             </div>
           </div>
         </section>
