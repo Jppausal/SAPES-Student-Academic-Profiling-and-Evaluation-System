@@ -2804,3 +2804,140 @@
   border-color: var(--student-primary-border);
   color: var(--student-primary);
 }
+
+/* Reference-style student header navigation. */
+.student-navbar-shell {
+  background: linear-gradient(110deg, #041a38 0%, #073474 62%, #0b428a 100%) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 24px rgba(4, 26, 56, 0.2) !important;
+}
+
+.student-navbar-shell > div {
+  max-width: 1480px;
+  height: 76px;
+}
+
+.student-navbar-shell img {
+  width: 52px;
+  height: 52px;
+}
+
+.student-navbar-shell > div > div:first-child {
+  min-width: 340px;
+}
+
+.student-navbar-shell .student-top-navigation {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 5px;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.student-top-navigation button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 76px;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #d7e5f7;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.student-top-navigation button svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.student-top-navigation button:hover,
+.student-top-navigation button.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.student-top-navigation button.active {
+  border-bottom-color: #ffffff;
+}
+
+.student-top-navigation .student-top-navigation-chevron {
+  width: 13px;
+  height: 13px;
+  margin-left: -3px;
+}
+
+.student-top-navigation .student-top-navigation-notifications {
+  width: 48px;
+  padding: 0;
+  margin-left: 14px;
+}
+
+.student-navbar-shell .relative.order-2 > button {
+  border-color: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 6px 12px 6px 7px;
+}
+
+.student-navbar-shell .relative.order-2 > button > div:first-child {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #537ab5;
+}
+
+@media (max-width: 1100px) {
+  .student-navbar-shell .student-top-navigation {
+    gap: 0;
+    margin-right: 0;
+  }
+
+  .student-top-navigation button {
+    padding: 0 9px;
+    font-size: 12px;
+  }
+
+  .student-navbar-shell > div > div:first-child {
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 800px) {
+  .student-navbar-shell > div {
+    height: auto;
+    min-height: 70px;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .student-navbar-shell > div > div:first-child {
+    min-width: 0;
+  }
+
+  .student-navbar-shell .student-top-navigation {
+    order: 3;
+    width: 100%;
+    height: 48px;
+    overflow-x: auto;
+    margin: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .student-top-navigation button {
+    min-height: 48px;
+    padding: 0 13px;
+  }
+
+  .student-top-navigation .student-top-navigation-notifications {
+    margin-left: 4px;
+  }
+}

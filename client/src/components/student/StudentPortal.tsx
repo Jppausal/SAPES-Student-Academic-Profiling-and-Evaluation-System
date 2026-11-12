@@ -1,13 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
-  Bell,
-  BookOpen,
-  History,
   FileText,
   GraduationCap,
   ShieldCheck,
-  User,
   X,
 } from 'lucide-react';
 import {
@@ -15,8 +11,6 @@ import {
   useStudentNotificationPreferences,
   useStudentPreferences,
 } from '../../hooks/useStudentPreferences';
-import { LayoutDashboard } from 'lucide-react';
-
 import {
   fetchMyStudentIdentity,
   fetchMyStudentReport,
@@ -30,17 +24,30 @@ import { StudentProfileSetup } from './StudentProfileSetup';
 import { StudentAuditLogs } from './StudentAuditLogs';
 import './student-workspace.css';
 
+type StudentTab = 'dashboard' | 'records' | 'profile' | 'audit';
+
+interface StudentPortalProps {
+  activeTab: StudentTab;
+  onActiveTabChange: (tab: StudentTab) => void;
+  notificationsOpen: boolean;
+  onNotificationsOpenChange: (open: boolean) => void;
+}
+
 const statusLabel = (status?: string) => typeof status === 'string' && status.trim()
   ? status.trim().replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
   : 'Not recorded';
 
-export const StudentPortal: React.FC = () => {
+export const StudentPortal: React.FC<StudentPortalProps> = ({
+  activeTab,
+  onActiveTabChange,
+  notificationsOpen,
+  onNotificationsOpenChange,
+}) => {
   const [identity, setIdentity] = useState<StudentIdentity | null>(null);
   const [report, setReport] = useState<StudentReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [reportError, setReportError] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'records' | 'profile' | 'audit'>('dashboard');
   const [savedMessage, setSavedMessage] = useState('');
   const previousTab = useRef(activeTab);
 
@@ -51,7 +58,31 @@ export const StudentPortal: React.FC = () => {
   const [settingsInitialTab, setSettingsInitialTab] = useState<'overview' | 'security' | 'notifications' | 'preferences'>('preferences');
   const [dismissedBanners, setDismissedBanners] = useState<Record<string, boolean>>({});
   const [readNotifications, setReadNotifications] = useState<Record<string, boolean>>({});
-  const [showNotificationPopover, setShowNotificationPopover] = useState(false);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+
+    const activeNotificationIds = [
+      notifications.profileAndAcademicUpdates && !dismissedBanners.academic ? 'academic' : '',
+      notifications.emailAlerts && !dismissedBanners.profile ? 'profile' : '',
+      notifications.securityAlerts && !dismissedBanners.security ? 'security' : '',
+    ].filter(Boolean);
+
+    if (activeNotificationIds.length > 0) {
+      setReadNotifications((previous) => ({
+        ...previous,
+        ...Object.fromEntries(activeNotificationIds.map((id) => [id, true])),
+      }));
+    }
+  }, [
+    notificationsOpen,
+    notifications.profileAndAcademicUpdates,
+    notifications.emailAlerts,
+    notifications.securityAlerts,
+    dismissedBanners.academic,
+    dismissedBanners.profile,
+    dismissedBanners.security,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -62,7 +93,7 @@ export const StudentPortal: React.FC = () => {
         const firstName = student.personalInformation?.firstName?.trim();
         const lastName = student.personalInformation?.lastName?.trim();
         if (!firstName || !lastName || (firstName === 'New' && lastName === 'Student')) {
-          setActiveTab('profile');
+          onActiveTabChange('profile');
         }
       })
       .catch((requestError) => {
@@ -157,24 +188,12 @@ export const StudentPortal: React.FC = () => {
     notifications.emailAlerts && !dismissedBanners.profile ? 'profile' : '',
     notifications.securityAlerts && !dismissedBanners.security ? 'security' : '',
   ].filter(Boolean);
-  const unreadNotificationCount = activeNotificationIds.filter((id) => !readNotifications[id]).length;
-
-  const toggleNotificationPopover = () => {
-    const opening = !showNotificationPopover;
-    if (opening && activeNotificationIds.length > 0) {
-      setReadNotifications((previous) => ({
-        ...previous,
-        ...Object.fromEntries(activeNotificationIds.map((id) => [id, true])),
-      }));
-    }
-    setShowNotificationPopover(opening);
-  };
 
   return (
     <div className="student-workspace">
       <div className="student-navigation-shell">
       {/* STUDENT NOTIFICATIONS & ALERTS POPOVER */}
-      {showNotificationPopover && (
+      {notificationsOpen && (
         <div id="student-notifications-popover" className="student-notifications-popover" role="region" aria-label="Notifications">
           <div className="student-notifications-popover-header">
             <div>
@@ -183,7 +202,7 @@ export const StudentPortal: React.FC = () => {
             </div>
             <button
               type="button"
-              onClick={() => setShowNotificationPopover(false)}
+              onClick={() => onNotificationsOpenChange(false)}
               className="student-notifications-close"
               aria-label="Close notifications"
             >
@@ -258,7 +277,7 @@ export const StudentPortal: React.FC = () => {
                   {(!profileComplete || missingEmergencyOrContact) && (
                     <button
                       type="button"
-                      onClick={() => setActiveTab('profile')}
+                      onClick={() => onActiveTabChange('profile')}
                       className="student-banner-btn student-banner-btn-primary"
                     >
                       Review Profile
@@ -297,7 +316,7 @@ export const StudentPortal: React.FC = () => {
                     onClick={() => {
                       setSettingsInitialTab('security');
                       setShowSettingsModal(true);
-                      setShowNotificationPopover(false);
+                      onNotificationsOpenChange(false);
                     }}
                     className="student-banner-btn student-banner-btn-outline"
                   >
@@ -325,7 +344,7 @@ export const StudentPortal: React.FC = () => {
             onClick={() => {
               setSettingsInitialTab('notifications');
               setShowSettingsModal(true);
-              setShowNotificationPopover(false);
+              onNotificationsOpenChange(false);
             }}
           >
             Manage notification settings
@@ -333,65 +352,6 @@ export const StudentPortal: React.FC = () => {
         </div>
       )}
 
-      <nav className="student-navigation" aria-label="Student workspace">
-        <button
-          type="button"
-          onClick={() => setActiveTab('dashboard')}
-          aria-current={activeTab === 'dashboard' ? 'page' : undefined}
-          className={activeTab === 'dashboard' ? 'active' : ''}
-        >
-          <LayoutDashboard className="student-tab-icon" />
-          <span>Dashboard</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('records')}
-          aria-current={activeTab === 'records' ? 'page' : undefined}
-          className={activeTab === 'records' ? 'active' : ''}
-        >
-          <BookOpen className="student-tab-icon" />
-          <span>Academic records</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab('profile'); setSavedMessage(''); }}
-          aria-current={activeTab === 'profile' ? 'page' : undefined}
-          className={activeTab === 'profile' ? 'active' : ''}
-        >
-          <User className="student-tab-icon" />
-          <span>Personal profile</span>
-          {!profileComplete && <span className="student-incomplete">Incomplete</span>}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('audit')}
-          aria-current={activeTab === 'audit' ? 'page' : undefined}
-          className={activeTab === 'audit' ? 'active' : ''}
-        >
-          <History className="student-tab-icon" />
-          <span>Audit logs</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            toggleNotificationPopover();
-          }}
-          className="student-navigation-notifications"
-          aria-expanded={showNotificationPopover}
-          aria-controls="student-notifications-popover"
-          title="View notifications"
-        >
-          <span className="student-notification-icon">
-            <Bell className="student-tab-icon" />
-            {unreadNotificationCount > 0 && (
-              <span className="student-notification-count" aria-label={`${unreadNotificationCount} unread notification${unreadNotificationCount === 1 ? '' : 's'}`}>
-                {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
-              </span>
-            )}
-          </span>
-          <span>Notifications</span>
-        </button>
-      </nav>
       </div>
 
       {savedMessage && <p role="status" className="student-notice student-notice-success">{savedMessage}</p>}
@@ -401,8 +361,8 @@ export const StudentPortal: React.FC = () => {
           identity={identity}
           report={report}
           reportError={reportError}
-          onViewRecords={() => setActiveTab('records')}
-          onEditProfile={() => setActiveTab('profile')}
+          onViewRecords={() => onActiveTabChange('records')}
+          onEditProfile={() => onActiveTabChange('profile')}
         />
       )}
 
@@ -418,7 +378,7 @@ export const StudentPortal: React.FC = () => {
           onSaved={(updatedIdentity) => {
             setIdentity(updatedIdentity);
             setSavedMessage('Your student profile was saved successfully.');
-            setActiveTab('dashboard');
+            onActiveTabChange('dashboard');
           }}
         />
       )}

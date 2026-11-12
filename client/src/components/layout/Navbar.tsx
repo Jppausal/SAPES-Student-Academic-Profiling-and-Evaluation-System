@@ -1,7 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import logo from '../../assets/branding/logo ccot.jpg';
-import { ChevronDown, GraduationCap, LogOut, RotateCcw, Search, Settings, ShieldCheck, Users, X } from 'lucide-react';
+import {
+  Bell,
+  BookOpen,
+  ChevronDown,
+  GraduationCap,
+  History,
+  LayoutDashboard,
+  LogOut,
+  RotateCcw,
+  Search,
+  Settings,
+  ShieldCheck,
+  User,
+  Users,
+  X,
+} from 'lucide-react';
 import { FacultyPage, UserRole } from '../../types';
 import { UserSettingsModal } from './UserSettingsModal';
 import { fetchStudentSuggestions, StudentSuggestion } from '../../lib/api';
@@ -11,10 +26,18 @@ import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
 interface NavbarProps {
   activePage?: FacultyPage;
   onNavigate?: (page: FacultyPage) => void;
+  studentActiveTab?: 'dashboard' | 'records' | 'profile' | 'audit';
+  onStudentNavigate?: (tab: 'dashboard' | 'records' | 'profile' | 'audit') => void;
+  onStudentNotificationsToggle?: () => void;
   onStudentSearch: (query: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onStudentSearch }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  onStudentSearch,
+  studentActiveTab,
+  onStudentNavigate,
+  onStudentNotificationsToggle,
+}) => {
   const { currentUser, logout, resetAllData } = useApp();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -118,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onStudentSearch }) => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-brand-800 bg-brand-700 shadow-xs">
+    <header className={`sticky top-0 z-40 border-b border-brand-800 bg-brand-700 shadow-xs ${currentUser?.role === 'student' ? 'student-navbar-shell' : ''}`}>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <img src={logo} alt="College of Technologies logo" className="h-10 w-10 rounded-full bg-white object-contain p-0.5" />
@@ -131,6 +154,37 @@ export const Navbar: React.FC<NavbarProps> = ({ onStudentSearch }) => {
             </p>
           </div>
         </div>
+
+        {currentUser?.role === 'student' && onStudentNavigate && (
+          <nav className="student-top-navigation" aria-label="Student workspace">
+            {([
+              ['dashboard', LayoutDashboard, 'Dashboard'],
+              ['records', BookOpen, 'Academic Records'],
+              ['profile', User, 'Personal Profile'],
+              ['audit', History, 'Audit Logs'],
+            ] as const).map(([tab, Icon, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => onStudentNavigate(tab)}
+                className={studentActiveTab === tab ? 'active' : ''}
+                aria-current={studentActiveTab === tab ? 'page' : undefined}
+              >
+                <Icon aria-hidden="true" />
+                <span>{label}</span>
+                {tab === 'records' && <ChevronDown aria-hidden="true" className="student-top-navigation-chevron" />}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={onStudentNotificationsToggle}
+              className="student-top-navigation-notifications"
+              aria-label="Notifications"
+            >
+              <Bell aria-hidden="true" />
+            </button>
+          </nav>
+        )}
 
         {currentUser && (
           <div className="flex items-center gap-2">
