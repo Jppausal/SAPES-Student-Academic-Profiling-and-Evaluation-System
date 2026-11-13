@@ -92,7 +92,7 @@ test('account status changes target the selected role collection only', async t 
 
   assert.equal((await put(`/users/${admin._id}/status?role=admin`, { accountStatus: 'inactive' })).status, 400);
   assert.equal(admin.accountStatus, 'active');
-  assert.equal(revokedSessions.mock.callCount(), 2);
+  assert.equal(revokedSessions.mock.callCount(), 0);
 });
 
 test('admin student profile changes update the account/profile document in student users', async t => {

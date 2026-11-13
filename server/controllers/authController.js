@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const crypto = require('node:crypto');
 const { OAuth2Client } = require('google-auth-library');
 const Student = require('../models/Student');
-const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const verifyHuman = require('../middleware/recaptcha');
 const { sendPasswordResetCode } = require('../utils/email');
@@ -72,22 +71,11 @@ const getDefaultStudentEnrollment = () => {
   };
 };
 
-const createApplicationToken = async (user) => {
-  const jti = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-  const token = jwt.sign(
-    { jti, userId: user._id, role: user.role, username: user.username },
+const createApplicationToken = (user) => jwt.sign(
+    { jti: crypto.randomUUID(), userId: user._id, role: user.role, username: user.username },
     process.env.JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-  await SessionToken.create({
-    jti,
-    userId: user._id,
-    accountRole: user.role,
-    expiresAt
-  });
-  return token;
-};
+    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+);
 
 const safeUser = (user) => ({
   id: user._id,
@@ -172,17 +160,8 @@ router.post('/login', verifyHuman, async (req, res) => {
   }
 });
 
-router.post('/logout', authenticateToken, async (req, res) => {
-  try {
-    await SessionToken.findOneAndUpdate(
-      { jti: req.user.jti, revokedAt: null },
-      { revokedAt: new Date() }
-    );
-    return res.json({ success: true, message: 'Logout successful' });
-  } catch (error) {
-    console.error('Logout error:', error);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  }
+router.post('/logout', (_req, res) => {
+  return res.json({ success: true, message: 'Logout successful' });
 });
 
 router.post('/change-password', authenticateToken, async (req, res) => {
@@ -472,10 +451,6 @@ router.post('/password-reset/confirm', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password-reset verification is no longer valid' });
     }
 
-    await SessionToken.updateMany(
-      { userId: authorization.userId, accountRole: authorization.role, revokedAt: null },
-      { revokedAt: new Date() }
-    );
     return res.json({ success: true, message: 'Password updated. Please log in with your new password.' });
   } catch (error) {
     console.error('Password reset confirmation error:', error);

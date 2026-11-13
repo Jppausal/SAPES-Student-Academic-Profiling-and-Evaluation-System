@@ -83,7 +83,7 @@ test('verified password reset is single-use, including concurrent confirmations'
   ]);
   assert.deepEqual(responses.map(response => response.status).sort(), [200, 400]);
   assert.equal((await post('/password-reset/confirm', body)).status, 400);
-  assert.equal(revocations.mock.callCount(), 1);
+  assert.equal(revocations.mock.callCount(), 0);
   assert.equal(state.passwordResetCodeHash, undefined);
 });
 
