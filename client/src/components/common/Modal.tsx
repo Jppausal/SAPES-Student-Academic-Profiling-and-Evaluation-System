@@ -98,17 +98,17 @@ export const Modal: React.FC<ModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`bg-white rounded-2xl shadow-2xl border border-slate-200 w-full ${maxWidthClasses[maxWidth]} overflow-hidden animate-modal-in motion-reduce:animate-none`}
+        className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full ${maxWidthClasses[maxWidth]} overflow-hidden animate-modal-in motion-reduce:animate-none`}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-slate-50/50 dark:bg-slate-900/50">
           <div>
-            <h3 id={titleId} className="text-lg font-bold text-slate-900">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+            <h3 id={titleId} className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h3>
+            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -116,11 +116,11 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 max-h-[75vh] overflow-y-auto">{children}</div>
+        <div className="p-6 max-h-[75vh] overflow-y-auto overflow-x-hidden text-slate-900 dark:text-slate-100">{children}</div>
 
         {/* Footer actions */}
         {actions && (
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="px-6 py-3.5 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
             {actions}
           </div>
         )}

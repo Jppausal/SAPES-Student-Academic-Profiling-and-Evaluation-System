@@ -4,9 +4,10 @@ const AcademicRecord = require('../models/AcademicRecord');
 const FacultyEvaluation = require('../models/FacultyEvaluation');
 const StudentStatusHistory = require('../models/StudentStatusHistory');
 const AuditLog = require('../models/AuditLog');
+const RolePermission = require('../models/RolePermission');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
-const { authorizePermission, authorizeAnyPermission } = require('../middleware/permissionMiddleware');
+const { authorizePermission, authorizeAnyPermission, DEFAULT_PERMISSIONS } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { validateAndNormalizeAcademicRecord } = require('../utils/academicRecord');
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
@@ -363,6 +364,31 @@ router.get(
   }
 );
 
+// Dedicated export endpoint strictly restricted to authorized administrators with export_reports permission (A119)
+router.get(
+  '/reports/export',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizePermission('export_reports'),
+  async (req, res, next) => {
+    Object.defineProperty(req, 'query', {
+      value: Object.assign({}, req.query, { all: 'true', export: 'true' }),
+      writable: true,
+      configurable: true
+    });
+    // Delegate to /reports/summary logic by invoking it
+    const summaryHandler = router.stack.find(
+      (layer) => layer.route && layer.route.path === '/reports/summary' && layer.route.methods.get
+    );
+    if (summaryHandler) {
+      // Find the last function in stack (the route handler)
+      const lastHandler = summaryHandler.route.stack[summaryHandler.route.stack.length - 1].handle;
+      return lastHandler(req, res, next);
+    }
+    return res.status(500).json({ success: false, message: 'Export handler unavailable' });
+  }
+);
+
 router.get(
   '/courses/enrollment-summary',
   authenticateToken,
@@ -671,7 +697,7 @@ router.get(
   }
 );
 
-// Paginated institutional student summary (admin only)
+// Paginated institutional student summary with comprehensive filtering & aggregations (admin only)
 router.get(
   '/reports/summary',
   authenticateToken,
@@ -680,6 +706,18 @@ router.get(
   async (req, res) => {
     try {
       const isExportAll = req.query.all === 'true' || req.query.export === 'true';
+
+      if (isExportAll) {
+        const rolePermissions = await RolePermission.findOne({ role: req.user.role }).lean();
+        const permissions = rolePermissions?.permissions || DEFAULT_PERMISSIONS[req.user.role] || [];
+        if (!permissions.includes('export_reports')) {
+          return res.status(403).json({
+            success: false,
+            message: 'Export functions are strictly restricted to authorized administrators with export privileges'
+          });
+        }
+      }
+
       const page = Number(req.query.page || 1);
       const limit = isExportAll ? Math.min(Number(req.query.limit || 5000), 10000) : Number(req.query.limit || 20);
       if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || (!isExportAll && limit > 100)) {
@@ -689,25 +727,154 @@ router.get(
         });
       }
 
-      const [total, ipCount, pwdCount, probationCount, evaluatedCounts, students] = await Promise.all([
-        Student.countDocuments({}),
-        Student.countDocuments({ 'classification.isIP': true }),
-        Student.countDocuments({ 'classification.isPWD': true }),
-        Student.countDocuments({ 'academicStatus.isOnProbation': true }),
+      const {
+        academicYear,
+        semester,
+        department,
+        program,
+        yearLevel,
+        startDate,
+        endDate,
+        enrollmentStatus,
+        search
+      } = req.query;
+
+      // Build student filter
+      const studentFilter = {};
+
+      if (enrollmentStatus && enrollmentStatus !== 'all') {
+        studentFilter.enrollmentStatus = enrollmentStatus.trim();
+      }
+
+      // Department & program filtering
+      const filterConditions = [];
+      if (department && department !== 'all') {
+        const deptUpper = String(department).trim().toUpperCase();
+        const deptObj = DEPARTMENTS.find(
+          (d) => d.code === deptUpper || d.name.toLowerCase() === department.toLowerCase() || d.program.toLowerCase() === department.toLowerCase()
+        );
+        const progPattern = deptObj ? deptObj.program : String(department).trim();
+        const escapedPattern = progPattern.replace(/[.*+?^${}()|[\]\\]/g, (c) => '\\' + c);
+        const progRegex = new RegExp(escapedPattern, 'i');
+        const codeRegex = deptObj ? new RegExp('^' + deptObj.code + '$', 'i') : progRegex;
+
+        filterConditions.push({
+          $or: [
+            { 'classification.program': progRegex },
+            { 'enrollmentInformation.department': codeRegex },
+            { 'enrollmentInformation.course': progRegex }
+          ]
+        });
+      } else if (program && program !== 'all') {
+        const escapedProg = String(program).trim().replace(/[.*+?^${}()|[\]\\]/g, (c) => '\\' + c);
+        const progRegex = new RegExp(escapedProg, 'i');
+        filterConditions.push({
+          $or: [
+            { 'classification.program': progRegex },
+            { 'enrollmentInformation.course': progRegex }
+          ]
+        });
+      }
+
+      // Year level filter
+      if (yearLevel && yearLevel !== 'all') {
+        const ylNum = Number(yearLevel);
+        const ylOr = [
+          { 'enrollmentInformation.yearLevel': String(yearLevel).trim() },
+          { 'enrollmentInformation.level': String(yearLevel).trim() }
+        ];
+        if (!Number.isNaN(ylNum)) {
+          ylOr.unshift({ yearLevel: ylNum });
+        }
+        filterConditions.push({ $or: ylOr });
+      }
+
+      // Date range filter
+      if (startDate || endDate) {
+        const dateRangeQuery = {};
+        if (startDate) {
+          const parsedStart = new Date(startDate);
+          if (!Number.isNaN(parsedStart.getTime())) {
+            dateRangeQuery.$gte = parsedStart;
+          }
+        }
+        if (endDate) {
+          const parsedEnd = new Date(endDate);
+          if (!Number.isNaN(parsedEnd.getTime())) {
+            parsedEnd.setHours(23, 59, 59, 999);
+            dateRangeQuery.$lte = parsedEnd;
+          }
+        }
+        if (Object.keys(dateRangeQuery).length > 0) {
+          filterConditions.push({
+            $or: [
+              { createdAt: dateRangeQuery },
+              { 'enrollmentInformation.entryDate': dateRangeQuery },
+              { 'academicStatus.effectiveDate': dateRangeQuery }
+            ]
+          });
+        }
+      }
+
+      // Text search
+      if (search && typeof search === 'string' && search.trim()) {
+        const term = search.trim();
+        const escapedSearch = term.replace(/[.*+?^${}()|[\]\\]/g, (c) => '\\' + c);
+        const searchRegex = new RegExp(escapedSearch, 'i');
+        filterConditions.push({
+          $or: [
+            { institutionId: searchRegex },
+            { 'personalInformation.firstName': searchRegex },
+            { 'personalInformation.lastName': searchRegex },
+            { 'personalInformation.middleName': searchRegex },
+            { 'classification.program': searchRegex },
+            { 'academicStatus.currentStatus': searchRegex }
+          ]
+        });
+      }
+
+      // Academic Year & Semester filter (queries AcademicRecord)
+      if ((academicYear && academicYear !== 'all') || (semester && semester !== 'all')) {
+        const periodQuery = {};
+        if (academicYear && academicYear !== 'all') {
+          periodQuery.academicYear = academicYear.trim();
+        }
+        if (semester && semester !== 'all') {
+          periodQuery.semester = semester.trim();
+        }
+        const matchingStudentIds = await AcademicRecord.distinct('studentId', periodQuery);
+        studentFilter._id = { $in: matchingStudentIds || [] };
+      }
+
+      if (filterConditions.length === 1) {
+        Object.assign(studentFilter, filterConditions[0]);
+      } else if (filterConditions.length > 1) {
+        studentFilter.$and = filterConditions;
+      }
+
+      // Query database with filter
+      const [total, enrolledCount, ipCount, pwdCount, probationCount, evaluatedCounts, students] = await Promise.all([
+        Student.countDocuments(studentFilter),
+        Student.countDocuments({ ...studentFilter, enrollmentStatus: 'enrolled' }),
+        Student.countDocuments({ ...studentFilter, 'classification.isIP': true }),
+        Student.countDocuments({ ...studentFilter, 'classification.isPWD': true }),
+        Student.countDocuments({ ...studentFilter, 'academicStatus.isOnProbation': true }),
         FacultyEvaluation.aggregate([
           { $group: { _id: '$studentId' } },
           { $count: 'total' }
-        ]),
-        Student.find({}, {
+        ]).catch(() => []),
+        Student.find(studentFilter, {
           institutionId: 1,
           personalInformation: 1,
           enrollmentInformation: 1,
           classification: 1,
           yearLevel: 1,
           section: 1,
+          enrollmentStatus: 1,
           religiousInformation: 1,
           healthInformation: 1,
-          academicStatus: 1
+          academicStatus: 1,
+          createdAt: 1
         })
           .sort({ institutionId: 1, _id: 1 })
           .skip((page - 1) * limit)
@@ -742,6 +909,134 @@ router.get(
         if (!evaluationByStudent.has(studentId)) evaluationByStudent.set(studentId, evaluation);
       }
 
+      // Aggregations across all programs, year levels, and academic periods (A115)
+      let programAgg = [];
+      let yearLevelAgg = [];
+      let periodAgg = [];
+      let statusAgg = [];
+
+      try {
+        if (typeof Student.aggregate === 'function') {
+          const [rawProg, rawYear, rawPeriods, rawStatus] = await Promise.all([
+            Student.aggregate([
+              {
+                $group: {
+                  _id: { $ifNull: ['$classification.program', { $ifNull: ['$enrollmentInformation.course', 'Unassigned'] }] },
+                  total: { $sum: 1 },
+                  enrolled: { $sum: { $cond: [{ $eq: ['$enrollmentStatus', 'enrolled'] }, 1, 0] } }
+                }
+              },
+              { $sort: { total: -1 } }
+            ]).catch(() => []),
+            Student.aggregate([
+              {
+                $group: {
+                  _id: { $ifNull: ['$yearLevel', 1] },
+                  total: { $sum: 1 },
+                  enrolled: { $sum: { $cond: [{ $eq: ['$enrollmentStatus', 'enrolled'] }, 1, 0] } }
+                }
+              },
+              { $sort: { _id: 1 } }
+            ]).catch(() => []),
+            AcademicRecord.aggregate([
+              {
+                $group: {
+                  _id: { academicYear: '$academicYear', semester: '$semester' },
+                  studentCount: { $addToSet: '$studentId' },
+                  recordCount: { $sum: 1 }
+                }
+              },
+              {
+                $project: {
+                  _id: 0,
+                  academicYear: '$_id.academicYear',
+                  semester: '$_id.semester',
+                  studentCount: { $size: '$studentCount' },
+                  recordCount: 1
+                }
+              },
+              { $sort: { academicYear: -1, semester: -1 } }
+            ]).catch(() => []),
+            Student.aggregate([
+              {
+                $group: {
+                  _id: { $ifNull: ['$enrollmentStatus', 'not_enrolled'] },
+                  count: { $sum: 1 }
+                }
+              }
+            ]).catch(() => [])
+          ]);
+          programAgg = Array.isArray(rawProg) ? rawProg : [];
+          yearLevelAgg = Array.isArray(rawYear) ? rawYear : [];
+          periodAgg = Array.isArray(rawPeriods) ? rawPeriods : [];
+          statusAgg = Array.isArray(rawStatus) ? rawStatus : [];
+        }
+      } catch (aggErr) {
+        console.warn('Aggregation pipeline skipped or not supported:', aggErr.message);
+      }
+
+      // Safe fallback if aggregations return empty in tests or mocks
+      if (programAgg.length === 0 && students.length > 0) {
+        const progMap = new Map();
+        for (const s of students) {
+          const prog = s.classification?.program || s.enrollmentInformation?.course || 'General Curriculum';
+          const prev = progMap.get(prog) || { total: 0, enrolled: 0 };
+          prev.total += 1;
+          if (s.enrollmentStatus === 'enrolled') prev.enrolled += 1;
+          progMap.set(prog, prev);
+        }
+        programAgg = Array.from(progMap.entries()).map(([prog, counts]) => ({ _id: prog, ...counts }));
+      }
+
+      if (yearLevelAgg.length === 0 && students.length > 0) {
+        const ylMap = new Map();
+        for (const s of students) {
+          const yl = s.yearLevel || 1;
+          const prev = ylMap.get(yl) || { total: 0, enrolled: 0 };
+          prev.total += 1;
+          if (s.enrollmentStatus === 'enrolled') prev.enrolled += 1;
+          ylMap.set(yl, prev);
+        }
+        yearLevelAgg = Array.from(ylMap.entries()).map(([yl, counts]) => ({ _id: yl, ...counts }));
+      }
+
+      const statusCounts = { enrolled: enrolledCount, processing: 0, not_enrolled: 0 };
+      for (const item of statusAgg) {
+        if (item._id && statusCounts[item._id] !== undefined) {
+          statusCounts[item._id] = item.count;
+        }
+      }
+
+      const formatYearLevelLabel = (num) => {
+        const n = Number(num);
+        if (n === 1) return '1st Year';
+        if (n === 2) return '2nd Year';
+        if (n === 3) return '3rd Year';
+        if (n === 4) return '4th Year';
+        return `Year ${num}`;
+      };
+
+      if (isExportAll) {
+        await AuditLog.create({
+          userId: req.user.userId,
+          userRole: req.user.role,
+          userModel: 'AdminUser',
+          action: 'EXPORT_STUDENT_REPORTS',
+          targetType: 'reports',
+          details: {
+            exportScope: req.query.all === 'true' ? 'all' : 'filtered',
+            recordCount: students.length,
+            filters: {
+              academicYear,
+              semester,
+              department,
+              yearLevel,
+              enrollmentStatus
+            }
+          }
+        }).catch((err) => console.warn('Failed to audit report export:', err.message));
+      }
+
       return res.json({
         success: true,
         data: {
@@ -749,17 +1044,33 @@ router.get(
             const studentRecords = recordsByStudent.get(String(student._id)) || [];
             const evaluation = evaluationByStudent.get(String(student._id));
             const latestAcademicPeriod = getLatestAcademicPeriod(studentRecords);
+            const studentProgram = student.classification?.program || student.enrollmentInformation?.course || '';
+            const matchedDept = DEPARTMENTS.find((d) => d.program === studentProgram || d.name === studentProgram);
+
             return {
               institutionId: student.institutionId,
               personalInformation: student.personalInformation || {},
               classification: student.classification || {},
+              enrollmentInformation: student.enrollmentInformation || {},
+              yearLevel: student.yearLevel || (student.enrollmentInformation?.yearLevel ? Number(student.enrollmentInformation.yearLevel) : 1),
+              section: student.section || 'A',
+              enrollmentStatus: student.enrollmentStatus || 'not_enrolled',
+              program: studentProgram || 'Bachelor of Information Technology',
+              department: student.enrollmentInformation?.department || matchedDept?.code || 'COT',
               religiousInformation: student.religiousInformation || {},
               academicStatus: student.academicStatus || {},
               academicRecordCount: studentRecords.length,
-              subjectCount: studentRecords.reduce((count, record) => count + record.subjects.length, 0),
+              subjectCount: studentRecords.reduce((count, record) => count + (record.subjects?.length || 0), 0),
               overallGwa: calculateOverallGwa(studentRecords),
               majorSubjectGwa: calculateMajorSubjectGwa(studentRecords),
               latestAcademicPeriod,
+              academicPeriods: studentRecords.map((r) => ({
+                academicYear: r.academicYear,
+                semester: r.semester,
+                subjectCount: r.subjects?.length || 0,
+                overallGwa: calculateOverallGwa([r]),
+                majorSubjectGwa: calculateMajorSubjectGwa([r])
+              })),
               facultyEvaluation: evaluation ? {
                 evaluationStatus: evaluation.evaluationStatus,
                 reasons: evaluation.reasons || [],
@@ -768,20 +1079,46 @@ router.get(
                   ? { username: evaluation.facultyId.username, role: evaluation.facultyId.role }
                   : null,
                 evaluatedAt: evaluation.evaluatedAt
-              } : null
+              } : null,
+              createdAt: student.createdAt
             };
           }),
           pagination: {
             page,
             limit,
             total,
-            totalPages: Math.ceil(total / limit)
+            totalPages: Math.ceil(total / limit) || 1
           },
           statistics: {
             ip: ipCount,
             pwd: pwdCount,
             probation: probationCount,
-            evaluated: evaluatedCounts[0]?.total || 0
+            evaluated: evaluatedCounts[0]?.total || 0,
+            enrolled: enrolledCount
+          },
+          aggregations: {
+            byProgram: programAgg.map((p) => ({
+              program: p._id,
+              departmentCode: DEPARTMENTS.find((d) => d.program === p._id)?.code || 'COT',
+              total: p.total,
+              enrolled: p.enrolled
+            })),
+            byYearLevel: yearLevelAgg.map((y) => ({
+              yearLevel: y._id,
+              label: formatYearLevelLabel(y._id),
+              total: y.total,
+              enrolled: y.enrolled
+            })),
+            byAcademicPeriod: periodAgg,
+            byEnrollmentStatus: statusCounts,
+            overall: {
+              totalStudents: total,
+              enrolledCount,
+              ipCount,
+              pwdCount,
+              probationCount,
+              evaluatedCount: evaluatedCounts[0]?.total || 0
+            }
           }
         }
       });

@@ -11,10 +11,11 @@ const permissionLabels: Record<string, string> = {
   manage_users: 'Manage user accounts',
   manage_academic_records: 'Manage academic records',
   view_reports: 'View reports',
+  export_reports: 'Export reports and student masterlists',
   view_audit_logs: 'View security audit logs',
 };
 
-const sensitivePermissions = new Set(['manage_users', 'manage_academic_records', 'view_audit_logs']);
+const sensitivePermissions = new Set(['manage_users', 'manage_academic_records', 'view_audit_logs', 'export_reports']);
 
 export const RolePermissionsPanel: React.FC = () => {
   const [availablePermissions, setAvailablePermissions] = useState<string[]>([]);
@@ -102,18 +103,32 @@ export const RolePermissionsPanel: React.FC = () => {
               {availablePermissions.map((permission) => {
                 const checked = config.permissions.includes(permission);
                 const sensitive = sensitivePermissions.has(permission);
+                const isAdminOnly = permission === 'export_reports';
+                const isRestrictedNonAdmin = isAdminOnly && config.role !== 'admin';
                 return (
-                  <label key={permission} className={`admin-permission-option ${sensitive ? 'is-sensitive' : ''}`}>
+                  <label
+                    key={permission}
+                    className={`admin-permission-option ${sensitive ? 'is-sensitive' : ''} ${isRestrictedNonAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    title={isRestrictedNonAdmin ? 'Restricted strictly to Administrator role' : undefined}
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
+                      disabled={isRestrictedNonAdmin}
                       onChange={() => togglePermission(config.role, permission)}
                       className="sr-only"
                     />
                     <span className={`admin-check-visual ${checked ? 'is-checked' : ''}`} aria-hidden="true">
                       {checked && <Check className="w-3 h-3" />}
                     </span>
-                    <span className="flex-1">{permissionLabels[permission] || permission}</span>
+                    <span className="flex-1">
+                      {permissionLabels[permission] || permission}
+                      {isAdminOnly && (
+                        <span className="ml-2 inline-flex items-center text-[10px] font-medium text-slate-500">
+                          (Admin only)
+                        </span>
+                      )}
+                    </span>
                     {sensitive && <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800"><AlertTriangle className="h-3 w-3" /> Sensitive</span>}
                   </label>
                 );

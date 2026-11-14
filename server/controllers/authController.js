@@ -543,7 +543,8 @@ router.post('/google', async (req, res) => {
     if (typeof credential !== 'string' || !credential) {
       return res.status(400).json({ success: false, message: 'Google credential is required' });
     }
-    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    const { getEffectiveGoogleClientId } = require('../utils/systemSettings');
+    const clientId = getEffectiveGoogleClientId();
     if (!clientId) {
       return res.status(503).json({ success: false, message: 'Google authentication is not configured' });
     }

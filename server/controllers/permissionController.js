@@ -17,6 +17,7 @@ const availablePermissions = [
   'manage_users',
   'manage_academic_records',
   'view_reports',
+  'export_reports',
   'view_audit_logs'
 ];
 
@@ -54,6 +55,9 @@ router.put('/:role', ...requireAdmin, async (req, res) => {
     }
     if (role === 'admin' && !permissions.includes('manage_users')) {
       return res.status(400).json({ success: false, message: 'Administrator role must retain manage_users permission' });
+    }
+    if (role !== 'admin' && permissions.includes('export_reports')) {
+      return res.status(400).json({ success: false, message: 'Export permissions can only be granted to administrative roles' });
     }
 
     const rolePermission = await RolePermission.findOneAndUpdate(

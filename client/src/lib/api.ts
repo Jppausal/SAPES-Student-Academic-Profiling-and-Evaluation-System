@@ -688,13 +688,27 @@ export interface InstitutionalStudentSummary {
   };
   classification: {
     studentType?: string;
+    program?: string;
     isIP?: boolean;
     isPWD?: boolean;
     isShifter?: boolean;
     isTransferee?: boolean;
   };
+  enrollmentInformation?: {
+    course?: string;
+    department?: string;
+    yearLevel?: string;
+    level?: string;
+    entryDate?: string;
+    entryPeriod?: string;
+  };
+  yearLevel?: number | string;
+  section?: string;
+  enrollmentStatus?: string;
+  program?: string;
+  department?: string;
   religiousInformation: { religion?: string };
-  academicStatus: { currentStatus?: string; isOnProbation?: boolean };
+  academicStatus: { currentStatus?: string; isOnProbation?: boolean; probationReason?: string; statusRemarks?: string };
   academicRecordCount: number;
   subjectCount: number;
   overallGwa: number | null;
@@ -705,6 +719,13 @@ export interface InstitutionalStudentSummary {
     overallGwa: number | null;
     majorSubjectGwa: number | null;
   } | null;
+  academicPeriods?: Array<{
+    academicYear: string;
+    semester: string;
+    subjectCount: number;
+    overallGwa: number | null;
+    majorSubjectGwa: number | null;
+  }>;
   facultyEvaluation: {
     evaluationStatus: string;
     reasons?: string[];
@@ -712,19 +733,81 @@ export interface InstitutionalStudentSummary {
     evaluatedAt?: string;
     faculty?: { username?: string; role?: string } | null;
   } | null;
+  createdAt?: string;
 }
 
-export async function fetchInstitutionalStudentSummary(page = 1, limit = 25, all = false) {
+export interface EnrollmentReportFilters {
+  academicYear?: string;
+  semester?: string;
+  department?: string;
+  program?: string;
+  yearLevel?: string;
+  enrollmentStatus?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+}
+
+export interface EnrollmentAggregations {
+  byProgram: Array<{ program: string; departmentCode?: string; total: number; enrolled: number }>;
+  byYearLevel: Array<{ yearLevel: number | string; label: string; total: number; enrolled: number }>;
+  byAcademicPeriod: Array<{ academicYear: string; semester: string; studentCount: number; recordCount: number }>;
+  byEnrollmentStatus: { enrolled: number; processing: number; not_enrolled: number };
+  overall: {
+    totalStudents: number;
+    enrolledCount: number;
+    ipCount: number;
+    pwdCount: number;
+    probationCount: number;
+    evaluatedCount: number;
+  };
+}
+
+export async function fetchInstitutionalStudentSummary(
+  page = 1,
+  limit = 25,
+  all = false,
+  filters: EnrollmentReportFilters = {}
+) {
   const query = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (all) {
     query.set('all', 'true');
   }
+  if (filters.academicYear && filters.academicYear !== 'all') {
+    query.set('academicYear', filters.academicYear);
+  }
+  if (filters.semester && filters.semester !== 'all') {
+    query.set('semester', filters.semester);
+  }
+  if (filters.department && filters.department !== 'all') {
+    query.set('department', filters.department);
+  }
+  if (filters.program && filters.program !== 'all') {
+    query.set('program', filters.program);
+  }
+  if (filters.yearLevel && filters.yearLevel !== 'all') {
+    query.set('yearLevel', filters.yearLevel);
+  }
+  if (filters.enrollmentStatus && filters.enrollmentStatus !== 'all') {
+    query.set('enrollmentStatus', filters.enrollmentStatus);
+  }
+  if (filters.startDate) {
+    query.set('startDate', filters.startDate);
+  }
+  if (filters.endDate) {
+    query.set('endDate', filters.endDate);
+  }
+  if (filters.search) {
+    query.set('search', filters.search);
+  }
+
   const response = await request<{
     success: true;
     data: {
       students: InstitutionalStudentSummary[];
       pagination: { page: number; limit: number; total: number; totalPages: number };
-      statistics: { ip: number; pwd: number; probation: number; evaluated: number };
+      statistics: { ip: number; pwd: number; probation: number; evaluated: number; enrolled?: number };
+      aggregations?: EnrollmentAggregations;
     };
     schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   }>(`/api/students/reports/summary?${query.toString()}`);
@@ -903,13 +986,61 @@ export async function checkServerHealth(): Promise<boolean> {
 }
 
 export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp' | 'passwordGenerator';
-export interface IntegrationSettings { integrations: Record<IntegrationName, { enabled: boolean; configured: boolean; available: boolean; siteKey?: string }> }
+export interface IntegrationSettingItem {
+  enabled: boolean;
+  configured: boolean;
+  available: boolean;
+  siteKey?: string;
+  clientId?: string;
+  maskedKey?: string;
+  maskedDefaultKey?: string;
+  hasKey?: boolean;
+  isCustomized?: boolean;
+  keyLabel?: string;
+  canCustomize?: boolean;
+}
+
+export interface IntegrationSettings {
+  integrations: Record<IntegrationName, IntegrationSettingItem>;
+}
 export async function fetchIntegrationSettings(admin = false): Promise<IntegrationSettings> {
   const response = await request<{success: true; data: IntegrationSettings}>(admin ? '/api/settings' : '/api/settings/public');
   return response.data;
 }
 export async function saveIntegrationSettings(integrations: Partial<Record<IntegrationName, {enabled: boolean}>>): Promise<IntegrationSettings> {
   const response = await request<{success: true; data: IntegrationSettings}>('/api/settings', { method: 'PUT', body: JSON.stringify({integrations}) });
+  return response.data;
+}
+
+export interface SendMfaResponse {
+  maskedEmail: string;
+  expiresInSeconds: number;
+}
+
+export async function sendCredentialMfa(integration: IntegrationName): Promise<SendMfaResponse> {
+  const response = await request<{ success: true; message: string; data: SendMfaResponse }>(
+    '/api/settings/credentials/send-mfa',
+    {
+      method: 'POST',
+      body: JSON.stringify({ integration }),
+    }
+  );
+  return response.data;
+}
+
+export interface UpdateCredentialPayload {
+  integration: IntegrationName;
+  customKey?: string;
+  customSecretKey?: string;
+  reset?: boolean;
+  mfaCode: string;
+}
+
+export async function updateIntegrationCredential(payload: UpdateCredentialPayload): Promise<IntegrationSettings> {
+  const response = await request<{ success: true; message: string; data: IntegrationSettings }>('/api/settings/credentials', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
   return response.data;
 }
 

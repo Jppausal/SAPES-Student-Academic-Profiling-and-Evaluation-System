@@ -19,9 +19,20 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
   const [showPassword, setShowPassword] = React.useState(false);
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = React.useState(true);
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim();
+  const [googleClientId, setGoogleClientId] = React.useState<string | undefined>(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
+  );
   const [googleEnabled, setGoogleEnabled] = React.useState(false);
-  React.useEffect(() => { fetchIntegrationSettings().then(settings => setGoogleEnabled(settings.integrations.googleAuth.enabled && settings.integrations.googleAuth.configured)).catch(() => setGoogleEnabled(false)); }, []);
+  React.useEffect(() => {
+    fetchIntegrationSettings()
+      .then((settings) => {
+        setGoogleEnabled(Boolean(settings?.integrations?.googleAuth?.enabled && settings?.integrations?.googleAuth?.configured));
+        if (settings?.integrations?.googleAuth?.clientId) {
+          setGoogleClientId(settings.integrations.googleAuth.clientId.trim());
+        }
+      })
+      .catch(() => setGoogleEnabled(false));
+  }, []);
   const googleClientIdPresent = Boolean(googleClientId) && googleEnabled;
   const isInstitutionalEmail = ['@student.buksu.edu.ph', '@faculty.buksu.edu.ph']
     .some((domain) => loginIdentifier.trim().toLowerCase().endsWith(domain));

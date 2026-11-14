@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import {
   fetchIntegrationSettings,
   saveIntegrationSettings,
+  updateIntegrationCredential,
+  sendCredentialMfa,
   type IntegrationSettings,
   type IntegrationName,
   fetchActiveAcademicPeriod,
   saveActiveAcademicPeriod,
   type ActiveAcademicPeriod,
 } from '../../lib/api';
+import { Modal } from '../common/Modal';
 import {
   ShieldCheck,
   Server,
@@ -21,6 +24,14 @@ import {
   Save,
   AlertCircle,
   RefreshCw,
+  Edit,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  Info,
+  Key,
+  Mail,
+  Send,
 } from 'lucide-react';
 
 const descriptions: Record<IntegrationName, { title: string; description: string }> = {
@@ -67,6 +78,135 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
   const [savingPeriod, setSavingPeriod] = useState(false);
   const [periodMessage, setPeriodMessage] = useState('');
   const [periodError, setPeriodError] = useState('');
+
+  // Credential Customization Modal State
+  const [editingIntegration, setEditingIntegration] = useState<IntegrationName | null>(null);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [customSecretKeyInput, setCustomSecretKeyInput] = useState('');
+  const [showPlaintext, setShowPlaintext] = useState(false);
+  const [showSecretPlaintext, setShowSecretPlaintext] = useState(false);
+  const [modalSaving, setModalSaving] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [modalSuccess, setModalSuccess] = useState('');
+
+  // MFA 2FA State for Credential Customization
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaSending, setMfaSending] = useState(false);
+  const [mfaSent, setMfaSent] = useState(false);
+  const [mfaMaskedEmail, setMfaMaskedEmail] = useState('');
+  const [mfaCooldown, setMfaCooldown] = useState(0);
+
+  useEffect(() => {
+    if (mfaCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setMfaCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [mfaCooldown]);
+
+  const openEditModal = (name: IntegrationName) => {
+    setEditingIntegration(name);
+    setCustomKeyInput('');
+    setCustomSecretKeyInput('');
+    setShowPlaintext(false);
+    setShowSecretPlaintext(false);
+    setModalError('');
+    setModalSuccess('');
+    setMfaCode('');
+    setMfaSending(false);
+    setMfaSent(false);
+    setMfaMaskedEmail('');
+    setMfaCooldown(0);
+  };
+
+  const closeEditModal = () => {
+    if (modalSaving) return;
+    setEditingIntegration(null);
+    setModalError('');
+    setModalSuccess('');
+    setMfaCode('');
+    setMfaSent(false);
+    setMfaMaskedEmail('');
+  };
+
+  const handleSendMfa = async () => {
+    if (!editingIntegration || mfaSending || mfaCooldown > 0) return;
+    setMfaSending(true);
+    setModalError('');
+    try {
+      const res = await sendCredentialMfa(editingIntegration);
+      setMfaSent(true);
+      setMfaMaskedEmail(res.maskedEmail || 'your authorized email');
+      setMfaCooldown(30);
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Failed to send MFA verification code.');
+    } finally {
+      setMfaSending(false);
+    }
+  };
+
+  const handleSaveCredential = async () => {
+    if (!editingIntegration) return;
+    if (!customKeyInput.trim()) {
+      setModalError('Please enter a valid credential value or click Revert to Default.');
+      return;
+    }
+    if (!mfaCode.trim() || !/^\d{6}$/.test(mfaCode.trim())) {
+      setModalError('Please request and enter the 6-digit MFA verification code sent to your email.');
+      return;
+    }
+    setModalSaving(true);
+    setModalError('');
+    setModalSuccess('');
+    try {
+      const updated = await updateIntegrationCredential({
+        integration: editingIntegration,
+        customKey: customKeyInput.trim(),
+        ...(editingIntegration === 'recaptcha' && customSecretKeyInput.trim()
+          ? { customSecretKey: customSecretKeyInput.trim() }
+          : {}),
+        mfaCode: mfaCode.trim(),
+      });
+      setSettings(updated);
+      setModalSuccess(`Successfully verified and updated ${descriptions[editingIntegration]?.title || editingIntegration} credential.`);
+      onAudit();
+      setTimeout(() => {
+        closeEditModal();
+      }, 1200);
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Failed to update integration credential.');
+    } finally {
+      setModalSaving(false);
+    }
+  };
+
+  const handleRevertCredential = async () => {
+    if (!editingIntegration) return;
+    if (!mfaCode.trim() || !/^\d{6}$/.test(mfaCode.trim())) {
+      setModalError('Please request and enter the 6-digit MFA verification code sent to your email to authorize reverting credentials.');
+      return;
+    }
+    setModalSaving(true);
+    setModalError('');
+    setModalSuccess('');
+    try {
+      const updated = await updateIntegrationCredential({
+        integration: editingIntegration,
+        reset: true,
+        mfaCode: mfaCode.trim(),
+      });
+      setSettings(updated);
+      setModalSuccess(`Reverted ${descriptions[editingIntegration]?.title || editingIntegration} to default (.env) credentials.`);
+      onAudit();
+      setTimeout(() => {
+        closeEditModal();
+      }, 1200);
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Failed to revert integration credential.');
+    } finally {
+      setModalSaving(false);
+    }
+  };
 
   useEffect(() => {
     fetchActiveAcademicPeriod()
@@ -499,11 +639,288 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
                     {isConfigured && isEnabled ? ' · Active' : ' · Disabled'}
                   </p>
                   <p className="mt-1 text-sm text-slate-600">{descriptions[name].description}</p>
+
+                  {/* Credential Preview & Customization */}
+                  {setting.canCustomize !== false && name !== 'smtp' && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-md">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            {setting.keyLabel || (name === 'googleAuth' ? 'Google Client ID' : name === 'recaptcha' ? 'Site Key' : 'API Key')}:
+                          </span>
+                          {setting.isCustomized ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              Customized
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                              Default (.env)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {setting.maskedKey ? (
+                            <code className="text-xs font-mono font-medium px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300 tracking-wider break-all">
+                              {setting.maskedKey}
+                            </code>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">No key configured</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(name)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs transition-colors self-start sm:self-auto"
+                        title={`Customize ${descriptions[name].title} API Key / Client ID`}
+                      >
+                        <Edit className="w-3.5 h-3.5 text-slate-500" />
+                        Edit
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           {saving && <p role="status" className="text-xs text-indigo-600 mt-2">Saving configuration…</p>}
         </section>
+      )}
+
+      {/* Credential Customization Modal */}
+      {editingIntegration && (
+        <Modal
+          isOpen={Boolean(editingIntegration)}
+          onClose={closeEditModal}
+          title={`Customize ${descriptions[editingIntegration]?.title} Credentials`}
+          subtitle="Configure a client-specific API key or Client ID without modifying backend source code."
+          maxWidth="xl"
+        >
+          <div className="space-y-4 py-1">
+            {/* Information Banner */}
+            <div className="rounded-xl p-3.5 bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200/90 dark:border-blue-800/80 text-xs text-blue-900 dark:text-blue-100 flex items-start gap-3 shadow-2xs">
+              <div className="w-6 h-6 rounded-md bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+                <Info className="w-3.5 h-3.5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="font-bold text-blue-950 dark:text-blue-50">Custom Credential Override</p>
+                <p className="text-blue-800/90 dark:text-blue-200/90 leading-relaxed text-[11.5px]">
+                  Any custom key saved here is written to <code className="font-mono bg-blue-100 dark:bg-blue-900/80 px-1 py-0.5 rounded text-blue-900 dark:text-blue-100 font-semibold">server/.env</code> and the database, immediately overriding instructor defaults. You can revert to defaults at any time.
+                </p>
+              </div>
+            </div>
+
+            {/* Current Status Info */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Active Configuration</span>
+                {settings?.integrations?.[editingIntegration]?.isCustomized ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Client Customized
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                    Default (.env)
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Current Key:</span>
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 overflow-hidden">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <span className="font-mono font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-1.5 py-0.5 rounded text-xs border border-indigo-200 dark:border-indigo-800 shrink-0">
+                      {(settings?.integrations?.[editingIntegration]?.maskedKey || 'None').slice(0, 5)}
+                    </span>
+                    <span className="font-mono text-slate-500 dark:text-slate-400 text-xs truncate tracking-wider">
+                      {(settings?.integrations?.[editingIntegration]?.maskedKey || '').slice(5)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {settings?.integrations?.[editingIntegration]?.maskedDefaultKey && (
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                  <span className="font-medium">Default Reference:</span>
+                  <span className="font-mono text-slate-600 dark:text-slate-400 truncate max-w-[280px]">
+                    {settings.integrations[editingIntegration].maskedDefaultKey}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Form Input for Custom Key */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                New Custom {settings?.integrations?.[editingIntegration]?.keyLabel || 'Client ID / API Key'}
+              </label>
+              <div className="relative">
+                <input
+                  type={showPlaintext ? 'text' : 'password'}
+                  value={customKeyInput}
+                  onChange={(e) => setCustomKeyInput(e.target.value)}
+                  placeholder={`Paste or enter custom ${settings?.integrations?.[editingIntegration]?.keyLabel || 'key'}...`}
+                  className="w-full text-xs font-mono pr-10 px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                  disabled={modalSaving}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPlaintext((prev) => !prev)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded transition-colors"
+                  title={showPlaintext ? 'Hide value' : 'Show value'}
+                >
+                  {showPlaintext ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Visible only on first 5 characters once saved. Remaining characters will be masked automatically.
+              </p>
+            </div>
+
+            {/* If recaptcha, also secret key input */}
+            {editingIntegration === 'recaptcha' && (
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                  New Custom Secret Key (Optional)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showSecretPlaintext ? 'text' : 'password'}
+                    value={customSecretKeyInput}
+                    onChange={(e) => setCustomSecretKeyInput(e.target.value)}
+                    placeholder="Enter custom reCAPTCHA Secret Key..."
+                    className="w-full text-xs font-mono pr-10 px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                    disabled={modalSaving}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSecretPlaintext((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded transition-colors"
+                    title={showSecretPlaintext ? 'Hide secret' : 'Show secret'}
+                  >
+                    {showSecretPlaintext ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Two-Factor Authorization (MFA) Block */}
+            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-gradient-to-b from-indigo-50/80 to-indigo-50/40 dark:from-indigo-950/40 dark:to-indigo-950/20 p-4 space-y-3.5 shadow-2xs">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 dark:bg-indigo-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      Two-Factor Authorization (MFA)
+                    </h4>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                      Code will be sent to <strong className="text-slate-900 dark:text-white font-semibold">{mfaSent ? mfaMaskedEmail : 'lolenseu.maureal@gmail.com'}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSendMfa}
+                  disabled={mfaSending || mfaCooldown > 0 || modalSaving}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-lg shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  {mfaSending ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  {mfaCooldown > 0
+                    ? `Resend in ${mfaCooldown}s`
+                    : mfaSent
+                    ? 'Resend Code'
+                    : 'Send Code to Email'}
+                </button>
+              </div>
+
+              {mfaSent && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>
+                    Verification code sent to <strong>{mfaMaskedEmail}</strong> (valid for 10 minutes).
+                  </span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Enter 6-Digit Verification Code
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="0 0 0 0 0 0"
+                  className="w-full text-center tracking-[0.5em] font-mono text-base font-bold py-2.5 px-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                  disabled={modalSaving}
+                />
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Required for authorization. Credentials will be pre-flight verified before applying.
+                </p>
+              </div>
+            </div>
+
+            {modalError && (
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200 flex items-center gap-2.5 shadow-2xs">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                <span className="font-medium">{modalError}</span>
+              </div>
+            )}
+
+            {modalSuccess && (
+              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2.5 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-medium">{modalSuccess}</span>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800 gap-3">
+              <div>
+                {settings?.integrations?.[editingIntegration]?.isCustomized && (
+                  <button
+                    type="button"
+                    onClick={handleRevertCredential}
+                    disabled={modalSaving || mfaCode.trim().length !== 6}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/70 border border-amber-300 dark:border-amber-700 rounded-lg transition-all disabled:opacity-40"
+                    title={mfaCode.trim().length !== 6 ? 'MFA verification code is required to revert' : undefined}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Revert to Default
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  disabled={modalSaving}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCredential}
+                  disabled={modalSaving || !customKeyInput.trim() || mfaCode.trim().length !== 6}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-lg shadow-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={mfaCode.trim().length !== 6 ? 'Enter 6-digit MFA verification code to save' : undefined}
+                >
+                  {modalSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {modalSaving ? 'Validating & Saving...' : 'Save & Apply'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

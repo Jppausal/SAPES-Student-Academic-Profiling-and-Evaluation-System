@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "test": "node --test",
-    "start": "node server.js",
+    "start": "nodemon server.js",
+    "start:prod": "node server.js",
     "seed": "node scripts/seedAccounts.js",
     "seed:demo": "node seed/seed.js",
     "seed:student-test-records": "node scripts/seedStudentTestAcademicRecords.js",
