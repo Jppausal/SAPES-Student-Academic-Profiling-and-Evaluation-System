@@ -220,6 +220,7 @@ Serve `client/dist/` as static files, or configure your server to serve it.
 | `MONGO_URI` | Yes | MongoDB connection string |
 | `PORT` | No | Backend port (default: 5001) |
 | `JWT_SECRET` | Yes | Secret for signing JWT tokens (min 32 chars recommended) |
+| `JWT_EXPIRES_IN` | No | Stateless access-token lifetime (default: `8h`) |
 | `GOOGLE_CLIENT_ID` | Yes | Google OAuth 2.0 client ID |
 | `SMTP_HOST` | For email | SMTP server hostname |
 | `SMTP_PORT` | For email | SMTP port (e.g. 587) |
@@ -233,6 +234,7 @@ Serve `client/dist/` as static files, or configure your server to serve it.
 
 > SMTP variables are required for password-reset email delivery. If not configured, email sending will fail and the password-reset flow will not complete.
 > When reCAPTCHA Verification is enabled in system settings, all three reCAPTCHA variables are required. Add the site key, secret key, and exact app hostnames to `server/.env`, then restart the API. Keep the secret key server-side; never add it to `client/.env`.
+> Authentication uses stateless JWT access tokens. Logout clears the browser token, while an already-issued token remains valid until it expires or the account is made inactive.
 
 ### Client (`client/.env`)
 

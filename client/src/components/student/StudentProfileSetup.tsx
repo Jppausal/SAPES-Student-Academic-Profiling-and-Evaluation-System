@@ -317,7 +317,11 @@ export const StudentProfileSetup: React.FC<StudentProfileSetupProps> = ({
         : profile;
       const payload = Object.fromEntries(
         Object.entries(nextProfile).filter(
-          ([, value]) => value && typeof value === 'object' && Object.keys(value).length > 0
+          ([section, value]) =>
+            changedSections.includes(section) &&
+            value &&
+            typeof value === 'object' &&
+            Object.keys(value).length > 0
         )
       ) as StudentProfileUpdate;
       const updatedIdentity = await updateMyStudentProfile(payload);

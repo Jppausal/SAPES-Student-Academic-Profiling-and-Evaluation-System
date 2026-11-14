@@ -1,7 +1,7 @@
 const RolePermission = require('../models/RolePermission');
 
 const DEFAULT_PERMISSIONS = {
-  student: ['view_own_profile', 'edit_own_profile', 'view_own_academic_record'],
+  student: ['view_own_profile', 'edit_own_profile', 'view_own_academic_record', 'view_own_audit_logs'],
   faculty: ['view_student_records', 'submit_evaluations'],
   admin: ['manage_users', 'manage_academic_records', 'view_reports', 'export_reports', 'view_audit_logs']
 };
@@ -9,7 +9,10 @@ const DEFAULT_PERMISSIONS = {
 const authorizePermission = (permission) => async (req, res, next) => {
   try {
     const rolePermissions = await RolePermission.findOne({ role: req.user?.role }).lean();
-    const permissions = rolePermissions?.permissions || DEFAULT_PERMISSIONS[req.user?.role] || [];
+    const configuredPermissions = rolePermissions?.permissions || DEFAULT_PERMISSIONS[req.user?.role] || [];
+    const permissions = req.user?.role === 'student'
+      ? [...new Set([...configuredPermissions, 'view_own_audit_logs'])]
+      : configuredPermissions;
 
     if (!permissions.includes(permission)) {
       return res.status(403).json({

@@ -12,6 +12,7 @@ const availablePermissions = [
   'view_own_profile',
   'edit_own_profile',
   'view_own_academic_record',
+  'view_own_audit_logs',
   'view_student_records',
   'submit_evaluations',
   'manage_users',

@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const SessionToken = require('../models/SessionToken');
 const { getAccountModel } = require('../utils/accountCollections');
 
 const authenticateToken = async (req, res, next) => {
@@ -23,26 +22,12 @@ const authenticateToken = async (req, res, next) => {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
     const AccountModel = getAccountModel(req.user.role);
     if (!req.user.jti || !AccountModel) {
-      return res.status(401).json({ success: false, message: 'Session must be renewed' });
+      return res.status(401).json({ success: false, message: 'Token must be renewed' });
     }
 
-    const [session, account] = await Promise.all([
-      SessionToken.findOne({
-        jti: req.user.jti,
-        userId: req.user.userId,
-        accountRole: req.user.role,
-        revokedAt: null,
-        expiresAt: { $gt: new Date() }
-      }).select('_id').lean(),
-      AccountModel.findById(req.user.userId)
-        .select('username role accountStatus department departmentCode designation isVerifiedEnrollmentOfficer')
-        .lean(),
-    ]);
-
-    if (!session) {
-      return res.status(401).json({ success: false, message: 'Session is revoked or expired' });
-    }
-
+    const account = await AccountModel.findById(req.user.userId)
+      .select('username role accountStatus department departmentCode designation isVerifiedEnrollmentOfficer')
+      .lean();
     if (!account) {
       return res.status(401).json({ success: false, message: 'Account no longer exists' });
     }

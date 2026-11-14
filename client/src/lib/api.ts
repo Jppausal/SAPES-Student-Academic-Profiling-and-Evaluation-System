@@ -225,6 +225,14 @@ export async function fetchAuditLogs(params?: {
   return response.data;
 }
 
+export async function fetchMyAuditLogs(page = 1, limit = 20) {
+  const response = await request<{
+    success: true;
+    data: AuditLogsResponse;
+  }>(`/api/audit-logs/mine?page=${page}&limit=${limit}`);
+  return response.data;
+}
+
 export interface RolePermissionConfig {
   role: 'student' | 'faculty' | 'admin';
   permissions: string[];

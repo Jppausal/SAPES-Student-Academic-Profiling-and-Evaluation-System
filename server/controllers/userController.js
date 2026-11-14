@@ -2,7 +2,6 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
-const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
@@ -526,16 +525,6 @@ router.put(
       if (accountStatus !== undefined) user.accountStatus = accountStatus;
       await user.save();
 
-      if (
-        password !== undefined ||
-        accountStatus !== undefined && accountStatus !== 'active'
-      ) {
-        await SessionToken.updateMany(
-          { userId: user._id, accountRole: lookup.role, revokedAt: null },
-          { revokedAt: new Date() }
-        );
-      }
-
       await AuditLog.create({
         userId: req.user.userId,
         userRole: req.user.role,
@@ -630,13 +619,6 @@ router.put(
 
       user.accountStatus = accountStatus;
       await user.save();
-
-      if (accountStatus !== 'active') {
-        await SessionToken.updateMany(
-          { userId: user._id, accountRole: lookup.role, revokedAt: null },
-          { revokedAt: new Date() }
-        );
-      }
 
       await AuditLog.create({
         userId: req.user.userId,

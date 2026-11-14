@@ -21,6 +21,7 @@ import { EvaluationTarget, FacultyPage } from './types';
 import { DEPARTMENT_PROGRAMS } from './lib/academicPrograms';
 
 type AuthView = 'landing' | 'login' | 'forgot-password' | 'dashboard';
+type StudentTab = 'dashboard' | 'records' | 'profile' | 'audit';
 
 const UI_SESSION_KEYS = {
   AUTH_VIEW: 'sapes_auth_view_v1',
@@ -52,6 +53,8 @@ const AppContent: React.FC = () => {
     sessionStorage.setItem(UI_SESSION_KEYS.ACTIVE_PAGE, activePage);
   }, [activePage]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [studentActiveTab, setStudentActiveTab] = useState<StudentTab>('dashboard');
+  const [studentNotificationsOpen, setStudentNotificationsOpen] = useState(false);
   const [evaluationTarget, setEvaluationTarget] = useState<EvaluationTarget | null>(null);
 
   useEffect(() => {
@@ -111,6 +114,11 @@ const AppContent: React.FC = () => {
       <Navbar
         activePage={activePage}
         onNavigate={navigateFacultyPage}
+        studentActiveTab={currentUser?.role === 'student' ? studentActiveTab : undefined}
+        onStudentNavigate={currentUser?.role === 'student' ? setStudentActiveTab : undefined}
+        onStudentNotificationsToggle={currentUser?.role === 'student'
+          ? () => setStudentNotificationsOpen((open) => !open)
+          : undefined}
         onStudentSearch={(query) => {
           setStudentSearchQuery(query);
           setActivePage('student-search');
@@ -118,7 +126,14 @@ const AppContent: React.FC = () => {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {currentUser?.role === 'student' && <StudentPortal />}
+        {currentUser?.role === 'student' && (
+          <StudentPortal
+            activeTab={studentActiveTab}
+            onActiveTabChange={setStudentActiveTab}
+            notificationsOpen={studentNotificationsOpen}
+            onNotificationsOpenChange={setStudentNotificationsOpen}
+          />
+        )}
         {currentUser?.role === 'faculty' && (
           <>
             <FacultyWorkspaceHeader activePage={activePage} onNavigate={navigateFacultyPage} />
