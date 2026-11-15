@@ -1,7 +1,9 @@
 const SystemSettings = require('../models/SystemSettings');
 const defaults = { googleAuth: true, recaptcha: false, smtp: true, passwordGenerator: true };
-const configuration = () => ({
-  googleAuth: Boolean(process.env.GOOGLE_CLIENT_ID?.trim()),
+const getGoogleClientId = () => process.env.GOOGLE_CLIENT_ID?.trim() || '';
+
+const configuration = (record) => ({
+  googleAuth: Boolean(getGoogleClientId(record)),
   recaptcha: Boolean(process.env.RECAPTCHA_SITE_KEY?.trim() && process.env.RECAPTCHA_SECRET_KEY?.trim() && process.env.RECAPTCHA_ALLOWED_HOSTNAMES?.split(',').some(host => host.trim())),
   smtp: Boolean(process.env.SMTP_HOST?.trim() && process.env.SMTP_FROM?.trim()
     && (!process.env.SMTP_USER || process.env.SMTP_PASSWORD)
@@ -9,15 +11,20 @@ const configuration = () => ({
   passwordGenerator: true
 });
 
-async function readSettings() {
+async function readSettings({ includeClientId = false } = {}) {
   const record = await SystemSettings.findById('system').lean();
-  const configured = configuration();
-  return { integrations: Object.fromEntries(Object.keys(defaults).map(name => [name, {
+  const configured = configuration(record);
+  const googleClientId = getGoogleClientId(record);
+  const integrations = Object.fromEntries(Object.keys(defaults).map(name => [name, {
     enabled: record?.integrations?.[name]?.enabled ?? defaults[name],
     configured: configured[name],
     available: true,
     ...(name === 'recaptcha' && configured.recaptcha ? { siteKey: process.env.RECAPTCHA_SITE_KEY.trim() } : {})
-  }])) };
+  }]));
+  if (includeClientId) {
+    integrations.googleAuth.clientId = googleClientId;
+  }
+  return { integrations };
 }
 
 async function requireIntegration(name) {
@@ -33,4 +40,4 @@ async function requireIntegration(name) {
   }
 }
 
-module.exports = { readSettings, requireIntegration, configuration };
+module.exports = { readSettings, requireIntegration, configuration, getGoogleClientId };

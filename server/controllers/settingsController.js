@@ -11,7 +11,7 @@ router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); 
 
 // Public projection contains only feature flags and configuration booleans.
 router.get('/public', async (_req, res) => {
-  try { res.json({ success: true, data: await readSettings() }); }
+  try { res.json({ success: true, data: await readSettings({ includeClientId: true }) }); }
   catch { res.status(503).json({ success: false, message: 'Integration settings are unavailable.' }); }
 });
 
@@ -39,7 +39,7 @@ router.put('/', async (req, res) => {
       || typeof integrations !== 'object' || Array.isArray(integrations) || !Object.keys(integrations).length) {
       return res.status(400).json({ success: false, message: 'Provide integration settings only.' });
     }
-    const configured = configuration();
+    const configured = configuration(await SystemSettings.findById('system').lean());
     const updates = {};
     for (const [name, value] of Object.entries(integrations)) {
       if (!Object.hasOwn(configured, name) || !value || typeof value !== 'object'

@@ -12,7 +12,6 @@ import { FacultyAcademicRecordsPage } from './components/faculty/FacultyAcademic
 import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPage';
 import { FacultyDashboardPage } from './components/faculty/FacultyDashboardPage';
 import { DepartmentEnrollmentDashboard } from './components/faculty/DepartmentEnrollmentDashboard';
-import { FacultyWorkspaceHeader } from './components/faculty/FacultyWorkspaceHeader';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -55,6 +54,7 @@ const AppContent: React.FC = () => {
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [studentActiveTab, setStudentActiveTab] = useState<StudentTab>('dashboard');
   const [studentNotificationsOpen, setStudentNotificationsOpen] = useState(false);
+  const [facultyNotificationsOpen, setFacultyNotificationsOpen] = useState(false);
   const [evaluationTarget, setEvaluationTarget] = useState<EvaluationTarget | null>(null);
 
   useEffect(() => {
@@ -119,13 +119,17 @@ const AppContent: React.FC = () => {
         onStudentNotificationsToggle={currentUser?.role === 'student'
           ? () => setStudentNotificationsOpen((open) => !open)
           : undefined}
+        facultyNotificationsOpen={facultyNotificationsOpen}
+        onFacultyNotificationsToggle={currentUser?.role === 'faculty'
+          ? () => setFacultyNotificationsOpen((open) => !open)
+          : undefined}
         onStudentSearch={(query) => {
           setStudentSearchQuery(query);
           setActivePage('student-search');
         }}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className={`flex-1 w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 ${currentUser?.role === 'admin' ? 'max-w-7xl' : 'max-w-[1500px]'}`}>
         {currentUser?.role === 'student' && (
           <StudentPortal
             activeTab={studentActiveTab}
@@ -136,7 +140,6 @@ const AppContent: React.FC = () => {
         )}
         {currentUser?.role === 'faculty' && (
           <>
-            <FacultyWorkspaceHeader activePage={activePage} onNavigate={navigateFacultyPage} />
             {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
               : activePage === 'student-records' ? <FacultyAcademicRecordsPage fixedProgram={departmentProgram} canApproveEnrollment={currentUser.isVerifiedEnrollmentOfficer} />
                 : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} fixedProgram={departmentProgram} />
@@ -144,10 +147,14 @@ const AppContent: React.FC = () => {
                     currentUser.isVerifiedEnrollmentOfficer
                       ? <DepartmentEnrollmentDashboard
                           facultyName={currentUser.fullName}
+                          facultyId={currentUser.facultyId || currentUser.employeeId || currentUser.id}
+                          departmentName={currentUser.department}
                           onNavigate={navigateFacultyPage}
                         />
                       : <FacultyDashboardPage
                           facultyName={currentUser.fullName}
+                          facultyId={currentUser.facultyId || currentUser.employeeId || currentUser.id}
+                          department={currentUser.department}
                           onNavigate={navigateFacultyPage}
                           onOpenEvaluation={(target) => {
                             setEvaluationTarget(target);

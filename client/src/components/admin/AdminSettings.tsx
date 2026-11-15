@@ -92,9 +92,10 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
 
   useEffect(() => {
     fetchIntegrationSettings(true)
-      .then(setSettings)
+      .then((loadedSettings) => {
+        setSettings(loadedSettings);
+      })
       .catch((reason) => setError(reason.message));
-
     const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
     fetch(`${base}/api/health`)
       .then(async (response) => {

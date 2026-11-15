@@ -13,6 +13,7 @@ const {
   getAccountModel,
   getAccountModelName
 } = require('../utils/accountCollections');
+const { getGoogleClientId } = require('../utils/systemSettings');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -518,7 +519,7 @@ router.post('/google', async (req, res) => {
     if (typeof credential !== 'string' || !credential) {
       return res.status(400).json({ success: false, message: 'Google credential is required' });
     }
-    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+    const clientId = await getGoogleClientId();
     if (!clientId) {
       return res.status(503).json({ success: false, message: 'Google authentication is not configured' });
     }

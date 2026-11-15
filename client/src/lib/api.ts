@@ -911,7 +911,15 @@ export async function checkServerHealth(): Promise<boolean> {
 }
 
 export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp' | 'passwordGenerator';
-export interface IntegrationSettings { integrations: Record<IntegrationName, { enabled: boolean; configured: boolean; available: boolean; siteKey?: string }> }
+export interface IntegrationSettings {
+  integrations: Record<IntegrationName, {
+    enabled: boolean;
+    configured: boolean;
+    available: boolean;
+    siteKey?: string;
+    clientId?: string;
+  }>;
+}
 export async function fetchIntegrationSettings(admin = false): Promise<IntegrationSettings> {
   const response = await request<{success: true; data: IntegrationSettings}>(admin ? '/api/settings' : '/api/settings/public');
   return response.data;
