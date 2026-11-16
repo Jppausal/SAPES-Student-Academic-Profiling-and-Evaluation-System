@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   Bell,
@@ -311,7 +312,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ username, 
   const sectionInfo = studentIdentity?.enrollmentInformation?.section ? `Section ${studentIdentity.enrollmentInformation.section}` : '';
   const yearLevelInfo = studentIdentity?.enrollmentInformation?.yearLevel ? `Year ${studentIdentity.enrollmentInformation.yearLevel}` : '';
 
-  return (
+  return createPortal((
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm transition-all"
       onClick={(e) => {
@@ -938,5 +939,5 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ username, 
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 };

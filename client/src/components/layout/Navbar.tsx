@@ -181,7 +181,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
                 <span>{label}</span>
-                {page === 'student-records' && <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
               </button>
             ))}
           </nav>
@@ -204,7 +203,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Icon aria-hidden="true" />
                 <span>{label}</span>
-                {tab === 'records' && <ChevronDown aria-hidden="true" className="student-top-navigation-chevron" />}
               </button>
             ))}
           </nav>
