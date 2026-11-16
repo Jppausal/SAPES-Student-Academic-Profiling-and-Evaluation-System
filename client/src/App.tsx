@@ -13,7 +13,6 @@ import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPag
 import { FacultyDashboardPage } from './components/faculty/FacultyDashboardPage';
 import { DepartmentEnrollmentDashboard } from './components/faculty/DepartmentEnrollmentDashboard';
 import { FacultyActivityLogs } from './components/faculty/FacultyActivityLogs';
-import { FacultyWorkspaceHeader } from './components/faculty/FacultyWorkspaceHeader';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
