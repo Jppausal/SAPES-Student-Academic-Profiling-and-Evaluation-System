@@ -44,7 +44,19 @@ router.put('/:institutionId/classification', authenticateToken, authorizeRoles('
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
     Object.assign(student.classification, profileUpdate.value.classification);
     await student.save();
-    await AuditLog.create({ userId: req.user.userId, userRole: req.user.role, userModel: getAccountModelName(req.user.role), action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
+    await AuditLog.create({
+      userId: req.user.userId,
+      userRole: req.user.role,
+      userModel: getAccountModelName(req.user.role),
+      action: 'UPDATE_STUDENT_CLASSIFICATION',
+      targetType: 'student',
+      targetId: student._id,
+      details: {
+        studentId: student._id,
+        institutionId: student.institutionId,
+        classification: profileUpdate.value?.classification
+      }
+    });
     return res.json({ success: true, data: student.classification });
   } catch (error) { console.error('Classification update failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
 });
@@ -155,10 +167,13 @@ router.put(
         userModel: getAccountModelName(req.user.role),
         action: 'UPDATE_STUDENT_STATUS',
         targetType: 'student_status_history',
-        targetId: history._id,
+        targetId: student._id,
         details: {
+          studentId: student._id,
+          historyId: history._id,
           institutionId,
-          status: history.status
+          status: history.status,
+          reason: history.reason
         }
       });
 
@@ -364,7 +379,7 @@ router.get(
   }
 );
 
-// Dedicated export endpoint strictly restricted to authorized administrators with export_reports permission (A119)
+// Dedicated export endpoint strictly restricted to authorized administrators with export_reports permission (A119, A121)
 router.get(
   '/reports/export',
   authenticateToken,
@@ -386,6 +401,108 @@ router.get(
       return lastHandler(req, res, next);
     }
     return res.status(500).json({ success: false, message: 'Export handler unavailable' });
+  }
+);
+
+// Automated audit logging endpoint for report exports (A120, A121, A122)
+router.post(
+  '/reports/audit-export',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizePermission('export_reports'),
+  async (req, res) => {
+    try {
+      const {
+        reportName = 'Overall Enrolled Students Report',
+        format = 'csv',
+        recordCount = 0,
+        exportScope = 'filtered',
+        filters = {},
+        fileName = '',
+        status = 'completed',
+        errorMessage = ''
+      } = req.body || {};
+
+      const isSuccess = status !== 'failed';
+      const details = {
+        reportName,
+        format: String(format).toLowerCase(),
+        recordCount: Number(recordCount) || 0,
+        exportScope,
+        filters,
+        fileName,
+        status: isSuccess ? 'completed' : 'failed',
+        ...(errorMessage ? { errorMessage } : {})
+      };
+
+      const auditLog = await AuditLog.create({
+        userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: 'AdminUser',
+        action: isSuccess ? 'EXPORT_STUDENT_REPORTS' : 'EXPORT_STUDENT_REPORTS_FAILED',
+        targetType: 'reports',
+        details
+      });
+
+      return res.json({
+        success: true,
+        message: isSuccess ? 'Report export logged successfully' : 'Report export failure logged successfully',
+        notification: {
+          id: `notif-${Date.now()}`,
+          type: isSuccess ? 'DATA_EXPORT_COMPLETED' : 'DATA_EXPORT_FAILED',
+          title: isSuccess ? 'Data Export Completed' : 'Export Failed',
+          message: isSuccess
+            ? `Your enrolled-student report (${String(format).toUpperCase()}) has been generated successfully and is ready to download.`
+            : 'Your report could not be generated. Please try again.',
+          format: String(format).toUpperCase(),
+          recordCount: Number(recordCount) || 0,
+          timestamp: new Date().toISOString()
+        },
+        data: { auditLog }
+      });
+    } catch (error) {
+      console.error('Failed to log report export:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+  }
+);
+
+// Automated audit logging endpoint for major report modifications (A120)
+router.post(
+  '/reports/audit-modify',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizeAnyPermission('view_reports', 'export_reports', 'manage_system_settings'),
+  async (req, res) => {
+    try {
+      const {
+        reportName = 'Overall Enrolled Students Report',
+        modificationType = 'REPORT_CONFIGURATION_UPDATED',
+        details = {}
+      } = req.body || {};
+
+      const auditLog = await AuditLog.create({
+        userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: 'AdminUser',
+        action: 'REPORT_MODIFIED',
+        targetType: 'reports',
+        details: {
+          reportName,
+          modificationType,
+          ...details
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Report modification logged successfully',
+        data: { auditLog }
+      });
+    } catch (error) {
+      console.error('Failed to log report modification:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
   }
 );
 
@@ -1016,6 +1133,7 @@ router.get(
         return `Year ${num}`;
       };
 
+      const exportFormat = typeof req.query.format === 'string' ? req.query.format.toLowerCase() : 'json';
       if (isExportAll) {
         await AuditLog.create({
           userId: req.user.userId,
@@ -1025,6 +1143,7 @@ router.get(
           targetType: 'reports',
           details: {
             exportScope: req.query.all === 'true' ? 'all' : 'filtered',
+            format: exportFormat,
             recordCount: students.length,
             filters: {
               academicYear,
@@ -1037,8 +1156,19 @@ router.get(
         }).catch((err) => console.warn('Failed to audit report export:', err.message));
       }
 
+      const exportNotification = isExportAll ? {
+        id: `notif-${Date.now()}`,
+        type: 'DATA_EXPORT_COMPLETED',
+        title: 'Data Export Completed',
+        message: `Overall enrolled students report export generated successfully (${students.length} records).`,
+        format: exportFormat,
+        recordCount: students.length,
+        timestamp: new Date().toISOString()
+      } : undefined;
+
       return res.json({
         success: true,
+        ...(exportNotification ? { notification: exportNotification } : {}),
         data: {
           students: students.map((student) => {
             const studentRecords = recordsByStudent.get(String(student._id)) || [];

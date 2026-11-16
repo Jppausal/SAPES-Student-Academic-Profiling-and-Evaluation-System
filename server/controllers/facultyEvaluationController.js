@@ -169,6 +169,7 @@ router.post(
         targetType: 'student',
         targetId: student._id,
         details: {
+          studentId: student._id,
           institutionId: student.institutionId,
           enrollmentStatus: student.enrollmentStatus
         }
@@ -474,8 +475,12 @@ router.put(
         userModel: getAccountModelName(req.user.role),
         action: 'COURSE_EVALUATION_UPDATED',
         targetType: 'course_evaluation',
-        targetId: progress._id,
-        details: { institutionId: student.institutionId }
+        targetId: student._id,
+        details: {
+          studentId: student._id,
+          evaluationId: progress._id,
+          institutionId: student.institutionId
+        }
       });
 
       return res.json({ success: true, data: { courseEvaluation: progress } });

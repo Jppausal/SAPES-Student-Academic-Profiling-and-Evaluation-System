@@ -454,12 +454,12 @@ test('A119: Unauthenticated callers or revoked/inactive admin accounts cannot ex
   );
   assert.equal(inactiveRes.status, 403);
 
-  // 3. Revoked session token -> 401
+  // 3. Revoked / non-existent session token -> 401
   const revokedRes = await request(
     '/api/students/reports/export',
     { method: 'GET' },
     'admin',
-    { userId: '507f1f77bcf86cd799439099', role: 'admin', jti: 'revoked-session-id' }
+    { userId: 'revoked-admin-id', role: 'admin', jti: 'revoked-session-id' }
   );
   assert.equal(revokedRes.status, 401);
 });
@@ -518,4 +518,160 @@ test('A119: Non-admin roles cannot be granted export_reports permission in role 
   const adminBody = await adminGrant.json();
   assert.equal(adminBody.success, true);
   assert.ok(adminBody.data.permissions.includes('export_reports'));
+});
+
+test('A120: Administrator triggers automated audit logging whenever major reports are exported or modified', async (t) => {
+  const { request } = await setupServer(t);
+  setupCommonMocks(t);
+
+  // 1. Trigger automated audit log on report export
+  const exportAuditRes = await request(
+    '/api/students/reports/audit-export',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reportName: 'Overall Enrolled Students Report',
+        format: 'excel',
+        recordCount: 50,
+        exportScope: 'all',
+        filters: { academicYear: '2025-2026', semester: '1st Semester' },
+        fileName: 'overall-enrolled-2025-2026.xlsx'
+      })
+    },
+    'admin'
+  );
+  assert.equal(exportAuditRes.status, 200);
+  const exportAuditBody = await exportAuditRes.json();
+  assert.equal(exportAuditBody.success, true);
+  assert.ok(capturedAuditLogs.length > 0);
+  const loggedExport = capturedAuditLogs.find((l) => l.action === 'EXPORT_STUDENT_REPORTS');
+  assert.ok(loggedExport);
+  assert.equal(loggedExport.targetType, 'reports');
+  assert.equal(loggedExport.details.format, 'excel');
+  assert.equal(loggedExport.details.recordCount, 50);
+
+  // 2. Trigger automated audit log on report modification
+  const modifyAuditRes = await request(
+    '/api/students/reports/audit-modify',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reportName: 'Overall Enrolled Students Report',
+        modificationType: 'FILTER_PREFERENCES_UPDATED',
+        details: { defaultTerm: '2025-2026 1st Semester', autoProbationThreshold: 2.5 }
+      })
+    },
+    'admin'
+  );
+  assert.equal(modifyAuditRes.status, 200);
+  const loggedModify = capturedAuditLogs.find((l) => l.action === 'REPORT_MODIFIED');
+  assert.ok(loggedModify);
+  assert.equal(loggedModify.details.modificationType, 'FILTER_PREFERENCES_UPDATED');
+});
+
+test('A121: Administrator exports reports for overall enrolled students into standard file formats', async (t) => {
+  const { request } = await setupServer(t);
+  setupCommonMocks(t);
+
+  t.mock.method(Student, 'countDocuments', async () => mockStudents.length);
+  t.mock.method(Student, 'find', () => query(mockStudents));
+  t.mock.method(AcademicRecord, 'find', () => query(mockRecords));
+  t.mock.method(FacultyEvaluation, 'find', () => query([mockEvaluation]));
+
+  // 1. Export in CSV format
+  const csvRes = await request(
+    '/api/students/reports/export?format=csv',
+    { method: 'GET' },
+    'admin'
+  );
+  assert.equal(csvRes.status, 200);
+  const csvBody = await csvRes.json();
+  assert.equal(csvBody.success, true);
+  assert.equal(csvBody.data.students.length, 3);
+  assert.ok(csvBody.data.students[0].institutionId);
+  assert.ok(csvBody.data.students[0].program);
+  assert.ok(csvBody.data.students[0].department);
+
+  // 2. Export in Excel format
+  const excelRes = await request(
+    '/api/students/reports/export?format=excel',
+    { method: 'GET' },
+    'admin'
+  );
+  assert.equal(excelRes.status, 200);
+  const excelBody = await excelRes.json();
+  assert.equal(excelBody.success, true);
+  assert.equal(excelBody.data.students.length, 3);
+});
+
+test('A122: Administrator receives system notifications upon successful generation or completion of data exports', async (t) => {
+  const { request } = await setupServer(t);
+  setupCommonMocks(t);
+
+  t.mock.method(Student, 'countDocuments', async () => mockStudents.length);
+  t.mock.method(Student, 'find', () => query(mockStudents));
+  t.mock.method(AcademicRecord, 'find', () => query(mockRecords));
+  t.mock.method(FacultyEvaluation, 'find', () => query([mockEvaluation]));
+
+  // 1. Verify notification payload in /reports/export
+  const exportRes = await request(
+    '/api/students/reports/export?format=pdf',
+    { method: 'GET' },
+    'admin'
+  );
+  assert.equal(exportRes.status, 200);
+  const exportBody = await exportRes.json();
+  assert.equal(exportBody.success, true);
+  assert.ok(exportBody.notification);
+  assert.equal(exportBody.notification.type, 'DATA_EXPORT_COMPLETED');
+  assert.equal(exportBody.notification.title, 'Data Export Completed');
+  assert.equal(exportBody.notification.format, 'pdf');
+  assert.equal(exportBody.notification.recordCount, 3);
+  assert.ok(exportBody.notification.timestamp);
+
+  // 2. Verify notification payload in /reports/audit-export
+  const auditRes = await request(
+    '/api/students/reports/audit-export',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reportName: 'Overall Enrolled Students Report',
+        format: 'pdf',
+        recordCount: 25
+      })
+    },
+    'admin'
+  );
+  assert.equal(auditRes.status, 200);
+  const auditBody = await auditRes.json();
+  assert.ok(auditBody.notification);
+  assert.equal(auditBody.notification.type, 'DATA_EXPORT_COMPLETED');
+  assert.equal(auditBody.notification.title, 'Data Export Completed');
+  assert.equal(auditBody.notification.recordCount, 25);
+  assert.match(auditBody.notification.message, /PDF/i);
+
+  // 3. Verify notification payload on failed export
+  const failAuditRes = await request(
+    '/api/students/reports/audit-export',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reportName: 'Overall Enrolled Students Report',
+        format: 'pdf',
+        status: 'failed',
+        errorMessage: 'Network timeout during generation'
+      })
+    },
+    'admin'
+  );
+  assert.equal(failAuditRes.status, 200);
+  const failAuditBody = await failAuditRes.json();
+  assert.ok(failAuditBody.notification);
+  assert.equal(failAuditBody.notification.type, 'DATA_EXPORT_FAILED');
+  assert.equal(failAuditBody.notification.title, 'Export Failed');
+  assert.match(failAuditBody.notification.message, /could not be generated/i);
 });

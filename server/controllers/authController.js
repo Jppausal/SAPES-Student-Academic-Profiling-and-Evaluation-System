@@ -13,6 +13,8 @@ const {
   getAccountModel,
   getAccountModelName
 } = require('../utils/accountCollections');
+const { parseDeviceInfo } = require('../utils/deviceInfo');
+const { recordAuditLog } = require('../utils/auditLogger');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -148,6 +150,24 @@ router.post('/login', verifyHuman, async (req, res) => {
 
     account.lastLoginAt = new Date();
     await account.save();
+
+    const deviceInfo = parseDeviceInfo(req);
+    await recordAuditLog({
+      userId: account._id,
+      userRole: role,
+      userModel: getAccountModelName(role),
+      action: 'USER_LOGIN',
+      targetType: 'session',
+      targetId: account._id,
+      details: {
+        method: 'password',
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        ip: deviceInfo.ip,
+        summary: deviceInfo.summary
+      }
+    });
+
     return res.json({
       success: true,
       message: 'Login successful',
@@ -160,7 +180,27 @@ router.post('/login', verifyHuman, async (req, res) => {
   }
 });
 
-router.post('/logout', (_req, res) => {
+router.post('/logout', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded && decoded.userId && decoded.role) {
+        await recordAuditLog({
+          userId: decoded.userId,
+          userRole: decoded.role,
+          userModel: getAccountModelName(decoded.role),
+          action: 'USER_LOGOUT',
+          targetType: 'session',
+          targetId: decoded.userId,
+          details: { method: 'manual' }
+        });
+      }
+    }
+  } catch {
+    // Gracefully ignore invalid/expired tokens on logout
+  }
   return res.json({ success: true, message: 'Logout successful' });
 });
 
@@ -451,6 +491,16 @@ router.post('/password-reset/confirm', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password-reset verification is no longer valid' });
     }
 
+    await recordAuditLog({
+      userId: updated._id,
+      userRole: authorization.role,
+      userModel: getAccountModelName(authorization.role),
+      action: 'PASSWORD_RESET',
+      targetType: 'account',
+      targetId: updated._id,
+      details: { method: 'email_reset_code' }
+    });
+
     return res.json({ success: true, message: 'Password updated. Please log in with your new password.' });
   } catch (error) {
     console.error('Password reset confirmation error:', error);
@@ -649,6 +699,23 @@ router.post('/google', async (req, res) => {
     }
     account.lastLoginAt = new Date();
     await account.save();
+
+    const deviceInfo = parseDeviceInfo(req);
+    await recordAuditLog({
+      userId: account._id,
+      userRole: role,
+      userModel: getAccountModelName(role),
+      action: 'USER_LOGIN',
+      targetType: 'session',
+      targetId: account._id,
+      details: {
+        method: 'google',
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        ip: deviceInfo.ip,
+        summary: deviceInfo.summary
+      }
+    });
 
     return res.json({
       success: true,

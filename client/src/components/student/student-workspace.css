@@ -283,107 +283,19 @@
 }
 
 .student-audit-page {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 28px;
+  padding: 32px;
   border: 1px solid var(--student-line);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--student-surface);
-  box-shadow: 0 4px 20px -2px rgba(148, 163, 184, 0.08);
+  box-shadow: 0 4px 24px -4px rgba(15, 23, 42, 0.06);
 }
-
-.student-audit-heading,
-.student-audit-title-row,
-.student-audit-item-header,
-.student-audit-pagination {
-  display: flex;
-  align-items: center;
-}
-
-.student-audit-heading {
-  justify-content: space-between;
-  gap: 20px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--student-line-soft);
-}
-
-.student-audit-title-row { gap: 16px; }
-.student-audit-heading h2 { font-size: 20px; }
-.student-audit-heading p { margin-top: 3px; color: var(--student-muted); font-size: 13px; }
-
-.student-audit-refresh,
-.student-audit-pagination button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 8px 12px;
-  border: 1px solid var(--student-line);
-  border-radius: 9px;
-  background: white;
-  color: var(--student-navy);
-  font-weight: 650;
-}
-
-.student-audit-refresh:hover,
-.student-audit-pagination button:not(:disabled):hover { background: var(--student-primary-soft); }
-.student-audit-refresh:disabled,
-.student-audit-pagination button:disabled { opacity: 0.55; }
-
-.student-audit-list { padding-top: 8px; }
-.student-audit-item {
-  display: flex;
-  gap: 14px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--student-line-soft);
-}
-
-.student-audit-marker {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border-radius: 50%;
-  background: var(--student-primary-soft);
-  color: var(--student-primary);
-}
-
-.student-audit-content { min-width: 0; flex: 1; }
-.student-audit-item-header { justify-content: space-between; gap: 16px; }
-.student-audit-item h3 { font-size: 14px; letter-spacing: 0; }
-.student-audit-item time,
-.student-audit-item p { color: var(--student-muted); font-size: 12px; }
-.student-audit-item p { margin-top: 4px; }
-
-.student-audit-empty {
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-  padding: 58px 20px 34px;
-  color: var(--student-muted);
-  text-align: center;
-}
-
-.student-audit-empty svg { color: var(--student-primary); }
-.student-audit-empty strong { color: var(--student-navy); }
-.student-audit-pagination {
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 20px;
-  color: var(--student-muted);
-  font-size: 12px;
-}
-
-.student-audit-pagination button { min-height: 34px; font-size: 12px; }
-.student-audit-spin { animation: student-audit-spin 0.9s linear infinite; }
-@keyframes student-audit-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 640px) {
-  .student-audit-page { padding: 20px 16px; }
-  .student-audit-heading { align-items: flex-start; flex-direction: column; }
-  .student-audit-refresh { align-self: flex-end; }
-  .student-audit-item-header { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .student-audit-page {
+    padding: 20px 16px;
+  }
 }
 
 /* ----------------------------------------------------

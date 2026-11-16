@@ -12,6 +12,7 @@ import { FacultyAcademicRecordsPage } from './components/faculty/FacultyAcademic
 import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPage';
 import { FacultyDashboardPage } from './components/faculty/FacultyDashboardPage';
 import { DepartmentEnrollmentDashboard } from './components/faculty/DepartmentEnrollmentDashboard';
+import { FacultyActivityLogs } from './components/faculty/FacultyActivityLogs';
 import { FacultyWorkspaceHeader } from './components/faculty/FacultyWorkspaceHeader';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
@@ -32,7 +33,7 @@ const isAuthView = (value: string | null): value is AuthView =>
   value === 'landing' || value === 'login' || value === 'forgot-password' || value === 'dashboard';
 
 const isFacultyPage = (value: string | null): value is FacultyPage =>
-  value === 'dashboard' || value === 'student-search' || value === 'evaluations' || value === 'student-records';
+  value === 'dashboard' || value === 'student-search' || value === 'evaluations' || value === 'student-records' || value === 'activity';
 
 const AppContent: React.FC = () => {
   const { currentUser, sessionReady, login, loginWithGoogle } = useApp();
@@ -140,8 +141,9 @@ const AppContent: React.FC = () => {
             {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
               : activePage === 'student-records' ? <FacultyAcademicRecordsPage fixedProgram={departmentProgram} canApproveEnrollment={currentUser.isVerifiedEnrollmentOfficer} />
                 : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} fixedProgram={departmentProgram} />
-                  : (
-                    currentUser.isVerifiedEnrollmentOfficer
+                  : activePage === 'activity' ? <FacultyActivityLogs />
+                    : (
+                      currentUser.isVerifiedEnrollmentOfficer
                       ? <DepartmentEnrollmentDashboard
                           facultyName={currentUser.fullName}
                           onNavigate={navigateFacultyPage}

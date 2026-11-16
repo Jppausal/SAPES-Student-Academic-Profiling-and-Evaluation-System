@@ -43,6 +43,17 @@ export interface ApiAuditLog {
   targetType: string;
   targetId: string | null;
   timestamp: string;
+  title?: string;
+  description?: string;
+  category?: string;
+  actor?: string;
+  isSecuritySensitive?: boolean;
+  deviceInfo?: {
+    browser?: string;
+    os?: string;
+    ip?: string;
+    summary?: string;
+  } | null;
   details: Record<string, unknown> | unknown;
 }
 
@@ -225,11 +236,12 @@ export async function fetchAuditLogs(params?: {
   return response.data;
 }
 
-export async function fetchMyAuditLogs(page = 1, limit = 20) {
+export async function fetchMyAuditLogs(page = 1, limit = 20, category = 'all') {
+  const categoryParam = category && category !== 'all' ? `&category=${encodeURIComponent(category)}` : '';
   const response = await request<{
     success: true;
     data: AuditLogsResponse;
-  }>(`/api/audit-logs/mine?page=${page}&limit=${limit}`);
+  }>(`/api/audit-logs/mine?page=${page}&limit=${limit}${categoryParam}`);
   return response.data;
 }
 
@@ -820,6 +832,53 @@ export async function fetchInstitutionalStudentSummary(
     schedulingRestrictions?: Array<{ dayOfWeek: string; startTime: string; endTime: string }>;
   }>(`/api/students/reports/summary?${query.toString()}`);
   return response.data;
+}
+
+export interface ExportAuditPayload {
+  reportName?: string;
+  format: 'csv' | 'excel' | 'pdf' | 'print' | string;
+  recordCount: number;
+  exportScope?: 'all' | 'filtered';
+  filters?: EnrollmentReportFilters | Record<string, unknown>;
+  fileName?: string;
+  status?: 'completed' | 'failed';
+  errorMessage?: string;
+}
+
+export interface SystemExportNotification {
+  id: string;
+  type: 'DATA_EXPORT_COMPLETED' | 'DATA_EXPORT_FAILED';
+  title: string;
+  message: string;
+  format: string;
+  recordCount: number;
+  timestamp: string;
+  isRead?: boolean;
+}
+
+export async function recordReportExportAudit(payload: ExportAuditPayload) {
+  return request<{
+    success: true;
+    notification: SystemExportNotification;
+    data: { auditLog: ApiAuditLog };
+  }>('/api/students/reports/audit-export', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function recordReportModifyAudit(payload: {
+  reportName?: string;
+  modificationType?: string;
+  details?: Record<string, unknown>;
+}) {
+  return request<{
+    success: true;
+    data: { auditLog: ApiAuditLog };
+  }>('/api/students/reports/audit-modify', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function saveAcademicRecord(
