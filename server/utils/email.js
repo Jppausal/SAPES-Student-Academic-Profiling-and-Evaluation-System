@@ -14,7 +14,7 @@ const createEmailTemplate = ({ code, recipient }) => {
       <td align="center">
         <!-- Main Email Container -->
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
-          
+
           <!-- Header Banner -->
           <tr>
             <td style="background-color: #073474; padding: 32px 36px; text-align: center; border-bottom: 3px solid #062a5d;">
@@ -127,7 +127,7 @@ const createCredentialMfaEmailTemplate = ({ code, recipient, integrationTitle })
       <td align="center">
         <!-- Main Email Container -->
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
-          
+
           <!-- Header Banner -->
           <tr>
             <td style="background-color: #073474; padding: 32px 36px; text-align: center; border-bottom: 3px solid #062a5d;">

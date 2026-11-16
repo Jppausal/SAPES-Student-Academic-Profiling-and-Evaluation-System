@@ -38,7 +38,7 @@ const INTEGRATION_TITLES = {
 // Public projection contains only feature flags and public configuration values.
 router.get('/public', async (_req, res) => {
   try {
-    res.json({ success: true, data: await readSettings({ admin: false }) });
+    res.json({ success: true, data: await readSettings({ admin: false, includeClientId: true }) });
   } catch {
     res.status(503).json({ success: false, message: 'Integration settings are unavailable.' });
   }
@@ -77,7 +77,7 @@ router.put('/', async (req, res) => {
     ) {
       return res.status(400).json({ success: false, message: 'Provide integration settings only.' });
     }
-    const configured = configuration();
+    const configured = configuration(await SystemSettings.findById('system').lean());
     const updates = {};
     for (const [name, value] of Object.entries(integrations)) {
       if (

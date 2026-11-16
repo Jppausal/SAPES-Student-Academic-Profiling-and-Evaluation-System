@@ -4,18 +4,20 @@ import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import { ATTENTION_THRESHOLD, average, buildAttentionRows, buildSectionRows } from '../../lib/facultyAttention';
 import { Badge } from '../common/Badge';
 import type { EvaluationTarget, FacultyPage } from '../../types';
-import { ArrowRight, BookOpen, ClipboardCheck, FileText, GraduationCap, Search, Users } from 'lucide-react';
-import dashboardHeader from '../../assets/branding/dashboard-header.png';
+import { AlertTriangle, ArrowRight, BookOpen, CheckCircle2, ClipboardCheck, Clock3, GraduationCap, Search, Users } from 'lucide-react';
+import { FacultyDashboardHeader } from './FacultyDashboardHeader';
 
 const formatMetric = (value: number | null) => (value === null ? '—' : `${value}%`);
 
 interface FacultyDashboardPageProps {
   facultyName: string;
+  facultyId?: string;
+  department?: string;
   onNavigate: (page: FacultyPage) => void;
   onOpenEvaluation: (target: EvaluationTarget) => void;
 }
 
-export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facultyName, onNavigate, onOpenEvaluation }) => {
+export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facultyName, facultyId, department, onNavigate, onOpenEvaluation }) => {
   const [program, setProgram] = useState<string>(TECHNOLOGY_PROGRAMS[0].value);
   const [section, setSection] = useState('all');
   const [roster, setRoster] = useState<FacultyRosterStudent[]>([]);
@@ -72,27 +74,11 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
     || student.metrics.submissionRate !== null
     || student.metrics.runningGrade !== null
   )).length;
-  const firstName = facultyName.trim().split(/\s+/)[0] || 'Faculty';
-  const today = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date());
-
   return (
     <div className="space-y-6">
-      <header
-        className="overflow-hidden rounded-xl border border-slate-200 bg-cover bg-center shadow-sm"
-        style={{ backgroundImage: `url("${dashboardHeader}")` }}
-      >
-        <div className="flex min-h-32 flex-col justify-center px-5 py-5 sm:px-7">
-          <p className="text-xs font-semibold text-brand-700">Faculty overview</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">Good day, {firstName}!</h1>
-          <p className="mt-1 text-sm text-slate-600">Here’s an overview of your students and academic progress.</p>
-          <p className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-            <FileText className="h-3.5 w-3.5 text-brand-600" aria-hidden="true" />
-            {today}
-          </p>
-        </div>
-      </header>
+      <FacultyDashboardHeader facultyName={facultyName} facultyId={facultyId} department={department} />
 
-      <section aria-label="Roster filters" className="flex flex-wrap items-end gap-2">
+      <section aria-label="Roster filters" className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {TECHNOLOGY_PROGRAMS.map((item) => (
             <button
@@ -100,7 +86,7 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
               type="button"
               onClick={() => setProgram(item.value)}
               aria-pressed={program === item.value}
-              className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold ${program === item.value ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+              className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${program === item.value ? 'border-brand-700 bg-brand-700 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-brand-200 hover:bg-brand-50'}`}
             >
               {item.label}
             </button>
@@ -135,41 +121,50 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
 
       {!loading && !error && visible.length > 0 && (
         <>
-          <section aria-label="Summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section aria-label="Summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'Total students', value: stats.total, hint: 'Active profiles in your department', icon: Users, tone: 'bg-blue-100 text-blue-700' },
-              { label: 'Profiles awaiting evaluation', value: awaitingEvaluation, hint: 'Need faculty evaluation', icon: ClipboardCheck, tone: 'bg-amber-100 text-amber-700' },
-              { label: 'Pending enrollment decisions', value: pendingEnrollment, hint: 'Awaiting an enrollment decision', icon: GraduationCap, tone: 'bg-rose-100 text-rose-700' },
-              { label: 'Evaluated profiles', value: evaluatedProfiles, hint: 'Faculty evaluation recorded', icon: BookOpen, tone: 'bg-emerald-100 text-emerald-700' },
+              { label: 'Total Students', value: stats.total, hint: 'Active profiles in your department', icon: Users, tone: 'bg-blue-100 text-blue-700', ghostTone: 'text-blue-100', border: 'border-blue-500' },
+              { label: 'Pending Evaluations', value: awaitingEvaluation, hint: 'Requires faculty action', icon: ClipboardCheck, statusIcon: AlertTriangle, statusTone: 'text-amber-600', tone: 'bg-blue-100 text-blue-700', ghostTone: 'text-blue-100', border: 'border-amber-500' },
+              { label: 'Pending Enrollment', value: pendingEnrollment, hint: 'Awaiting an enrollment decision', icon: GraduationCap, statusIcon: Clock3, statusTone: 'text-brand-600', tone: 'bg-blue-100 text-blue-700', ghostTone: 'text-blue-100', border: 'border-brand-600' },
+              { label: 'Completed Evaluations', value: evaluatedProfiles, hint: 'Faculty evaluation recorded', icon: BookOpen, statusIcon: CheckCircle2, statusTone: 'text-emerald-600', tone: 'bg-blue-100 text-blue-700', ghostTone: 'text-blue-100', border: 'border-emerald-600' },
             ].map((card) => (
-              <div key={card.label} className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
+              <div key={card.label} className={`relative min-h-[150px] overflow-hidden rounded-2xl border border-slate-200 border-b-4 ${card.border} bg-white px-5 py-4 shadow-sm`}>
+                <card.icon className={`pointer-events-none absolute -bottom-2 -right-2 h-20 w-20 ${card.ghostTone}`} aria-hidden="true" />
+                <div className="relative flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-semibold text-slate-500">{card.label}</p>
-                    <p className="mt-1 text-2xl font-extrabold text-slate-900">{card.value}</p>
+                    <p className="text-sm font-bold text-brand-900">{card.label}</p>
+                    <p className="mt-2 text-3xl font-extrabold tracking-tight text-brand-900">{card.value}</p>
                   </div>
-                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${card.tone}`}>
-                    <card.icon className="h-4 w-4" aria-hidden="true" />
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.tone}`}>
+                    <card.icon className="h-5 w-5" aria-hidden="true" />
                   </span>
                 </div>
-                <p className="mt-2 text-[10px] text-slate-500">{card.hint}</p>
+                <p className={`relative mt-3 flex items-center gap-1.5 text-[11px] font-semibold ${card.statusTone || 'text-slate-500'}`}>
+                  {card.statusIcon && <card.statusIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+                  {card.hint}
+                </p>
               </div>
             ))}
           </section>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-            <section aria-labelledby="recent-students-heading" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div>
-                  <h2 id="recent-students-heading" className="text-sm font-bold text-slate-900">Recent students</h2>
-                  <p className="mt-0.5 text-[11px] text-slate-500">Recently updated profiles in your department.</p>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+            <section aria-labelledby="recent-students-heading" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-900 text-white">
+                    <Users className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                  <h2 id="recent-students-heading" className="text-base font-extrabold text-brand-900">Recent Students</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">Recently updated profiles and evaluations.</p>
+                  </div>
                 </div>
-                <button type="button" onClick={() => onNavigate('student-search')} className="text-[11px] font-semibold text-brand-700 hover:text-brand-900">View all</button>
+                <button type="button" onClick={() => onNavigate('student-search')} className="text-xs font-bold text-brand-700 hover:text-brand-900">View all students <ArrowRight className="ml-1 inline h-3.5 w-3.5" aria-hidden="true" /></button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left">
                   <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500">
+                    <tr className="border-b border-slate-200 bg-brand-50/70 text-[10px] font-bold text-brand-800">
                       <th scope="col" className="px-4 py-2.5">Student ID</th>
                       <th scope="col" className="px-4 py-2.5">Name</th>
                       <th scope="col" className="px-4 py-2.5">Course</th>
@@ -177,9 +172,9 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
                       <th scope="col" className="px-4 py-2.5">Enrollment status</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="text-slate-600">
                     {recentStudents.map((student) => (
-                      <tr key={student.institutionId} className="border-b border-slate-100 last:border-b-0">
+                      <tr key={student.institutionId} className="border-b border-slate-100 last:border-b-0 hover:bg-brand-50/40">
                         <td className="px-4 py-2.5 font-mono text-[10px] text-slate-600">{student.institutionId}</td>
                         <td className="px-4 py-2.5 text-xs font-semibold text-slate-900">{student.firstName} {student.lastName}</td>
                         <td className="px-4 py-2.5 text-xs text-slate-700">{student.program}</td>
@@ -192,16 +187,22 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
               </div>
             </section>
 
-            <section aria-labelledby="quick-actions-heading" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 id="quick-actions-heading" className="text-sm font-bold text-slate-900">Quick actions</h2>
-              <div className="mt-3 space-y-2">
+            <section aria-labelledby="quick-actions-heading" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-900 text-white"><ArrowRight className="h-5 w-5" aria-hidden="true" /></span>
+                <div>
+                  <h2 id="quick-actions-heading" className="text-base font-extrabold text-brand-900">Quick Actions</h2>
+                  <p className="text-xs text-slate-500">Access important features.</p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
                 {[
-                  { label: 'Search department students', icon: Search, page: 'student-search' as FacultyPage },
+                  { label: 'View student records', icon: Search, page: 'student-search' as FacultyPage },
                   { label: 'Evaluate academic standing', icon: ClipboardCheck, page: 'evaluations' as FacultyPage },
                   { label: 'View academic records', icon: BookOpen, page: 'student-records' as FacultyPage },
                 ].map((action) => (
-                  <button key={action.label} type="button" onClick={() => onNavigate(action.page)} className="flex w-full items-center gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2.5 text-left text-xs font-semibold text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-100 text-brand-700"><action.icon className="h-4 w-4" aria-hidden="true" /></span>
+                  <button key={action.label} type="button" onClick={() => onNavigate(action.page)} className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-xs font-bold text-brand-900 transition-colors hover:border-brand-300 hover:bg-brand-50">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><action.icon className="h-4 w-4" aria-hidden="true" /></span>
                     <span className="flex-1">{action.label}</span>
                     <ArrowRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
                   </button>

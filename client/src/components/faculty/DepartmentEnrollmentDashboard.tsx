@@ -1,15 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ArrowRight,
-  BookOpen,
   CheckCircle2,
   ClipboardCheck,
-  Clock3,
   GraduationCap,
-  Search,
+  Users,
   UserRoundCheck,
 } from 'lucide-react';
-import dashboardHeader from '../../assets/branding/dashboard-header.png';
+import { FacultyDashboardHeader } from './FacultyDashboardHeader';
 import {
   DepartmentEnrollmentDashboard as DepartmentStats,
   fetchDepartmentEnrollmentDashboard,
@@ -19,6 +17,8 @@ import type { FacultyPage } from '../../types';
 
 interface DepartmentEnrollmentDashboardProps {
   facultyName: string;
+  facultyId?: string;
+  departmentName?: string;
   onNavigate: (page: FacultyPage) => void;
 }
 
@@ -52,6 +52,8 @@ const formatDate = (value: string) => {
 
 export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboardProps> = ({
   facultyName,
+  facultyId,
+  departmentName,
   onNavigate,
 }) => {
   const [department, setDepartment] = useState<DepartmentStats | null>(null);
@@ -85,7 +87,9 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
       value: department.totalStudents,
       detail: 'Active profiles in your department',
       icon: GraduationCap,
-      tone: 'bg-brand-50 text-brand-700',
+      tone: 'bg-blue-100 text-blue-700',
+      ghostTone: 'text-blue-100',
+      borderTone: 'border-blue-500',
       valueTone: 'text-slate-900',
     },
     {
@@ -93,7 +97,9 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
       value: department.profilesAwaitingEvaluation,
       detail: 'No faculty evaluation recorded',
       icon: ClipboardCheck,
-      tone: 'bg-amber-50 text-amber-700',
+      tone: 'bg-blue-100 text-blue-700',
+      ghostTone: 'text-blue-100',
+      borderTone: 'border-amber-500',
       valueTone: 'text-amber-600',
     },
     {
@@ -101,7 +107,9 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
       value: department.pendingEnrollmentDecisions,
       detail: 'Awaiting an enrollment decision',
       icon: UserRoundCheck,
-      tone: 'bg-sky-50 text-sky-700',
+      tone: 'bg-blue-100 text-blue-700',
+      ghostTone: 'text-blue-100',
+      borderTone: 'border-brand-600',
       valueTone: 'text-sky-700',
     },
     {
@@ -109,7 +117,9 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
       value: department.evaluatedProfiles,
       detail: 'Faculty evaluation recorded',
       icon: CheckCircle2,
-      tone: 'bg-emerald-50 text-emerald-700',
+      tone: 'bg-blue-100 text-blue-700',
+      ghostTone: 'text-blue-100',
+      borderTone: 'border-emerald-600',
       valueTone: 'text-emerald-700',
     },
   ] : [];
@@ -117,31 +127,13 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
   const programLabel = department
     ? TECHNOLOGY_PROGRAMS.find((program) => program.value === department.program)?.label || department.program
     : '';
-  const firstName = facultyName.trim().split(/\s+/)[0];
-
   return (
     <div className="space-y-5">
-      <header
-        className="overflow-hidden rounded-xl border border-slate-200 bg-cover bg-center shadow-sm"
-        style={{ backgroundImage: `url("${dashboardHeader}")` }}
-      >
-        <div className="flex min-h-32 flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-7">
-          <div>
-          <p className="text-xs font-semibold text-brand-700">Faculty overview</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">Good day, {firstName}!</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            {department
-              ? `Here’s an overview of your ${department.name} students and academic progress.`
-              : 'Your assigned department enrollment and evaluation overview.'}
-          </p>
-          {department && (
-            <p className="mt-3 inline-flex rounded-md bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">
-              {programLabel}
-            </p>
-          )}
-        </div>
-        </div>
-      </header>
+      <FacultyDashboardHeader
+        facultyName={facultyName}
+        facultyId={facultyId}
+        department={departmentName || programLabel}
+      />
 
       {loading && (
         <p role="status" className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center text-xs text-slate-500">
@@ -156,17 +148,20 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
 
       {!loading && department && (
         <>
-          <section aria-label={`${department.name} dashboard metrics`} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {cards.map(({ label, value, detail, icon: Icon, tone, valueTone }) => (
-              <article key={label} className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="max-w-40 text-xs font-semibold leading-5 text-slate-600">{label}</p>
-                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${tone}`}>
-                    <Icon aria-hidden="true" className="h-4 w-4" />
+          <section aria-label={`${department.name} dashboard metrics`} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {cards.map(({ label, value, detail, icon: Icon, tone, ghostTone, borderTone, valueTone }) => (
+              <article key={label} className={`relative min-h-[150px] overflow-hidden rounded-2xl border border-slate-200 border-b-4 ${borderTone} bg-white px-5 py-4 shadow-sm`}>
+                <Icon aria-hidden="true" className={`pointer-events-none absolute -bottom-2 -right-2 h-20 w-20 ${ghostTone}`} />
+                <div className="relative flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-brand-900">{label}</p>
+                    <p className={`mt-2 text-3xl font-extrabold tracking-tight ${valueTone}`}>{value}</p>
+                  </div>
+                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tone}`}>
+                    <Icon aria-hidden="true" className="h-5 w-5" />
                   </span>
                 </div>
-                <p className={`mt-2 text-3xl font-extrabold ${valueTone}`}>{value}</p>
-                <p className="mt-1 text-xs text-slate-500">{detail}</p>
+                <p className="relative mt-3 text-[11px] font-semibold text-slate-500">{detail}</p>
               </article>
             ))}
           </section>
@@ -176,18 +171,23 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
           </p>
 
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.9fr)]">
-            <section aria-labelledby="recent-students-heading" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
-                <div>
-                  <h2 id="recent-students-heading" className="text-sm font-bold text-slate-900">Recent students</h2>
-                  <p className="mt-1 text-xs text-slate-500">Recently updated profiles in your department.</p>
+            <section aria-labelledby="recent-students-heading" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-900 text-white">
+                    <Users className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2 id="recent-students-heading" className="text-base font-extrabold text-brand-900">Recent Students</h2>
+                    <p className="mt-1 text-xs text-slate-500">Recently updated profiles and evaluations.</p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => onNavigate('student-search')}
-                  className="shrink-0 text-xs font-semibold text-brand-700 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                  className="shrink-0 text-xs font-bold text-brand-700 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
                 >
-                  View all students
+                  View all students <ArrowRight className="ml-1 inline h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
               {department.recentStudents.length === 0 ? (
@@ -195,8 +195,8 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[570px] text-left">
-                    <thead className="bg-slate-50">
-                      <tr className="text-[10px] font-bold text-slate-600">
+                    <thead className="bg-brand-50/70">
+                      <tr className="text-[10px] font-bold text-brand-800">
                         <th scope="col" className="px-4 py-3">Student ID</th>
                         <th scope="col" className="px-4 py-3">Name</th>
                         <th scope="col" className="px-4 py-3">Course</th>
@@ -206,7 +206,7 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
                     </thead>
                     <tbody>
                       {department.recentStudents.map((student) => (
-                        <tr key={student.institutionId} className="border-t border-slate-100">
+                        <tr key={student.institutionId} className="border-t border-slate-100 hover:bg-brand-50/40">
                           <td className="px-4 py-3 font-mono text-[10px] text-slate-600">{student.institutionId}</td>
                           <td className="px-4 py-3 text-xs font-semibold text-slate-800">{student.name}</td>
                           <td className="px-4 py-3 text-xs text-slate-600">{department.code}</td>
@@ -225,56 +225,28 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
             </section>
 
             <div className="space-y-4">
-              <section aria-labelledby="quick-actions-heading" className="rounded-lg border border-slate-200 bg-white p-4">
-                <h2 id="quick-actions-heading" className="text-sm font-bold text-slate-900">Quick actions</h2>
-                <div className="mt-3 space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('student-search')}
-                    className="flex w-full items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
-                  >
-                    <span className="grid h-8 w-8 place-items-center rounded-md bg-brand-50 text-brand-700"><Search aria-hidden="true" className="h-4 w-4" /></span>
-                    Search department students
-                    <ArrowRight aria-hidden="true" className="ml-auto h-3.5 w-3.5 text-slate-400" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('evaluations')}
-                    className="flex w-full items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
-                  >
-                    <span className="grid h-8 w-8 place-items-center rounded-md bg-indigo-50 text-indigo-700"><ClipboardCheck aria-hidden="true" className="h-4 w-4" /></span>
-                    Evaluate academic standing
-                    <ArrowRight aria-hidden="true" className="ml-auto h-3.5 w-3.5 text-slate-400" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('student-records')}
-                    className="flex w-full items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
-                  >
-                    <span className="grid h-8 w-8 place-items-center rounded-md bg-sky-50 text-sky-700"><BookOpen aria-hidden="true" className="h-4 w-4" /></span>
-                    View academic records
-                    <ArrowRight aria-hidden="true" className="ml-auto h-3.5 w-3.5 text-slate-400" />
-                  </button>
-                </div>
-              </section>
-
-              <section aria-labelledby="recent-evaluations-heading" className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-2">
-                  <Clock3 aria-hidden="true" className="h-4 w-4 text-slate-500" />
-                  <h2 id="recent-evaluations-heading" className="text-sm font-bold text-slate-900">Recent evaluations</h2>
+              <section aria-labelledby="recent-evaluations-heading" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-900 text-white">
+                    <ClipboardCheck aria-hidden="true" className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h2 id="recent-evaluations-heading" className="text-base font-extrabold text-brand-900">Recent Evaluations</h2>
+                    <p className="mt-1 text-xs text-slate-500">Latest student evaluation activity.</p>
+                  </div>
                 </div>
                 {department.recentEvaluations.length === 0 ? (
-                  <p className="mt-3 text-xs text-slate-500">No evaluations have been recorded for this department.</p>
+                  <p className="px-5 py-6 text-xs text-slate-500">No evaluations have been recorded for this department.</p>
                 ) : (
-                  <ul className="mt-2 divide-y divide-slate-100">
+                  <ul className="divide-y divide-slate-100">
                     {department.recentEvaluations.map((evaluation) => (
-                      <li key={`${evaluation.institutionId}-${evaluation.evaluatedAt}`} className="flex items-center justify-between gap-3 py-3">
+                      <li key={`${evaluation.institutionId}-${evaluation.evaluatedAt}`} className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-brand-50/40">
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-slate-800">{evaluation.name}</p>
+                          <p className="truncate text-xs font-bold text-brand-900">{evaluation.name}</p>
                           <p className="mt-1 font-mono text-[10px] text-slate-500">{evaluation.institutionId}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-semibold ${evaluationStatusClass(evaluation.evaluationStatus)}`}>
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${evaluationStatusClass(evaluation.evaluationStatus)}`}>
                             {formatStatus(evaluation.evaluationStatus)}
                           </span>
                           <p className="mt-1 text-[10px] text-slate-500">{formatDate(evaluation.evaluatedAt)}</p>

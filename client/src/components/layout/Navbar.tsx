@@ -4,6 +4,7 @@ import logo from '../../assets/branding/logo ccot.jpg';
 import {
   Bell,
   BookOpen,
+  ClipboardCheck,
   ChevronDown,
   GraduationCap,
   History,
@@ -29,14 +30,20 @@ interface NavbarProps {
   studentActiveTab?: 'dashboard' | 'records' | 'profile' | 'audit';
   onStudentNavigate?: (tab: 'dashboard' | 'records' | 'profile' | 'audit') => void;
   onStudentNotificationsToggle?: () => void;
+  facultyNotificationsOpen?: boolean;
+  onFacultyNotificationsToggle?: () => void;
   onStudentSearch: (query: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  activePage,
   onStudentSearch,
+  onNavigate,
   studentActiveTab,
   onStudentNavigate,
   onStudentNotificationsToggle,
+  facultyNotificationsOpen = false,
+  onFacultyNotificationsToggle,
 }) => {
   const { currentUser, logout, resetAllData } = useApp();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -142,18 +149,43 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className={`sticky top-0 z-40 border-b border-brand-800 bg-brand-700 shadow-xs ${currentUser?.role === 'student' ? 'student-navbar-shell' : ''}`}>
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="College of Technologies logo" className="h-10 w-10 rounded-full bg-white object-contain p-0.5" />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold tracking-tight text-white">SAPES</span>
-            </div>
-            <p className="mt-0.5 hidden text-[11px] leading-none text-brand-200 md:block">
-              Student Enrollment & Academic Status Management System
+      <div className="mx-auto flex min-h-[72px] max-w-[1500px] items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex shrink-0 items-center gap-3">
+          <img src={logo} alt="College of Technologies logo" className="h-11 w-11 rounded-full bg-white object-contain p-0.5" />
+          <span aria-hidden="true" className="hidden h-9 w-px bg-white/25 sm:block" />
+          <div className="hidden sm:block">
+            <span className="block text-base font-extrabold tracking-tight text-white">SAPES</span>
+            <p className="mt-0.5 text-[10px] leading-none text-brand-200">
+              Student Enrollment &amp; Academic Status Management System
             </p>
           </div>
         </div>
+
+        {isFaculty && onNavigate && (
+          <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex" aria-label="Faculty workspace">
+            {([
+              ['dashboard', LayoutDashboard, 'Dashboard'],
+              ['evaluations', ClipboardCheck, 'Evaluations'],
+              ['student-records', BookOpen, 'Academic Records'],
+            ] as const).map(([page, Icon, label]) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => onNavigate(page)}
+                aria-current={activePage === page ? 'page' : undefined}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors ${
+                  activePage === page
+                    ? 'bg-white/15 text-white shadow-inner'
+                    : 'text-brand-100 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                <span>{label}</span>
+                {page === 'student-records' && <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
+              </button>
+            ))}
+          </nav>
+        )}
 
         {currentUser?.role === 'student' && onStudentNavigate && (
           <nav className="student-top-navigation" aria-label="Student workspace">
@@ -175,19 +207,64 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {tab === 'records' && <ChevronDown aria-hidden="true" className="student-top-navigation-chevron" />}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={onStudentNotificationsToggle}
-              className="student-top-navigation-notifications"
-              aria-label="Notifications"
-            >
-              <Bell aria-hidden="true" />
-            </button>
           </nav>
         )}
 
         {currentUser && (
           <div className="flex items-center gap-2">
+          {currentUser.role === 'student' && onStudentNotificationsToggle && (
+            <button
+              type="button"
+              onClick={onStudentNotificationsToggle}
+              aria-label="Notifications"
+              className="relative order-1 flex h-9 w-9 items-center justify-center rounded-lg text-brand-100 transition hover:bg-white/10 hover:text-white"
+            >
+              <Bell className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
+          {isFaculty && onFacultyNotificationsToggle && (
+            <div className="relative hidden sm:block">
+              <button
+                type="button"
+                onClick={onFacultyNotificationsToggle}
+                aria-label="Notifications"
+                aria-expanded={facultyNotificationsOpen}
+                aria-controls="faculty-notifications-popover"
+                className="relative flex h-9 w-9 items-center justify-center rounded-lg text-brand-100 transition hover:bg-white/10 hover:text-white"
+              >
+                <Bell className="h-4 w-4" aria-hidden="true" />
+                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-rose-400" aria-hidden="true" />
+              </button>
+              {facultyNotificationsOpen && (
+                <div
+                  id="faculty-notifications-popover"
+                  role="region"
+                  aria-label="Notifications"
+                  className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xl"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">Notifications</h2>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">Updates about your faculty workspace will appear here.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onFacultyNotificationsToggle}
+                      className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                      aria-label="Close notifications"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+                    <Bell className="mx-auto h-5 w-5 text-slate-300" aria-hidden="true" />
+                    <p className="mt-2 text-xs font-semibold text-slate-600">No notifications yet</p>
+                    <p className="mt-1 text-[11px] text-slate-400">You’re all caught up.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="relative order-2">
             <button
               onClick={() => setIsUserMenuOpen((open) => !open)}

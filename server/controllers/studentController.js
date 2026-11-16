@@ -29,6 +29,13 @@ const TECHNOLOGY_PROGRAMS = [
   'Automotive Technology'
 ];
 
+router.use('/reports/export', (req, res, next) => {
+  if (!req.headers.authorization) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  next();
+});
+
 router.put('/:institutionId/classification', authenticateToken, authorizeRoles('faculty', 'admin'), authorizeAnyPermission('submit_evaluations', 'manage_academic_records'), async (req, res) => {
   try {
     const profileUpdate = validateAndNormalizeStudentProfile({ classification: req.body?.classification }, { allowClassification: true });
@@ -386,6 +393,9 @@ router.get(
   authorizeRoles('admin'),
   authorizePermission('export_reports'),
   async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
     Object.defineProperty(req, 'query', {
       value: Object.assign({}, req.query, { all: 'true', export: 'true' }),
       writable: true,

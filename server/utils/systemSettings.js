@@ -1,5 +1,4 @@
 const SystemSettings = require('../models/SystemSettings');
-
 const defaults = { googleAuth: true, recaptcha: false, smtp: true, passwordGenerator: true };
 
 /**
@@ -184,11 +183,17 @@ async function requireIntegration(name) {
   }
 }
 
+async function getGoogleClientId() {
+  const record = await SystemSettings.findById('system').lean();
+  return getEffectiveGoogleClientId(record);
+}
+
 module.exports = {
   readSettings,
   requireIntegration,
   configuration,
   maskCredential,
+  getGoogleClientId,
   getEffectiveGoogleClientId,
   getEffectiveRecaptchaSiteKey,
   getEffectiveRecaptchaSecretKey,

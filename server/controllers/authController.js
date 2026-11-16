@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('node:crypto');
 const { OAuth2Client } = require('google-auth-library');
 const Student = require('../models/Student');
+const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const verifyHuman = require('../middleware/recaptcha');
 const { sendPasswordResetCode } = require('../utils/email');
@@ -15,6 +16,7 @@ const {
 } = require('../utils/accountCollections');
 const { parseDeviceInfo } = require('../utils/deviceInfo');
 const { recordAuditLog } = require('../utils/auditLogger');
+const { getGoogleClientId } = require('../utils/systemSettings');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -73,11 +75,22 @@ const getDefaultStudentEnrollment = () => {
   };
 };
 
-const createApplicationToken = (user) => jwt.sign(
-    { jti: crypto.randomUUID(), userId: user._id, role: user.role, username: user.username },
+const createApplicationToken = async (user) => {
+  const jti = crypto.randomUUID();
+  const token = jwt.sign(
+    { jti, userId: user._id, role: user.role, username: user.username },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
-);
+  );
+  const payload = jwt.decode(token);
+  await SessionToken.create({
+    jti,
+    userId: user._id,
+    accountRole: user.role,
+    expiresAt: new Date(payload.exp * 1000)
+  });
+  return token;
+};
 
 const safeUser = (user) => ({
   id: user._id,
@@ -568,8 +581,7 @@ router.post('/google', async (req, res) => {
     if (typeof credential !== 'string' || !credential) {
       return res.status(400).json({ success: false, message: 'Google credential is required' });
     }
-    const { getEffectiveGoogleClientId } = require('../utils/systemSettings');
-    const clientId = getEffectiveGoogleClientId();
+    const clientId = await getGoogleClientId();
     if (!clientId) {
       return res.status(503).json({ success: false, message: 'Google authentication is not configured' });
     }
