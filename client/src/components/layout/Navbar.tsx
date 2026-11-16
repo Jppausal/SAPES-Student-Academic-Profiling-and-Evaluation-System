@@ -207,19 +207,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {tab === 'records' && <ChevronDown aria-hidden="true" className="student-top-navigation-chevron" />}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={onStudentNotificationsToggle}
-              className="student-top-navigation-notifications"
-              aria-label="Notifications"
-            >
-              <Bell aria-hidden="true" />
-            </button>
           </nav>
         )}
 
         {currentUser && (
           <div className="flex items-center gap-2">
+          {currentUser.role === 'student' && onStudentNotificationsToggle && (
+            <button
+              type="button"
+              onClick={onStudentNotificationsToggle}
+              aria-label="Notifications"
+              className="relative order-1 flex h-9 w-9 items-center justify-center rounded-lg text-brand-100 transition hover:bg-white/10 hover:text-white"
+            >
+              <Bell className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
           {isFaculty && onFacultyNotificationsToggle && (
             <div className="relative hidden sm:block">
               <button

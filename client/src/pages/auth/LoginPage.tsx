@@ -19,13 +19,17 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
   const [showPassword, setShowPassword] = React.useState(false);
   const googleButtonRef = React.useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = React.useState(true);
-  const [googleClientId, setGoogleClientId] = React.useState('');
+  const [googleClientId, setGoogleClientId] = React.useState<string | undefined>(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
+  );
   const [googleEnabled, setGoogleEnabled] = React.useState(false);
   React.useEffect(() => {
     fetchIntegrationSettings()
-      .then(settings => {
-        setGoogleClientId(settings.integrations.googleAuth.clientId?.trim() || '');
-        setGoogleEnabled(settings.integrations.googleAuth.enabled && settings.integrations.googleAuth.configured);
+      .then((settings) => {
+        setGoogleEnabled(Boolean(settings?.integrations?.googleAuth?.enabled && settings?.integrations?.googleAuth?.configured));
+        if (settings?.integrations?.googleAuth?.clientId) {
+          setGoogleClientId(settings.integrations.googleAuth.clientId.trim());
+        }
       })
       .catch(() => setGoogleEnabled(false));
   }, []);

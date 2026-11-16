@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { getAccountModel } = require('../utils/accountCollections');
+const SessionToken = require('../models/SessionToken');
 
 const authenticateToken = async (req, res, next) => {
   const authorization = req.headers.authorization;
@@ -23,6 +24,17 @@ const authenticateToken = async (req, res, next) => {
     const AccountModel = getAccountModel(req.user.role);
     if (!req.user.jti || !AccountModel) {
       return res.status(401).json({ success: false, message: 'Token must be renewed' });
+    }
+
+    const session = await SessionToken.findOne({
+      jti: req.user.jti,
+      userId: req.user.userId,
+      accountRole: req.user.role,
+      revokedAt: null,
+      expiresAt: { $gt: new Date() }
+    }).lean();
+    if (!session) {
+      return res.status(401).json({ success: false, message: 'Session is no longer valid' });
     }
 
     const account = await AccountModel.findById(req.user.userId)

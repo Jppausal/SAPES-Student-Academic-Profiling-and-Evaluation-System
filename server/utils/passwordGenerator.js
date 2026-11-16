@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { readSettings } = require('./systemSettings');
+const { readSettings, getEffectiveApiNinjasKey } = require('./systemSettings');
 
 function generateSecureLocalPassword(length = 12) {
   const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -39,7 +39,7 @@ async function generatePassword(options = {}) {
     throw error;
   }
 
-  const apiKey = (process.env.API_NINJAS_API_KEY || process.env.API_NINJAS_KEY || '').trim();
+  const apiKey = getEffectiveApiNinjasKey().trim();
   if (!apiKey) {
     return {
       password: generateSecureLocalPassword(length),

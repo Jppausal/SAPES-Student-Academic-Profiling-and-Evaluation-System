@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('node:crypto');
 const { OAuth2Client } = require('google-auth-library');
 const Student = require('../models/Student');
+const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const verifyHuman = require('../middleware/recaptcha');
 const { sendPasswordResetCode } = require('../utils/email');
@@ -72,11 +73,22 @@ const getDefaultStudentEnrollment = () => {
   };
 };
 
-const createApplicationToken = (user) => jwt.sign(
-    { jti: crypto.randomUUID(), userId: user._id, role: user.role, username: user.username },
+const createApplicationToken = async (user) => {
+  const jti = crypto.randomUUID();
+  const token = jwt.sign(
+    { jti, userId: user._id, role: user.role, username: user.username },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
-);
+  );
+  const payload = jwt.decode(token);
+  await SessionToken.create({
+    jti,
+    userId: user._id,
+    accountRole: user.role,
+    expiresAt: new Date(payload.exp * 1000)
+  });
+  return token;
+};
 
 const safeUser = (user) => ({
   id: user._id,

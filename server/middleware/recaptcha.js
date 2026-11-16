@@ -1,4 +1,4 @@
-const { readSettings } = require('../utils/systemSettings');
+const { readSettings, getEffectiveRecaptchaSecretKey } = require('../utils/systemSettings');
 
 module.exports = async (req, res, next) => {
   try {
@@ -15,7 +15,7 @@ module.exports = async (req, res, next) => {
     const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
       method: 'POST',
       signal: AbortSignal.timeout(8000),
-      body: new URLSearchParams({ secret: process.env.RECAPTCHA_SECRET_KEY, response: token })
+      body: new URLSearchParams({ secret: getEffectiveRecaptchaSecretKey(), response: token })
     });
     if (!response.ok) throw new Error('Verification unavailable');
     const result = await response.json();

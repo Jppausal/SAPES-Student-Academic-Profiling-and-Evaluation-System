@@ -9,7 +9,6 @@ import {
   Download,
   FileCheck2,
   GraduationCap,
-  PencilLine,
   FileText,
   UserRound,
 } from 'lucide-react';
@@ -225,10 +224,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </span>
           </div>
         </div>
-        <button type="button" className="student-dashboard-edit-link" onClick={onEditProfile}>
-          <PencilLine aria-hidden="true" />
-          <span>Edit profile</span>
-        </button>
       </header>
 
       {reportError && (
