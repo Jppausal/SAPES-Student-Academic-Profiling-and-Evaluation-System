@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Download, Monitor, Search, Utensils } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, CarFront, Check, ChevronDown, CircuitBoard, Clapperboard, Download, GraduationCap, Monitor, RotateCcw, Search, UsersRound, Utensils } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { BackendStudentSearch } from './BackendStudentSearch';
@@ -199,27 +199,40 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
     document.save(`sapes-academic-record-${studentWorkspace.student.institutionId}.pdf`);
   };
 
-  const classFilters = (
+  const renderClassFilters = (featured = false) => (
     <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs font-semibold text-slate-700">Year level
-          <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setSelectedSection(''); }} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800">
+      <div className={`grid sm:grid-cols-2 ${featured ? 'gap-4' : 'gap-3'}`}>
+        <label className="block text-xs font-semibold text-slate-700">
+          <span className="flex items-center gap-2">
+            {featured && <CalendarDays className="h-4 w-4 text-brand-700" aria-hidden="true" />}
+            Year Level
+          </span>
+          <select value={selectedYear} onChange={(event) => { setSelectedYear(event.target.value); setSelectedSection(''); }} className={`mt-2 w-full border border-slate-200 bg-white text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100 ${featured ? 'h-11 rounded-xl px-3.5 text-sm' : 'rounded-md px-3 py-2.5 text-xs'}`}>
             <option value="">Choose year level</option>
             {yearOptions.map((year) => <option key={year.value} value={year.value}>{year.label}</option>)}
           </select>
         </label>
-        <label className="text-xs font-semibold text-slate-700">Section
-          <select value={selectedSection} onChange={(event) => setSelectedSection(event.target.value)} disabled={!selectedYear} className="mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-800 disabled:bg-slate-100 disabled:text-slate-400">
+        <label className="block text-xs font-semibold text-slate-700">
+          <span className="flex items-center gap-2">
+            {featured && <UsersRound className="h-4 w-4 text-brand-700" aria-hidden="true" />}
+            Section
+          </span>
+          <select value={selectedSection} onChange={(event) => setSelectedSection(event.target.value)} disabled={!selectedYear} className={`mt-2 w-full border border-slate-200 bg-white text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:bg-slate-100 disabled:text-slate-400 ${featured ? 'h-11 rounded-xl px-3.5 text-sm' : 'rounded-md px-3 py-2.5 text-xs'}`}>
             <option value="">{selectedYear ? 'Choose section' : 'Select a year first'}</option>
             {availableSections.map((section) => <option key={section} value={section}>{section}</option>)}
           </select>
         </label>
       </div>
-      <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
-        <Check className="h-4 w-4" /> View students
-      </button>
-      {error && <p role="alert" className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
-      {loading && <p className="mt-3 text-xs text-slate-500">Loading course students…</p>}
+      <div className={`flex flex-wrap gap-2 border-t border-slate-100 ${featured ? 'mt-5 pt-4' : 'mt-4 pt-3'}`}>
+        <button type="button" onClick={confirmClass} disabled={!selectedYear || !selectedSection || loading} className={`inline-flex items-center justify-center gap-2 font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${featured ? 'min-h-11 rounded-xl bg-brand-900 px-5 text-sm shadow-sm hover:bg-brand-800' : 'rounded-md bg-brand-600 px-4 py-2.5 text-xs hover:bg-brand-700'}`}>
+          <Search className="h-4 w-4" aria-hidden="true" /> View Students
+        </button>
+        <button type="button" onClick={() => { setSelectedYear(''); setSelectedSection(''); }} className={`inline-flex items-center justify-center gap-2 border border-slate-300 font-semibold text-brand-900 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 ${featured ? 'min-h-11 rounded-xl px-5 text-sm' : 'rounded-md px-4 py-2.5 text-xs'}`}>
+          <RotateCcw className="h-4 w-4" aria-hidden="true" /> Reset Filters
+        </button>
+      </div>
+      {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+      {loading && <p role="status" className="mt-3 text-xs text-slate-500">Loading course students…</p>}
     </>
   );
 
@@ -250,25 +263,34 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
   return (
     <div className="space-y-6">
       <BackendStudentSearch key={`quick-search-${step}`} displayMode="records" onReportChange={setManualSearchActive} />
-      {!manualSearchActive && step === 'courses' && <section aria-labelledby="records-programs-heading" className="space-y-3">
-        <div>
-          {fixedProgram ? (
-            <>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Course</p>
-              <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Filter by year level and section</h2>
-              <p className="mt-1 text-sm text-slate-600">{selectedCourseLabel}</p>
-            </>
-          ) : (
-            <>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">College of Technologies</p>
-              <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Select a course</h2>
-            </>
-          )}
-        </div>
+      {!manualSearchActive && step === 'courses' && <section aria-labelledby="records-programs-heading" className={fixedProgram ? '' : 'space-y-3'}>
+        {!fixedProgram && <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">College of Technologies</p>
+          <h2 id="records-programs-heading" className="mt-1 text-base font-bold text-slate-900">Select a course</h2>
+        </div>}
 
         {fixedProgram ? (
-          <div className="max-w-2xl rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-            {classFilters}
+          <div className="overflow-hidden rounded-2xl border border-brand-100 bg-white shadow-[0_8px_28px_rgba(7,52,116,0.08)]">
+            <header className="relative isolate overflow-hidden border-b border-brand-100 bg-gradient-to-r from-[#edf4ff] via-[#f5f9ff] to-[#e4efff] px-5 py-5 sm:px-7 sm:py-6">
+              <span className="absolute -right-10 -top-24 -z-10 h-56 w-56 rounded-full border-[22px] border-white/45" aria-hidden="true" />
+              <span className="absolute right-20 -top-28 -z-10 h-56 w-56 rounded-full border-[18px] border-white/30" aria-hidden="true" />
+              <div className="relative flex items-center gap-4 sm:gap-5">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-900 text-white shadow-md sm:h-16 sm:w-16">
+                  <GraduationCap className="h-8 w-8" aria-hidden="true" />
+                </span>
+                <span className="hidden h-12 w-px bg-brand-300 sm:block" aria-hidden="true" />
+                <span className="min-w-0">
+                  <h2 id="records-programs-heading" className="text-lg font-extrabold tracking-tight text-brand-950 sm:text-xl">Find Student Records</h2>
+                  <p className="mt-1 max-w-lg text-xs leading-relaxed text-brand-800/80 sm:text-sm">Filter {selectedCourseLabel} by year level and section to view student records.</p>
+                </span>
+                <span className="pointer-events-none absolute -right-1 bottom-[-18px] hidden text-brand-700/35 sm:block" aria-hidden="true">
+                  <BookOpen className="h-16 w-16" strokeWidth={1.5} />
+                </span>
+              </div>
+            </header>
+            <div className="p-5 sm:p-7">
+              {renderClassFilters(true)}
+            </div>
           </div>
         ) : (
           <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -296,7 +318,7 @@ export const FacultyAcademicRecordsPage: React.FC<FacultyAcademicRecordsPageProp
 
                   {isSelected && (
                     <div className="border-t border-slate-200 bg-slate-50/70 p-4">
-                      {classFilters}
+                      {renderClassFilters()}
                     </div>
                   )}
                 </article>

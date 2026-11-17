@@ -139,7 +139,7 @@ const AppContent: React.FC = () => {
           />
         )}
         {currentUser?.role === 'faculty' && (
-          <>
+          <div key={activePage} className="workspace-page-transition">
             {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
               : activePage === 'student-records' ? <FacultyAcademicRecordsPage fixedProgram={departmentProgram} canApproveEnrollment={currentUser.isVerifiedEnrollmentOfficer} />
                 : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} fixedProgram={departmentProgram} />
@@ -162,7 +162,7 @@ const AppContent: React.FC = () => {
                           }}
                         />
                   )}
-          </>
+          </div>
         )}
         {currentUser?.role === 'admin' && <AdminPortal />}
       </main>

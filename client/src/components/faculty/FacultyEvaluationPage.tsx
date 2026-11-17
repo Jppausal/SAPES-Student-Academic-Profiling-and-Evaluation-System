@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, CheckCircle2, ClipboardList, Layers3, Search, Users } from 'lucide-react';
+import { ArrowLeft, BarChart3, CheckCircle2, ClipboardList, Layers3, Search, Users } from 'lucide-react';
 import { FacultyRosterStudent, fetchFacultyEvaluationRoster } from '../../lib/api';
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import type { EvaluationTarget } from '../../types';
@@ -14,6 +14,7 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
   const [program, setProgram] = useState<string>(fixedProgram || initialTarget?.program || TECHNOLOGY_PROGRAMS[0].value);
   const [roster, setRoster] = useState<FacultyRosterStudent[]>([]);
   const [selectedId, setSelectedId] = useState('');
+  const [showStudentDetails, setShowStudentDetails] = useState(false);
   const [selectedSection, setSelectedSection] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,17 +27,16 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
     setLoading(true);
     setError('');
     setSelectedId('');
+    setShowStudentDetails(false);
     setSelectedSection('all');
     fetchFacultyEvaluationRoster(program)
       .then((students) => {
         if (!active) return;
         setRoster(students);
         const targetId = targetIdRef.current;
-        setSelectedId(
-          targetId && students.some((student) => student.institutionId === targetId)
-            ? targetId
-            : students[0]?.institutionId || ''
-        );
+        const targetIsInRoster = targetId && students.some((student) => student.institutionId === targetId);
+        setSelectedId(targetIsInRoster ? targetId : '');
+        setShowStudentDetails(Boolean(targetIsInRoster));
       })
       .catch((requestError) => {
         if (!active) return;
@@ -69,6 +69,7 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
     const matchesStatus = statusFilter === 'all' || (statusFilter === 'completed' ? isEvaluated : !isEvaluated);
     return matchesSection && matchesSearch && matchesStatus;
   });
+  const selectedStudent = visibleRoster.find((student) => student.institutionId === selectedId);
 
   const sectionOptions = [
     { id: 'all' as const, label: 'All students', count: roster.length, icon: Users },
@@ -90,7 +91,11 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-700" aria-hidden="true" />
             <input
               value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setSelectedId('');
+                setShowStudentDetails(false);
+              }}
               placeholder="Search student name or ID..."
               className="h-10 w-full rounded-xl border border-brand-100 bg-white pl-9 pr-3 text-xs text-slate-800 shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             />
@@ -99,7 +104,11 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
           <select
             id="evaluation-status-filter"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+            onChange={(event) => {
+              setStatusFilter(event.target.value as typeof statusFilter);
+              setSelectedId('');
+              setShowStudentDetails(false);
+            }}
             className="h-10 rounded-xl border border-brand-100 bg-white px-3 text-xs font-semibold text-brand-950 shadow-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           >
             <option value="all">All statuses</option>
@@ -163,6 +172,7 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
                 onChange={(event) => {
                   setSelectedSection(event.target.value);
                   setSelectedId('');
+                  setShowStudentDetails(false);
                 }}
                 className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs"
               >
@@ -184,7 +194,22 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
               No students match the current search and filters.
             </div>
           )}
-          {!loading && visibleRoster.length > 0 && (
+          {!loading && visibleRoster.length > 0 && showStudentDetails && selectedStudent ? (
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId('');
+                  setShowStudentDetails(false);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Back to students
+              </button>
+              <StudentEvaluationPanel key={selectedStudent.institutionId} institutionId={selectedStudent.institutionId} showEvaluationDetails={false} />
+            </div>
+          ) : !loading && visibleRoster.length > 0 ? (
             <div className="mb-4 grid gap-2 sm:grid-cols-2">
               {visibleRoster.slice(0, 4).map((student) => {
                 const isEvaluated = evaluatedStudents.some((evaluated) => evaluated.institutionId === student.institutionId);
@@ -192,7 +217,10 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
                   <button
                     key={student.institutionId}
                     type="button"
-                    onClick={() => setSelectedId(student.institutionId)}
+                    onClick={() => {
+                      setSelectedId(student.institutionId);
+                      setShowStudentDetails(true);
+                    }}
                     aria-pressed={selectedId === student.institutionId}
                     className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
                       selectedId === student.institutionId ? 'border-brand-300 bg-brand-50 shadow-sm' : 'border-slate-200 bg-white hover:border-brand-200 hover:bg-brand-50/40'
@@ -209,8 +237,7 @@ export const FacultyEvaluationPage: React.FC<FacultyEvaluationPageProps> = ({ in
                 );
               })}
             </div>
-          )}
-          {selectedId && <StudentEvaluationPanel key={selectedId} institutionId={selectedId} showEvaluationDetails={false} />}
+          ) : null}
         </main>
       </div>
     </div>

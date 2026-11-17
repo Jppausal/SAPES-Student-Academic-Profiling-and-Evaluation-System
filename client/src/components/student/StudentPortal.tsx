@@ -356,34 +356,36 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
 
       {savedMessage && <p role="status" className="student-notice student-notice-success">{savedMessage}</p>}
 
-      {activeTab === 'dashboard' && (
-        <StudentDashboard
-          identity={identity}
-          report={report}
-          reportError={reportError}
-          onViewRecords={() => onActiveTabChange('records')}
-          onEditProfile={() => onActiveTabChange('profile')}
-        />
-      )}
+      <div key={activeTab} className="workspace-page-transition">
+        {activeTab === 'dashboard' && (
+          <StudentDashboard
+            identity={identity}
+            report={report}
+            reportError={reportError}
+            onViewRecords={() => onActiveTabChange('records')}
+            onEditProfile={() => onActiveTabChange('profile')}
+          />
+        )}
 
-      {activeTab === 'records' && (report
-        ? <BackendStudentWorkspace identity={identity} report={report} />
-        : <div role={reportError ? 'alert' : 'status'} className="student-notice">{reportError || 'Academic records are still loading.'} You can still edit your personal profile.</div>
-      )}
+        {activeTab === 'records' && (report
+          ? <BackendStudentWorkspace identity={identity} report={report} />
+          : <div role={reportError ? 'alert' : 'status'} className="student-notice">{reportError || 'Academic records are still loading.'} You can still edit your personal profile.</div>
+        )}
 
-      {activeTab === 'profile' && (
-        <StudentProfileSetup
-          identity={identity}
-          isOnboarding={!profileComplete}
-          onSaved={(updatedIdentity) => {
-            setIdentity(updatedIdentity);
-            setSavedMessage('Your student profile was saved successfully.');
-            onActiveTabChange('dashboard');
-          }}
-        />
-      )}
+        {activeTab === 'profile' && (
+          <StudentProfileSetup
+            identity={identity}
+            isOnboarding={!profileComplete}
+            onSaved={(updatedIdentity) => {
+              setIdentity(updatedIdentity);
+              setSavedMessage('Your student profile was saved successfully.');
+              onActiveTabChange('dashboard');
+            }}
+          />
+        )}
 
-      {activeTab === 'audit' && <StudentAuditLogs />}
+        {activeTab === 'audit' && <StudentAuditLogs />}
+      </div>
 
       {showSettingsModal && (
         <UserSettingsModal
