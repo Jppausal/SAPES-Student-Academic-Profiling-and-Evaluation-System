@@ -9,9 +9,10 @@ type LoginPageProps = {
   onGoogleLogin: (credential: string) => Promise<{ success: boolean; message?: string }>;
   onBack?: () => void;
   onForgotPassword?: () => void;
+  loginOrigin?: string | null;
 };
 
-export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPassword }: LoginPageProps) {
+export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPassword, loginOrigin }: LoginPageProps) {
   const [error, setError] = React.useState('');
   const captcha = useRecaptcha();
   const [loginIdentifier, setLoginIdentifier] = React.useState('');
@@ -111,6 +112,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
       title="Welcome back"
       subtitle="Sign in to your account"
       onBack={onBack}
+      sharedLayoutId={loginOrigin ? 'auth-login-surface' : undefined}
     >
       <form className="space-y-3.5" onSubmit={handleSubmit}>
         <div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { ArrowLeft, BriefcaseBusiness, ClipboardList, UserRound } from 'lucide-react';
 import campus from '../../assets/branding/cot building.jpg';
 import logo from '../../assets/branding/logo ccot.jpg';
@@ -8,6 +9,7 @@ type AuthLayoutProps = {
   subtitle: string;
   children: ReactNode;
   onBack?: () => void;
+  sharedLayoutId?: string;
 };
 
 const features = [
@@ -16,7 +18,7 @@ const features = [
   { label: 'Enrollment Tracking', icon: BriefcaseBusiness },
 ];
 
-export function AuthLayout({ title, subtitle, children, onBack }: AuthLayoutProps) {
+export function AuthLayout({ title, subtitle, children, onBack, sharedLayoutId }: AuthLayoutProps) {
   return (
     <main
       className="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-900 bg-cover bg-center px-4 py-8 sm:px-8"
@@ -57,29 +59,44 @@ export function AuthLayout({ title, subtitle, children, onBack }: AuthLayoutProp
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-md rounded-lg bg-white px-6 py-7 shadow-2xl sm:px-8 sm:py-8">
-          <div className="mb-5">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-            <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
-          </div>
-
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-brand-600 transition-colors hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-            >
-              <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-              Back
-            </button>
+        <div className="relative mx-auto w-full max-w-md">
+          {sharedLayoutId && (
+            <motion.div
+              layoutId={sharedLayoutId}
+              className="absolute inset-0 z-0 rounded-lg bg-brand-950 shadow-2xl"
+              transition={{ layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }}
+              aria-hidden="true"
+            />
           )}
+          <motion.section
+            initial={sharedLayoutId ? { opacity: 0 } : false}
+            animate={{ opacity: 1 }}
+            transition={{ opacity: { duration: 0.22, delay: sharedLayoutId ? 0.23 : 0, ease: 'easeOut' } }}
+            className="relative z-10 rounded-lg bg-white px-6 py-7 shadow-2xl sm:px-8 sm:py-8"
+          >
+            <div className="mb-5">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+              <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
+            </div>
 
-          {children}
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-brand-600 transition-colors hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                Back
+              </button>
+            )}
 
-          <p className="mt-6 text-center text-[11px] text-slate-500">
-            © 2025 College of Technologies. All rights reserved.
-          </p>
-        </section>
+            {children}
+
+            <p className="mt-6 text-center text-[11px] text-slate-500">
+              © 2025 College of Technologies. All rights reserved.
+            </p>
+          </motion.section>
+        </div>
       </div>
     </main>
   );

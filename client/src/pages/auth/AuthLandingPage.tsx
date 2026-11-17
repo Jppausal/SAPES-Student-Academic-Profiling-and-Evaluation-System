@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
   ArrowRight,
   ClipboardCheck,
@@ -16,10 +17,11 @@ import schoolPhoto from '../../assets/branding/cot building.jpg';
 import lowerPagePhoto from '../../assets/branding/landingpage.jpg';
 
 type AuthLandingPageProps = {
-  onLogin: () => void;
+  onLogin: (origin: string) => void;
+  activeLoginOrigin?: string | null;
 };
 
-export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
+export function AuthLandingPage({ onLogin, activeLoginOrigin }: AuthLandingPageProps) {
   const heroRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -68,14 +70,16 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
             <a href="#contact" className="transition-colors hover:text-white">Contact</a>
           </nav>
 
-          <button
+          <motion.button
             type="button"
-            onClick={onLogin}
-            className="flex items-center gap-2 rounded-md bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-brand-700 shadow-sm transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            layoutId={activeLoginOrigin === 'header' ? 'auth-login-surface' : undefined}
+            transition={{ layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }}
+            onClick={() => onLogin('header')}
+            className={`flex items-center gap-2 rounded-md px-4 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${activeLoginOrigin === 'header' ? 'bg-brand-950 text-white shadow-lg ring-1 ring-white/30' : 'bg-white text-brand-700 shadow-sm hover:bg-blue-50'}`}
           >
             <UserRound className="h-4 w-4" />
             Login
-          </button>
+          </motion.button>
         </div>
       </header>
 
@@ -106,14 +110,16 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
               <p className="mt-5 max-w-[440px] text-sm leading-6 text-blue-50 sm:text-base">
                 A unified platform for student information, academic records, and enrollment management.
               </p>
-              <button
+              <motion.button
                 type="button"
-                onClick={onLogin}
-                className="mt-7 flex items-center gap-3 rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-wide text-brand-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                layoutId={activeLoginOrigin === 'hero' ? 'auth-login-surface' : undefined}
+                transition={{ layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }}
+                onClick={() => onLogin('hero')}
+                className={`mt-7 flex items-center gap-3 rounded-md px-5 py-3 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${activeLoginOrigin === 'hero' ? 'bg-brand-950 text-white shadow-lg ring-1 ring-white/30' : 'bg-white text-brand-700 hover:bg-blue-50'}`}
               >
                 Login to System
                 <ArrowRight className="h-4 w-4" />
-              </button>
+              </motion.button>
             </div>
           </div>
         </section>
@@ -156,18 +162,30 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
                 <h2 className="mt-4 text-xl font-bold text-white">For Students</h2>
                 <div className="mt-3 h-0.5 w-9 bg-brand-300" />
                 <p className="mt-4 max-w-sm text-sm leading-6 text-blue-100">Access your academic records and manage your enrollment information using your institutional account.</p>
-                <button type="button" onClick={onLogin} className="mt-5 flex items-center gap-3 rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-wide text-brand-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                <motion.button
+                  type="button"
+                  layoutId={activeLoginOrigin === 'student' ? 'auth-login-surface' : undefined}
+                  transition={{ layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }}
+                  onClick={() => onLogin('student')}
+                  className={`mt-5 flex items-center gap-3 rounded-md px-5 py-3 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${activeLoginOrigin === 'student' ? 'bg-brand-950 text-white shadow-lg ring-1 ring-white/30' : 'bg-white text-brand-700 hover:bg-blue-50'}`}
+                >
                   Student Login <ArrowRight className="h-4 w-4" />
-                </button>
+                </motion.button>
               </div>
               <div className="rounded-2xl border border-white/25 bg-brand-700/35 p-6 backdrop-blur-2xl backdrop-saturate-150 sm:p-8">
                 <ShieldCheck className="h-8 w-8 text-brand-200" />
                 <h2 className="mt-4 text-xl font-bold text-white">For School Staff</h2>
                 <div className="mt-3 h-0.5 w-9 bg-brand-300" />
                 <p className="mt-4 max-w-sm text-sm leading-6 text-blue-100">Access the admin portal to manage applications, students, and reports.</p>
-                <button type="button" onClick={onLogin} className="mt-5 flex items-center gap-3 rounded-md border border-white/50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                <motion.button
+                  type="button"
+                  layoutId={activeLoginOrigin === 'staff' ? 'auth-login-surface' : undefined}
+                  transition={{ layout: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }}
+                  onClick={() => onLogin('staff')}
+                  className={`mt-5 flex items-center gap-3 rounded-md border px-5 py-3 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${activeLoginOrigin === 'staff' ? 'border-white/60 bg-brand-950 text-white shadow-lg' : 'border-white/50 text-white hover:bg-white/10'}`}
+                >
                   Staff Login <ArrowRight className="h-4 w-4" />
-                </button>
+                </motion.button>
               </div>
             </div>
           </section>
