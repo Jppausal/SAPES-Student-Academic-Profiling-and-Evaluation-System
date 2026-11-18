@@ -34,6 +34,7 @@ import {
   fetchCurrentSession,
   ServerStatus,
   SessionUser,
+  SESSION_EXPIRED_EVENT,
 } from '../lib/api';
 
 interface AppContextType {
@@ -93,6 +94,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     checkServerHealth().then((isOnline) => setServerStatus(isOnline ? 'online' : 'offline'));
+  }, []);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setCurrentUserId(null);
+      setSessionReady(true);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, []);
 
   // Load initial state from LocalStorage or seed data

@@ -61,6 +61,7 @@ async function fixture(t, actorRole = 'admin') {
 
   const actor = actors[actorRole];
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'session-jti',
     userId: actor._id,
     role: actorRole,

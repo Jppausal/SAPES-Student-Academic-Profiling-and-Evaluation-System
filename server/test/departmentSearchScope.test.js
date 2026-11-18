@@ -52,9 +52,12 @@ test('student search suggestions are limited to the signed-in officer department
   t.after(() => new Promise((resolve) => server.close(resolve)));
 
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'department-search-session',
     userId: 'faculty-document-id',
-    role: 'faculty'
+    role: 'faculty',
+    departmentCode: 'IT',
+    isVerifiedEnrollmentOfficer: true
   }, process.env.JWT_SECRET);
   const response = await fetch(
     `http://127.0.0.1:${server.address().port}/api/students/search?q=Jamie`,

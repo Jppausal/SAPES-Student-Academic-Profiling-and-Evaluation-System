@@ -8,6 +8,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react';
 import { FacultyDashboardHeader } from './FacultyDashboardHeader';
+import { RollingNumber } from '../common/RollingNumber';
 import {
   DepartmentEnrollmentDashboard as DepartmentStats,
   fetchDepartmentEnrollmentDashboard,
@@ -150,12 +151,12 @@ export const DepartmentEnrollmentDashboard: React.FC<DepartmentEnrollmentDashboa
         <>
           <section aria-label={`${department.name} dashboard metrics`} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {cards.map(({ label, value, detail, icon: Icon, tone, ghostTone, borderTone, valueTone }) => (
-              <article key={label} className={`relative min-h-[150px] overflow-hidden rounded-2xl border border-slate-200 border-b-4 ${borderTone} bg-white px-5 py-4 shadow-sm`}>
-                <Icon aria-hidden="true" className={`pointer-events-none absolute -bottom-2 -right-2 h-20 w-20 ${ghostTone}`} />
+              <article key={label} className={`relative min-h-[180px] overflow-hidden rounded-2xl border border-slate-200 border-b-4 ${borderTone} bg-white px-5 py-4 shadow-sm`}>
+                <Icon aria-hidden="true" className={`pointer-events-none absolute bottom-3 right-3 h-20 w-20 ${ghostTone}`} />
                 <div className="relative flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-brand-900">{label}</p>
-                    <p className={`mt-2 text-3xl font-extrabold tracking-tight ${valueTone}`}>{value}</p>
+                    <p className={`mt-2 text-3xl font-extrabold tracking-tight ${valueTone}`}><RollingNumber value={value} /></p>
                   </div>
                   <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tone}`}>
                     <Icon aria-hidden="true" className="h-5 w-5" />

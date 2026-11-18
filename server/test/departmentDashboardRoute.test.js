@@ -90,9 +90,12 @@ test('department dashboard returns synchronized metrics and rejects another prog
   t.after(() => new Promise((resolve) => server.close(resolve)));
 
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'department-dashboard-session',
     userId: 'faculty-document-id',
-    role: 'faculty'
+    role: 'faculty',
+    departmentCode: 'IT',
+    isVerifiedEnrollmentOfficer: true
   }, process.env.JWT_SECRET);
   const headers = { Authorization: `Bearer ${token}` };
   const dashboardResponse = await fetch(

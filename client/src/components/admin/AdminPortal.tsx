@@ -170,7 +170,7 @@ export const AdminPortal: React.FC = () => {
           </div>)}
           <p className="admin-sidebar-note">Personal password and notification preferences are in <strong>My account</strong>, under your profile menu.</p>
         </nav>
-        <main className="admin-content" aria-label="Selected administration section">
+        <main key={activeTab} className="admin-content workspace-page-transition" aria-label="Selected administration section">
       {/* TAB 1: USERS & ACCESS CONTROL */}
       {activeTab === 'settings' && <AdminSettings onAudit={() => setActiveTab('logs')} />}
       {activeTab === 'users' && (

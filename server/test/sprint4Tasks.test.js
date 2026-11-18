@@ -44,7 +44,7 @@ async function setupServer(t) {
     const headers = { ...options.headers };
     if (role) {
       headers.Authorization = `Bearer ${jwt.sign(
-        { userId: role, role, jti: 'test-session-id' },
+        { tokenType: 'access', userId: role, role, jti: 'test-session-id' },
         process.env.JWT_SECRET
       )}`;
     }

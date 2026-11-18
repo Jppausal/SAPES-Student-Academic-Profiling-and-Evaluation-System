@@ -125,7 +125,7 @@ test('authorized academic status updates correctly set the probation flag', asyn
   t.mock.method(StudentStatusHistory, 'create', async data => ({ _id: 'history', ...data }));
   t.mock.method(AuditLog, 'create', async () => ({}));
   const base = await serve(t, '/students', require('../routes/studentRoutes'));
-  const token = jwt.sign({ jti: 'test-session', userId: 'admin', role: 'admin' }, process.env.JWT_SECRET);
+  const token = jwt.sign({ tokenType: 'access', jti: 'test-session', userId: 'admin', role: 'admin' }, process.env.JWT_SECRET);
 
   for (const [status, expected] of [
     ['probationary', true],
@@ -201,7 +201,7 @@ test('student report uses the authenticated student account document', async t =
     };
   });
   const base = await serve(t, '/me', require('../routes/meRoutes'));
-  const token = jwt.sign({ jti: 'test-session', userId: 'account', role: 'student' }, process.env.JWT_SECRET);
+  const token = jwt.sign({ tokenType: 'access', jti: 'test-session', userId: 'account', role: 'student' }, process.env.JWT_SECRET);
   const response = await fetch(base + '/student/report?studentId=another', {
     headers: { Authorization: `Bearer ${token}` }
   });

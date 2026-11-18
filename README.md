@@ -145,6 +145,19 @@ The Vite dev server proxies `/api` requests to the local Express API. The API
 connects to the cloud database configured in `server/.env`; the browser must
 never connect to MongoDB Atlas directly.
 
+### API rate limits
+
+The API limits each client IP to 300 requests per 15 minutes. Authentication
+routes have tighter limits: 10 login attempts, 5 password-reset requests, 10
+password-reset verification/confirmation attempts, and 10 Google sign-in
+attempts per 15 minutes. Limited requests return HTTP `429` with a JSON error
+and standard `RateLimit` headers.
+
+The built-in limiter store is in memory and is local to each server process.
+Deployments with multiple API instances should use a shared rate-limit store
+and configure Express proxy trust only for their known reverse-proxy hops so
+client IPs are identified correctly.
+
 ---
 
 ## Verifying the Setup
@@ -234,7 +247,7 @@ Serve `client/dist/` as static files, or configure your server to serve it.
 
 > SMTP variables are required for password-reset email delivery. If not configured, email sending will fail and the password-reset flow will not complete.
 > When reCAPTCHA Verification is enabled in system settings, all three reCAPTCHA variables are required. Add the site key, secret key, and exact app hostnames to `server/.env`, then restart the API. Keep the secret key server-side; never add it to `client/.env`.
-> Authentication uses stateless JWT access tokens. Logout clears the browser token, while an already-issued token remains valid until it expires or the account is made inactive.
+> Authentication uses stateless JWT access tokens with an 8-hour default lifetime (`JWT_EXPIRES_IN` can override it). When a token expires, the client clears it and the user must sign in again; there is no refresh-token flow. Logout clears the browser token, but a copied token remains valid until expiry. Account suspension, deletion, or role changes cannot revoke an already-issued token, so configure an appropriately short lifetime if rapid revocation is required. Permission checks still use the current role-permission configuration.
 
 Google client IDs are configured through the server and client environment files. The server does not modify or store the client ID at runtime.
 

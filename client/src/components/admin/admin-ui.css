@@ -1004,7 +1004,6 @@
 .admin-integration-row input[role="switch"]:checked::after { left: 18px; }
 .admin-integration-row input[role="switch"]:disabled { opacity: .5; cursor: not-allowed; }
 .admin-sidebar button:focus-visible, .admin-settings-navigation button:focus-visible, .admin-integration-row input:focus-visible { outline: 3px solid #80a8db; outline-offset: 2px; }
-.admin-shell *, .admin-shell *::before, .admin-shell *::after { animation: none !important; transition: none !important; }
 @media (max-width: 900px) {
   .admin-navigation-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .admin-sidebar { position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--admin-rule); }

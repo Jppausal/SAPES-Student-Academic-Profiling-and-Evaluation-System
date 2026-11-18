@@ -84,9 +84,12 @@ test('saving an officer evaluation persists the decision and remarks within depa
   t.after(() => new Promise((resolve) => server.close(resolve)));
 
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'student-evaluation-session',
     userId,
-    role: 'faculty'
+    role: 'faculty',
+    departmentCode: 'IT',
+    isVerifiedEnrollmentOfficer: true
   }, process.env.JWT_SECRET);
   const response = await fetch(
     `http://127.0.0.1:${server.address().port}/api/students/2021301234/evaluation`,
