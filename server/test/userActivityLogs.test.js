@@ -261,6 +261,7 @@ test('Category filter works on /api/audit-logs/mine', async (t) => {
 
 test('Unauthorized users cannot access /api/audit-logs/mine', async (t) => {
   const { request } = await setupServer(t);
+  t.mock.method(SessionToken, 'findOne', () => query({ _id: 'session-token' }));
 
   // 1. Missing token
   const unauthRes = await request('/api/audit-logs/mine', { method: 'GET' }, null);

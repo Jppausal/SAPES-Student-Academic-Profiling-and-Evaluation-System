@@ -38,9 +38,18 @@ const sanitizeDetails = (value) => {
 };
 
 const CATEGORY_ACTIONS = {
+  SECURITY: [
+    'USER_LOGIN',
+    'USER_LOGOUT',
+    'LOGIN_RATE_LIMITED',
+    'PASSWORD_CHANGED',
+    'PASSWORD_RESET'
+  ],
   USER_MANAGEMENT: [
     'ROLE_PERMISSIONS_UPDATED',
     'SYSTEM_SETTINGS_UPDATED',
+    'INTEGRATION_CREDENTIAL_CUSTOMIZED',
+    'INTEGRATION_CREDENTIAL_RESET',
     'USER_CREATED',
     'USER_UPDATED',
     'USER_STATUS_UPDATED',
@@ -48,7 +57,11 @@ const CATEGORY_ACTIONS = {
   ],
   ACADEMIC_RECORD: [
     'UPDATE_STUDENT_STATUS',
-    'ACADEMIC_RECORD_SAVED'
+    'ACADEMIC_RECORD_SAVED',
+    'ACADEMIC_PERIOD_SAVED',
+    'EXPORT_STUDENT_REPORTS',
+    'EXPORT_STUDENT_REPORTS_FAILED',
+    'REPORT_MODIFIED'
   ],
   FACULTY_EVALUATION: [
     'COURSE_EVALUATION_UPDATED',
@@ -58,12 +71,16 @@ const CATEGORY_ACTIONS = {
     'UPDATE_STUDENT_CLASSIFICATION',
     'UPDATE_STUDENT_PROFILE',
     'STUDENT_PROFILE_UPDATED'
+  ],
+  ENROLLMENT: [
+    'STUDENT_ENROLLMENT_APPROVED'
   ]
 };
 
 const USER_ACTIVITY_CATEGORIES = {
   SECURITY: [
     'USER_LOGIN',
+    'LOGIN_RATE_LIMITED',
     'USER_LOGOUT',
     'PASSWORD_CHANGED',
     'PASSWORD_RESET',
@@ -106,20 +123,27 @@ function formatHumanReadableActivity(log, currentUser) {
   const viewerId = String(currentUser?.userId || '');
   const logUserId = String(log.userId?._id || log.userId || '');
   const isActor = Boolean(viewerId && logUserId === viewerId);
+  const isViewerAdmin = currentUser?.role === 'admin';
   const details = log.details && typeof log.details === 'object' && !Array.isArray(log.details)
     ? log.details
     : {};
 
+  const logUserRole = log.userRole || log.userId?.role || 'user';
+  const roleName = logUserRole === 'admin'
+    ? 'Administrator'
+    : logUserRole === 'faculty'
+      ? 'Faculty'
+      : logUserRole === 'student'
+        ? 'Student'
+        : 'System';
+
+  const actorUsername = log.userId?.username || details.username || '';
   let actorLabel = 'You';
   if (!isActor) {
-    if (log.userRole === 'admin') {
-      actorLabel = 'Administrator';
-    } else if (log.userRole === 'faculty') {
-      actorLabel = 'Faculty';
-    } else if (log.userRole === 'student') {
-      actorLabel = 'Student';
+    if (isViewerAdmin) {
+      actorLabel = actorUsername ? `${actorUsername} (${roleName})` : roleName;
     } else {
-      actorLabel = 'System';
+      actorLabel = roleName;
     }
   }
 
@@ -130,6 +154,15 @@ function formatHumanReadableActivity(log, currentUser) {
   let deviceInfo = null;
 
   switch (log.action) {
+    case 'LOGIN_RATE_LIMITED': {
+      category = 'Security';
+      isSecuritySensitive = true;
+      title = 'Login Spam Lockout';
+      const ipPart = details.ip ? ` from IP ${details.ip}` : '';
+      const dur = details.lockoutDurationSeconds ? `${Math.round(details.lockoutDurationSeconds / 60)} minutes` : '2 minutes';
+      description = `Login was temporarily locked for ${dur}${ipPart} due to excessive failed attempts.`;
+      break;
+    }
     case 'USER_LOGIN': {
       category = 'Security';
       isSecuritySensitive = true;
@@ -142,6 +175,10 @@ function formatHumanReadableActivity(log, currentUser) {
         description = devSummary
           ? `You signed in to your SAPES account from ${devSummary}${ipPart}${method}.`
           : `You signed in to your SAPES account${method}.`;
+      } else if (isViewerAdmin) {
+        description = devSummary
+          ? `${actorLabel} signed in to SAPES from ${devSummary}${ipPart}${method}.`
+          : `${actorLabel} signed in to SAPES${method}.`;
       } else {
         description = `${actorLabel} signed in to your account${devSummary ? ` from ${devSummary}` : ''}.`;
       }
@@ -160,9 +197,29 @@ function formatHumanReadableActivity(log, currentUser) {
     case 'USER_LOGOUT': {
       category = 'Security';
       title = 'Sign Out';
-      description = isActor
-        ? 'You signed out of your SAPES account.'
-        : `${actorLabel} signed out of your account.`;
+      const devSummary = details.summary || (details.browser && details.os ? `${details.browser} on ${details.os}` : '');
+      const ipPart = details.ip ? ` (${details.ip})` : '';
+
+      if (isActor) {
+        description = devSummary
+          ? `You signed out of your SAPES account from ${devSummary}${ipPart}.`
+          : 'You signed out of your SAPES account.';
+      } else if (isViewerAdmin) {
+        description = devSummary
+          ? `${actorLabel} signed out of SAPES from ${devSummary}${ipPart}.`
+          : `${actorLabel} signed out of SAPES.`;
+      } else {
+        description = `${actorLabel} signed out of your account.`;
+      }
+
+      if (details.browser || details.os || details.ip || details.summary) {
+        deviceInfo = {
+          browser: details.browser || '',
+          os: details.os || '',
+          ip: details.ip || '',
+          summary: details.summary || devSummary || 'Web browser'
+        };
+      }
       break;
     }
 
@@ -172,7 +229,7 @@ function formatHumanReadableActivity(log, currentUser) {
       title = 'Password Changed';
       description = isActor
         ? 'Your account password was changed.'
-        : 'Your account password was changed by an administrator.';
+        : (isViewerAdmin ? `${actorLabel} changed their account password.` : 'Your account password was changed by an administrator.');
       break;
     }
 
@@ -182,7 +239,7 @@ function formatHumanReadableActivity(log, currentUser) {
       title = 'Password Reset';
       description = isActor
         ? 'Your account password was successfully reset using email verification.'
-        : 'Your account password was reset.';
+        : (isViewerAdmin ? `${actorLabel} reset account password using email verification.` : 'Your account password was reset.');
       break;
     }
 
@@ -207,6 +264,9 @@ function formatHumanReadableActivity(log, currentUser) {
         } else {
           description = 'You updated your student profile information.';
         }
+      } else if (isViewerAdmin) {
+        const studentRef = details.institutionId || actorUsername || 'student';
+        description = `${actorLabel} updated student profile information for Student ${studentRef}.`;
       } else {
         description = `${actorLabel} updated your student profile information.`;
       }
@@ -220,6 +280,10 @@ function formatHumanReadableActivity(log, currentUser) {
         description = details.institutionId
           ? `You updated classification for Student ${details.institutionId}.`
           : 'You updated student classification.';
+      } else if (isViewerAdmin) {
+        description = details.institutionId
+          ? `${actorLabel} updated classification for Student ${details.institutionId}.`
+          : `${actorLabel} updated student classification.`;
       } else {
         description = `Your student classification was updated by ${actorLabel.toLowerCase()}.`;
       }
@@ -239,6 +303,9 @@ function formatHumanReadableActivity(log, currentUser) {
       if (isActor) {
         const studentRef = details.institutionId ? ` for Student ${details.institutionId}` : '';
         description = `You updated student academic status to ${formattedStatus || 'a new status'}${studentRef}${reasonPart}.`;
+      } else if (isViewerAdmin) {
+        const studentRef = details.institutionId ? ` for Student ${details.institutionId}` : '';
+        description = `${actorLabel} updated academic status${studentRef} to ${formattedStatus || 'updated'}${reasonPart}.`;
       } else {
         if (formattedPrevious && formattedStatus && formattedPrevious.toLowerCase() !== formattedStatus.toLowerCase()) {
           description = `Your academic status was changed from ${formattedPrevious} to ${formattedStatus}${reasonPart}.`;
@@ -253,12 +320,16 @@ function formatHumanReadableActivity(log, currentUser) {
 
     case 'COURSE_EVALUATION_UPDATED':
     case 'UPDATE_FACULTY_EVALUATION': {
-      category = 'Academic';
+      category = isViewerAdmin ? 'Faculty Evaluation' : 'Academic';
       title = isActor ? 'Evaluation Submitted' : 'Course Evaluation Updated';
       if (isActor) {
         description = details.institutionId
           ? `You submitted an evaluation for Student ${details.institutionId}.`
           : 'You submitted a student course evaluation.';
+      } else if (isViewerAdmin) {
+        description = details.institutionId
+          ? `${actorLabel} submitted course evaluation for Student ${details.institutionId}.`
+          : `${actorLabel} submitted a student course evaluation.`;
       } else {
         description = 'A faculty member updated your course evaluation.';
       }
@@ -272,6 +343,10 @@ function formatHumanReadableActivity(log, currentUser) {
         description = details.institutionId
           ? `You approved enrollment for Student ${details.institutionId}.`
           : 'You approved student enrollment.';
+      } else if (isViewerAdmin) {
+        description = details.institutionId
+          ? `${actorLabel} approved enrollment for Student ${details.institutionId}.`
+          : `${actorLabel} approved student enrollment.`;
       } else {
         description = 'Your enrollment status was approved by the department enrollment officer.';
       }
@@ -280,14 +355,19 @@ function formatHumanReadableActivity(log, currentUser) {
 
     case 'USER_STATUS_UPDATED':
     case 'ACCOUNT_STATUS_UPDATED': {
-      category = 'Security';
+      category = 'User Management';
       isSecuritySensitive = true;
       title = 'Account Status Changed';
       const statusName = details.accountStatus
         ? String(details.accountStatus).charAt(0).toUpperCase() + String(details.accountStatus).slice(1).toLowerCase()
         : '';
+      const username = details.username || '';
       if (isActor) {
-        description = `You updated account status${details.username ? ` for ${details.username}` : ''} to ${statusName || 'updated status'}.`;
+        description = `You updated account status${username ? ` for ${username}` : ''} to ${statusName || 'updated status'}.`;
+      } else if (isViewerAdmin) {
+        description = username
+          ? `${actorLabel} updated account status for ${username} to ${statusName || 'updated'}.`
+          : `${actorLabel} updated user account status.`;
       } else {
         description = statusName
           ? `Your account status was set to ${statusName} by an administrator.`
@@ -297,10 +377,15 @@ function formatHumanReadableActivity(log, currentUser) {
     }
 
     case 'USER_UPDATED': {
-      category = 'Profile';
+      category = 'User Management';
       title = 'Account Updated';
+      const username = details.username || '';
       if (isActor) {
-        description = `You updated account details${details.username ? ` for ${details.username}` : ''}.`;
+        description = `You updated account details${username ? ` for ${username}` : ''}.`;
+      } else if (isViewerAdmin) {
+        description = username
+          ? `${actorLabel} updated account details for ${username}.`
+          : `${actorLabel} updated user account details.`;
       } else {
         description = 'An administrator updated your account information.';
       }
@@ -308,20 +393,39 @@ function formatHumanReadableActivity(log, currentUser) {
     }
 
     case 'USER_CREATED': {
-      category = 'Security';
+      category = 'User Management';
       title = 'Account Provisioned';
-      description = isActor
-        ? `You created account for ${details.username || 'a user'}.`
-        : 'Your account was created in SAPES.';
+      const username = details.username || '';
+      const role = details.role || '';
+      if (isActor) {
+        description = username
+          ? `You created account for ${username}${role ? ` (${role})` : ''}.`
+          : 'You provisioned a user account.';
+      } else if (isViewerAdmin) {
+        description = username
+          ? `${actorLabel} provisioned account for ${username}${role ? ` (${role})` : ''}.`
+          : `${actorLabel} created a user account.`;
+      } else {
+        description = 'Your account was created in SAPES.';
+      }
       break;
     }
 
     case 'ACADEMIC_RECORD_SAVED': {
       category = 'Academic';
       title = 'Academic Record Updated';
-      description = isActor
-        ? 'You updated academic records.'
-        : 'Your academic records were updated in the system.';
+      const studentId = details.institutionId || details.studentId || '';
+      if (isActor) {
+        description = studentId
+          ? `You updated academic records for Student ${studentId}.`
+          : 'You updated academic records.';
+      } else if (isViewerAdmin) {
+        description = studentId
+          ? `${actorLabel} updated academic records for Student ${studentId}.`
+          : `${actorLabel} updated student academic records.`;
+      } else {
+        description = 'Your academic records were updated in the system.';
+      }
       break;
     }
 
@@ -356,6 +460,49 @@ function formatHumanReadableActivity(log, currentUser) {
       description = isActor
         ? `You modified ${repName} configuration.`
         : `An administrator modified ${repName} configuration.`;
+      break;
+    }
+
+    case 'ROLE_PERMISSIONS_UPDATED': {
+      category = 'User Management';
+      title = 'Role Permissions Updated';
+      description = details.role
+        ? `Administrator updated permissions for ${details.role} role.`
+        : 'Administrator updated role permissions.';
+      break;
+    }
+
+    case 'SYSTEM_SETTINGS_UPDATED': {
+      category = 'System';
+      title = 'System Settings Updated';
+      description = 'Administrator updated system configuration settings.';
+      break;
+    }
+
+    case 'INTEGRATION_CREDENTIAL_CUSTOMIZED': {
+      category = 'System';
+      title = 'API Credentials Customized';
+      description = details.integration
+        ? `Administrator customized API credentials for ${details.integration}.`
+        : 'Administrator customized external API credentials.';
+      break;
+    }
+
+    case 'INTEGRATION_CREDENTIAL_RESET': {
+      category = 'System';
+      title = 'API Credentials Reset';
+      description = details.integration
+        ? `Administrator reset API credentials for ${details.integration} to default (.env).`
+        : 'Administrator reset external API credentials to default.';
+      break;
+    }
+
+    case 'ACADEMIC_PERIOD_SAVED': {
+      category = 'Academic';
+      title = 'Academic Period Updated';
+      description = details.schoolYear
+        ? `Administrator updated academic period to AY ${details.schoolYear} ${details.semester || ''}.`
+        : 'Administrator updated academic term policy.';
       break;
     }
 
@@ -570,7 +717,11 @@ router.get(
         filter.$or = [
           { action: searchRegex },
           { targetType: searchRegex },
-          { userRole: searchRegex }
+          { userRole: searchRegex },
+          { 'details.username': searchRegex },
+          { 'details.institutionId': searchRegex },
+          { 'details.studentId': searchRegex },
+          { 'details.reportName': searchRegex }
         ];
       }
 
@@ -603,10 +754,17 @@ router.get(
       res.json({
         success: true,
         data: {
-          auditLogs: auditLogs.map((auditLog) => ({
-            ...auditLog,
-            details: sanitizeDetails(auditLog.details)
-          })),
+          auditLogs: auditLogs.map((auditLog) => {
+            const human = formatHumanReadableActivity(auditLog, req.user);
+            return {
+              ...auditLog,
+              title: human.title,
+              description: human.description,
+              category: human.category,
+              actor: human.actor,
+              details: sanitizeDetails(auditLog.details)
+            };
+          }),
           pagination: {
             page,
             limit,

@@ -4,6 +4,8 @@ import {
   saveIntegrationSettings,
   updateIntegrationCredential,
   sendCredentialMfa,
+  verifyIntegrationCredential,
+  type CredentialVerificationResult,
   type IntegrationSettings,
   type IntegrationName,
   fetchActiveAcademicPeriod,
@@ -32,6 +34,7 @@ import {
   Key,
   Mail,
   Send,
+  Zap,
 } from 'lucide-react';
 
 const descriptions: Record<IntegrationName, { title: string; description: string }> = {
@@ -96,6 +99,12 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
   const [mfaMaskedEmail, setMfaMaskedEmail] = useState('');
   const [mfaCooldown, setMfaCooldown] = useState(0);
 
+  // Live Credential Testing & Validation State
+  const [testingKey, setTestingKey] = useState(false);
+  const [testResult, setTestResult] = useState<CredentialVerificationResult | null>(null);
+  const [activeTesting, setActiveTesting] = useState<Record<string, boolean>>({});
+  const [activeTestResults, setActiveTestResults] = useState<Record<string, CredentialVerificationResult | null>>({});
+
   useEffect(() => {
     if (mfaCooldown <= 0) return;
     const interval = setInterval(() => {
@@ -117,6 +126,8 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
     setMfaSent(false);
     setMfaMaskedEmail('');
     setMfaCooldown(0);
+    setTestingKey(false);
+    setTestResult(null);
   };
 
   const closeEditModal = () => {
@@ -127,6 +138,8 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
     setMfaCode('');
     setMfaSent(false);
     setMfaMaskedEmail('');
+    setTestingKey(false);
+    setTestResult(null);
   };
 
   const handleSendMfa = async () => {
@@ -139,9 +152,65 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
       setMfaMaskedEmail(res.maskedEmail || 'your authorized email');
       setMfaCooldown(30);
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : 'Failed to send MFA verification code.');
+      const msg = err instanceof Error ? err.message : 'Failed to send MFA verification code.';
+      if (msg.includes('404')) {
+        setModalError('API endpoint returned 404 Not Found. Please restart your backend server (e.g. run "npm start" in the server directory) so the new MFA routes are registered.');
+      } else {
+        setModalError(msg);
+      }
     } finally {
       setMfaSending(false);
+    }
+  };
+
+  const handleTestKey = async () => {
+    if (!editingIntegration) return;
+    if (!customKeyInput.trim()) {
+      setModalError('Please enter a key or credential value before testing.');
+      return;
+    }
+    setTestingKey(true);
+    setModalError('');
+    setTestResult(null);
+    try {
+      const res = await verifyIntegrationCredential({
+        integration: editingIntegration,
+        customKey: customKeyInput.trim(),
+        customSecretKey: customSecretKeyInput.trim(),
+      });
+      setTestResult(res);
+    } catch (err) {
+      setTestResult({
+        valid: false,
+        status: 'network_error',
+        message: err instanceof Error ? err.message : 'Failed to reach credential verification service.',
+        details: { providerResponse: err instanceof Error ? err.message : 'Unknown error' }
+      });
+    } finally {
+      setTestingKey(false);
+    }
+  };
+
+  const handleTestActiveKey = async (name: IntegrationName) => {
+    setActiveTesting((prev) => ({ ...prev, [name]: true }));
+    try {
+      const res = await verifyIntegrationCredential({
+        integration: name,
+        useActive: true,
+      });
+      setActiveTestResults((prev) => ({ ...prev, [name]: res }));
+    } catch (err) {
+      setActiveTestResults((prev) => ({
+        ...prev,
+        [name]: {
+          valid: false,
+          status: 'network_error',
+          message: err instanceof Error ? err.message : 'Failed to reach credential verification service.',
+          details: { providerResponse: err instanceof Error ? err.message : 'Unknown error' },
+        },
+      }));
+    } finally {
+      setActiveTesting((prev) => ({ ...prev, [name]: false }));
     }
   };
 
@@ -174,7 +243,12 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
         closeEditModal();
       }, 1200);
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : 'Failed to update integration credential.');
+      const msg = err instanceof Error ? err.message : 'Failed to update integration credential.';
+      if (msg.includes('404')) {
+        setModalError('API endpoint returned 404 Not Found. Please restart your backend server (e.g. run "npm start" in the server directory) so the new credential routes are registered.');
+      } else {
+        setModalError(msg);
+      }
     } finally {
       setModalSaving(false);
     }
@@ -202,7 +276,12 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
         closeEditModal();
       }, 1200);
     } catch (err) {
-      setModalError(err instanceof Error ? err.message : 'Failed to revert integration credential.');
+      const msg = err instanceof Error ? err.message : 'Failed to revert integration credential.';
+      if (msg.includes('404')) {
+        setModalError('API endpoint returned 404 Not Found. Please restart your backend server (e.g. run "npm start" in the server directory) so the new credential routes are registered.');
+      } else {
+        setModalError(msg);
+      }
     } finally {
       setModalSaving(false);
     }
@@ -643,41 +722,87 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
 
                   {/* Credential Preview & Customization */}
                   {setting.canCustomize !== false && name !== 'smtp' && (
-                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-md">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                            {setting.keyLabel || (name === 'googleAuth' ? 'Google Client ID' : name === 'recaptcha' ? 'Site Key' : 'API Key')}:
-                          </span>
-                          {setting.isCustomized ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                              Customized
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg space-y-2.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                              {setting.keyLabel || (name === 'googleAuth' ? 'Google Client ID' : name === 'recaptcha' ? 'Site Key' : 'API Key')}:
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                              Default (.env)
-                            </span>
-                          )}
+                            {setting.isCustomized ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                Customized
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                                Default (.env)
+                              </span>
+                            )}
+                            {activeTestResults[name] && (
+                              activeTestResults[name]?.valid ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  Active &amp; Working{typeof activeTestResults[name]?.details?.responseTimeMs === 'number' ? ` (${activeTestResults[name]?.details?.responseTimeMs}ms)` : ''}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-200 dark:border-rose-800 cursor-help" title={activeTestResults[name]?.message}>
+                                  <AlertCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                                  Connection Error
+                                </span>
+                              )
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {setting.maskedKey ? (
+                              <code className="text-xs font-mono font-medium px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300 tracking-wider break-all">
+                                {setting.maskedKey}
+                              </code>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">No key configured</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {setting.maskedKey ? (
-                            <code className="text-xs font-mono font-medium px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300 tracking-wider break-all">
-                              {setting.maskedKey}
-                            </code>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">No key configured</span>
-                          )}
+                        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => void handleTestActiveKey(name)}
+                            disabled={activeTesting[name] || !setting.maskedKey}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 rounded-md shadow-2xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={`Test active ${descriptions[name].title} connection`}
+                          >
+                            {activeTesting[name] ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Zap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                            )}
+                            {activeTesting[name] ? 'Testing...' : 'Test Connection'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(name)}
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-2xs transition-colors"
+                            title={`Customize ${descriptions[name].title} API Key / Client ID`}
+                          >
+                            <Edit className="w-3.5 h-3.5 text-slate-500" />
+                            Edit
+                          </button>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(name)}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md shadow-xs transition-colors self-start sm:self-auto"
-                        title={`Customize ${descriptions[name].title} API Key / Client ID`}
-                      >
-                        <Edit className="w-3.5 h-3.5 text-slate-500" />
-                        Edit
-                      </button>
+
+                      {activeTestResults[name] && !activeTestResults[name]?.valid && (
+                        <div className="p-2 rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                          <span className="flex-1 leading-snug">{activeTestResults[name]?.message}</span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTestResults((prev) => ({ ...prev, [name]: null }))}
+                            className="text-rose-500 hover:text-rose-800 dark:hover:text-rose-200 text-xs font-bold px-1"
+                            title="Dismiss"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -759,7 +884,10 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
                 <input
                   type={showPlaintext ? 'text' : 'password'}
                   value={customKeyInput}
-                  onChange={(e) => setCustomKeyInput(e.target.value)}
+                  onChange={(e) => {
+                    setCustomKeyInput(e.target.value);
+                    setTestResult(null);
+                  }}
                   placeholder={`Paste or enter custom ${settings?.integrations?.[editingIntegration]?.keyLabel || 'key'}...`}
                   className="w-full text-xs font-mono pr-10 px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
                   disabled={modalSaving}
@@ -788,7 +916,10 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
                   <input
                     type={showSecretPlaintext ? 'text' : 'password'}
                     value={customSecretKeyInput}
-                    onChange={(e) => setCustomSecretKeyInput(e.target.value)}
+                    onChange={(e) => {
+                      setCustomSecretKeyInput(e.target.value);
+                      setTestResult(null);
+                    }}
                     placeholder="Enter custom reCAPTCHA Secret Key..."
                     className="w-full text-xs font-mono pr-10 px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
                     disabled={modalSaving}
@@ -804,6 +935,73 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
                 </div>
               </div>
             )}
+
+            {/* Live Verification & Testing Section */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Credential Verification
+                </span>
+                <button
+                  type="button"
+                  onClick={handleTestKey}
+                  disabled={testingKey || modalSaving || !customKeyInput.trim()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-lg shadow-2xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {testingKey ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                  {testingKey ? 'Testing Connection...' : 'Test Connection / Verify Key'}
+                </button>
+              </div>
+
+              {testResult && (
+                <div
+                  className={`p-3.5 rounded-xl border text-xs shadow-2xs transition-all ${
+                    testResult.valid
+                      ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100'
+                      : 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    {testResult.valid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    )}
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-xs">
+                          {testResult.valid ? 'Verification Succeeded' : 'Verification Failed'}
+                        </span>
+                        {typeof testResult.details?.responseTimeMs === 'number' && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/70 dark:bg-black/30 border border-slate-200/50 dark:border-slate-700/50">
+                            {testResult.details.responseTimeMs}ms
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        {testResult.message}
+                      </p>
+                      {testResult.details?.providerResponse && (
+                        <div className="pt-1">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">
+                            Provider Response Payload:
+                          </span>
+                          <pre className="text-[10px] font-mono p-2 rounded bg-white/80 dark:bg-black/40 border border-slate-200/60 dark:border-slate-800/60 overflow-x-auto max-h-24">
+                            {typeof testResult.details.providerResponse === 'string'
+                              ? testResult.details.providerResponse
+                              : JSON.stringify(testResult.details.providerResponse, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Two-Factor Authorization (MFA) Block */}
             <div className="rounded-xl border border-indigo-200 dark:border-indigo-800/80 bg-gradient-to-b from-indigo-50/80 to-indigo-50/40 dark:from-indigo-950/40 dark:to-indigo-950/20 p-4 space-y-3.5 shadow-2xs">

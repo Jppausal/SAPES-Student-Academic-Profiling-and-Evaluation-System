@@ -57,6 +57,22 @@ export interface ApiAuditLog {
   details: Record<string, unknown> | unknown;
 }
 
+export class ApiError extends Error {
+  status: number;
+  payload: any;
+  retryAfterSeconds?: number;
+  code?: string;
+
+  constructor(message: string, status: number, payload?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.payload = payload;
+    this.code = payload?.code;
+    this.retryAfterSeconds = typeof payload?.retryAfterSeconds === 'number' ? payload.retryAfterSeconds : undefined;
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('sapes_jwt');
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -70,7 +86,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(payload?.message || `Request failed with status ${response.status}`);
+    throw new ApiError(payload?.message || `Request failed with status ${response.status}`, response.status, payload);
   }
   return payload;
 }
@@ -1076,6 +1092,35 @@ export async function fetchIntegrationSettings(admin = false): Promise<Integrati
 }
 export async function saveIntegrationSettings(integrations: Partial<Record<IntegrationName, {enabled: boolean}>>): Promise<IntegrationSettings> {
   const response = await request<{success: true; data: IntegrationSettings}>('/api/settings', { method: 'PUT', body: JSON.stringify({integrations}) });
+  return response.data;
+}
+
+export interface CredentialVerificationResult {
+  valid: boolean;
+  status: 'connected' | 'rejected' | 'format_error' | 'network_error';
+  message: string;
+  details?: {
+    provider?: string;
+    responseTimeMs?: number;
+    httpStatus?: number;
+    providerResponse?: string;
+    errorCodes?: string[];
+  };
+}
+
+export async function verifyIntegrationCredential(payload: {
+  integration: IntegrationName;
+  customKey?: string;
+  customSecretKey?: string;
+  useActive?: boolean;
+}): Promise<CredentialVerificationResult> {
+  const response = await request<{ success: true; data: CredentialVerificationResult }>(
+    '/api/settings/credentials/verify',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  );
   return response.data;
 }
 

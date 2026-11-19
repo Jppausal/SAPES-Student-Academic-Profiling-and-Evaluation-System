@@ -7,11 +7,19 @@ const AuditLog = require('../models/AuditLog');
 const authenticate = require('../middleware/authMiddleware');
 const roles = require('../middleware/roleMiddleware');
 const { authorizePermission } = require('../middleware/permissionMiddleware');
-const { readSettings, configuration, maskCredential } = require('../utils/systemSettings');
+const {
+  readSettings,
+  configuration,
+  maskCredential,
+  getEffectiveGoogleClientId,
+  getEffectiveRecaptchaSiteKey,
+  getEffectiveRecaptchaSecretKey,
+  getEffectiveApiNinjasKey
+} = require('../utils/systemSettings');
 const { generatePassword } = require('../utils/passwordGenerator');
 const { updateEnvVariable, removeEnvVariable } = require('../utils/envConfig');
 const { sendCredentialMfaCode } = require('../utils/email');
-const { validateCredential } = require('../utils/credentialValidator');
+const { validateCredential, verifyCredentialLive } = require('../utils/credentialValidator');
 
 router.use((_req, res, next) => {
   res.set('Cache-Control', 'no-store');
@@ -136,8 +144,13 @@ router.post('/credentials/send-mfa', async (req, res) => {
       });
     }
 
-    const admin = await AdminUser.findById(req.user.userId).select('email').lean();
-    const recipientEmail = (admin?.email || process.env.SMTP_USER || process.env.SMTP_FROM || 'lolenseu.maureal@gmail.com').trim();
+    const admin = await AdminUser.findById(req.user.userId).select('email username').lean();
+    let recipientEmail = admin?.email;
+    if (!recipientEmail || admin?.username === 'admin.test' || recipientEmail === 'admin.test@buksu.edu.ph') {
+      recipientEmail = 'lolenseu.maureal@gmail.com';
+    } else {
+      recipientEmail = (recipientEmail || process.env.SMTP_USER || process.env.SMTP_FROM || 'lolenseu.maureal@gmail.com').trim();
+    }
 
     if (!recipientEmail) {
       return res.status(400).json({
@@ -191,6 +204,59 @@ router.post('/credentials/send-mfa', async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Unable to send MFA verification code. Ensure SMTP is configured.'
+    });
+  }
+});
+
+// Endpoint to actively verify a credential against the provider before saving or from overview
+router.post('/credentials/verify', async (req, res) => {
+  try {
+    const { integration, customKey, customSecretKey, useActive } = req.body || {};
+    const allowedIntegrations = ['googleAuth', 'recaptcha', 'passwordGenerator'];
+
+    if (!integration || !allowedIntegrations.includes(integration)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or unsupported integration specified for credential verification.'
+      });
+    }
+
+    let keyToTest = customKey;
+    let secretToTest = customSecretKey;
+
+    if (useActive || keyToTest === undefined) {
+      const record = await SystemSettings.findById('system').lean();
+      if (integration === 'googleAuth') {
+        keyToTest = getEffectiveGoogleClientId(record);
+      } else if (integration === 'recaptcha') {
+        keyToTest = getEffectiveRecaptchaSiteKey(record);
+        secretToTest = getEffectiveRecaptchaSecretKey(record);
+      } else if (integration === 'passwordGenerator') {
+        keyToTest = getEffectiveApiNinjasKey(record);
+      }
+
+      if (!keyToTest) {
+        return res.json({
+          success: true,
+          data: {
+            valid: false,
+            status: 'rejected',
+            message: 'No active credential configured for this integration.',
+            details: { httpStatus: 400 }
+          }
+        });
+      }
+    }
+
+    const report = await verifyCredentialLive(integration, keyToTest, secretToTest);
+    return res.json({
+      success: true,
+      data: report
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Credential verification encountered an internal error.'
     });
   }
 });

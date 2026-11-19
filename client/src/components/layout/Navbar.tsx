@@ -149,7 +149,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className={`sticky top-0 z-40 border-b border-brand-800 bg-brand-700 shadow-xs ${currentUser?.role === 'student' ? 'student-navbar-shell' : ''}`}>
-      <div className="mx-auto flex min-h-[72px] max-w-[1500px] items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[72px] max-w-[1500px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex shrink-0 items-center gap-3">
           <img src={logo} alt="College of Technologies logo" className="h-11 w-11 rounded-full bg-white object-contain p-0.5" />
           <span aria-hidden="true" className="hidden h-9 w-px bg-white/25 sm:block" />
@@ -209,7 +209,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         )}
 
         {currentUser && (
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
           {currentUser.role === 'student' && onStudentNotificationsToggle && (
             <button
               type="button"

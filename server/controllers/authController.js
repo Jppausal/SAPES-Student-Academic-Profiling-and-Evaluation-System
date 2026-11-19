@@ -17,6 +17,11 @@ const {
 const { parseDeviceInfo } = require('../utils/deviceInfo');
 const { recordAuditLog } = require('../utils/auditLogger');
 const { getGoogleClientId } = require('../utils/systemSettings');
+const {
+  checkLoginRateLimit,
+  recordLoginFailure,
+  clearLoginFailures
+} = require('../middleware/loginRateLimiter');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -113,7 +118,7 @@ const safeUser = (user) => ({
     : {})
 });
 
-router.post('/login', verifyHuman, async (req, res) => {
+router.post('/login', checkLoginRateLimit, verifyHuman, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || !password) {
@@ -132,7 +137,10 @@ router.post('/login', verifyHuman, async (req, res) => {
         message: 'This login identifier matches multiple accounts. Contact an administrator.'
       });
     }
-    if (!account) return res.status(401).json({ success: false, message: 'Invalid username or password' });
+    if (!account) {
+      await recordLoginFailure(loginIdentifier, req.ip, req);
+      return res.status(401).json({ success: false, message: 'Invalid username or password' });
+    }
     if (account.role && account.role !== role) {
       return res.status(403).json({
         success: false,
@@ -157,9 +165,12 @@ router.post('/login', verifyHuman, async (req, res) => {
     const passwordMatch = await bcrypt.compare(password, account.passwordHash).catch(() => false);
     const legacyPasswordMatch = !passwordMatch && account.passwordHash === password;
     if (!passwordMatch && !legacyPasswordMatch) {
+      await recordLoginFailure(loginIdentifier, req.ip, req);
       return res.status(401).json({ success: false, message: 'Invalid username or password' });
     }
     if (legacyPasswordMatch) account.passwordHash = await bcrypt.hash(password, 12);
+
+    clearLoginFailures(loginIdentifier, req.ip);
 
     account.lastLoginAt = new Date();
     await account.save();
@@ -200,6 +211,7 @@ router.post('/logout', async (req, res) => {
       const token = authHeader.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       if (decoded && decoded.userId && decoded.role) {
+        const deviceInfo = parseDeviceInfo(req);
         await recordAuditLog({
           userId: decoded.userId,
           userRole: decoded.role,
@@ -207,7 +219,13 @@ router.post('/logout', async (req, res) => {
           action: 'USER_LOGOUT',
           targetType: 'session',
           targetId: decoded.userId,
-          details: { method: 'manual' }
+          details: {
+            method: 'manual',
+            browser: deviceInfo.browser,
+            os: deviceInfo.os,
+            ip: deviceInfo.ip,
+            summary: deviceInfo.summary
+          }
         });
       }
     }

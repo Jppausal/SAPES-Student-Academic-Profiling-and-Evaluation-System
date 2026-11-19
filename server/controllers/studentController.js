@@ -149,40 +149,82 @@ router.put(
         });
       }
 
-      student.academicStatus.currentStatus = status.trim();
-      student.academicStatus.isOnProbation = ['probation', 'probationary', 'on probation'].includes(status.trim().toLowerCase());
-      student.academicStatus.probationReason = student.academicStatus.isOnProbation
-        ? reason?.trim() || undefined
-        : undefined;
-      student.academicStatus.statusRemarks = remarks;
-      student.academicStatus.effectiveDate = parsedEffectiveDate;
-      await student.save();
+      // Concurrency: Use MongoDB Multi-Document ACID Transaction with graceful fallback for standalone setups
+      let session = null;
+      let usedTransaction = false;
+      try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+        usedTransaction = true;
+      } catch (_sessErr) {
+        // Standalone Mongo without replica set does not support multi-doc transactions
+        session = null;
+        usedTransaction = false;
+      }
 
-      const history = await StudentStatusHistory.create({
-        studentId: student._id,
-        status: status.trim(),
-        reason,
-        effectiveDate: parsedEffectiveDate,
-        recordedBy: req.user.userId,
-        recordedByModel: getAccountModelName(req.user.role),
-        remarks
-      });
+      let history = null;
+      try {
+        const sessionOpt = usedTransaction && session ? { session } : {};
 
-      await AuditLog.create({
-        userId: req.user.userId,
-        userRole: req.user.role,
-        userModel: getAccountModelName(req.user.role),
-        action: 'UPDATE_STUDENT_STATUS',
-        targetType: 'student_status_history',
-        targetId: student._id,
-        details: {
-          studentId: student._id,
-          historyId: history._id,
-          institutionId,
-          status: history.status,
-          reason: history.reason
+        student.academicStatus.currentStatus = status.trim();
+        student.academicStatus.isOnProbation = ['probation', 'probationary', 'on probation'].includes(status.trim().toLowerCase());
+        student.academicStatus.probationReason = student.academicStatus.isOnProbation
+          ? reason?.trim() || undefined
+          : undefined;
+        student.academicStatus.statusRemarks = remarks;
+        student.academicStatus.effectiveDate = parsedEffectiveDate;
+        await student.save(sessionOpt);
+
+        const historyDocs = await StudentStatusHistory.create(
+          [
+            {
+              studentId: student._id,
+              status: status.trim(),
+              reason,
+              effectiveDate: parsedEffectiveDate,
+              recordedBy: req.user.userId,
+              recordedByModel: getAccountModelName(req.user.role),
+              remarks
+            }
+          ],
+          sessionOpt
+        );
+        history = Array.isArray(historyDocs) ? historyDocs[0] : historyDocs;
+
+        await AuditLog.create(
+          [
+            {
+              userId: req.user.userId,
+              userRole: req.user.role,
+              userModel: getAccountModelName(req.user.role),
+              action: 'UPDATE_STUDENT_STATUS',
+              targetType: 'student_status_history',
+              targetId: student._id,
+              details: {
+                studentId: student._id,
+                historyId: history._id,
+                institutionId,
+                status: history.status,
+                reason: history.reason
+              }
+            }
+          ],
+          sessionOpt
+        );
+
+        if (usedTransaction && session) {
+          await session.commitTransaction();
         }
-      });
+      } catch (txError) {
+        if (usedTransaction && session) {
+          await session.abortTransaction();
+        }
+        throw txError;
+      } finally {
+        if (session) {
+          session.endSession();
+        }
+      }
 
       res.json({
         success: true,
@@ -216,7 +258,7 @@ router.put(
   async (req, res) => {
     try {
       const { institutionId } = req.params;
-      const { evaluationStatus, reasons, remarks } = req.body || {};
+      const { evaluationStatus, reasons, remarks, expectedVersion } = req.body || {};
       const validStatuses = ['eligible', 'not_eligible', 'for_review'];
 
       if (!validStatuses.includes(evaluationStatus)) {
@@ -276,6 +318,21 @@ router.put(
         });
       }
 
+      // Optimistic Concurrency Control (OCC): check expected version against current document version
+      if (
+        evaluation &&
+        expectedVersion !== undefined &&
+        evaluation.version !== undefined &&
+        Number(expectedVersion) !== Number(evaluation.version)
+      ) {
+        return res.status(409).json({
+          success: false,
+          code: 'CONCURRENCY_CONFLICT',
+          message: 'Evaluation record was updated by another concurrent session. Please reload the latest record and try again.',
+          currentVersion: evaluation.version
+        });
+      }
+
       if (!evaluation) {
         evaluation = new FacultyEvaluation({
           studentId: student._id
@@ -307,7 +364,8 @@ router.put(
         targetId: evaluation._id,
         details: {
           institutionId,
-          evaluationStatus: evaluation.evaluationStatus
+          evaluationStatus: evaluation.evaluationStatus,
+          version: evaluation.version
         }
       });
 
@@ -321,10 +379,18 @@ router.put(
           evaluationStatus: evaluation.evaluationStatus,
           reasons: evaluation.reasons,
           remarks: evaluation.remarks,
-          evaluatedAt: evaluation.evaluatedAt
+          evaluatedAt: evaluation.evaluatedAt,
+          version: evaluation.version
         }
       });
     } catch (error) {
+      if (error.name === 'VersionError') {
+        return res.status(409).json({
+          success: false,
+          code: 'CONCURRENCY_CONFLICT',
+          message: 'Evaluation record was modified concurrently by another session. Please reload and try again.'
+        });
+      }
       console.error('Error saving faculty evaluation:', error);
 
       res.status(500).json({
