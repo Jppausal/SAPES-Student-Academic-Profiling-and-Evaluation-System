@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   ClipboardCheck,
@@ -21,6 +21,7 @@ type AuthLandingPageProps = {
 
 export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
   const heroRef = useRef<HTMLElement>(null);
+  const [activeSection, setActiveSection] = useState<'top' | 'about' | 'enrollment' | 'contact'>('top');
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -49,9 +50,9 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
 
   return (
     <div id="top" className="min-h-screen bg-brand-900 text-white">
-      <header className="absolute inset-x-0 top-0 z-20 border-b border-white/15 bg-brand-900/40 text-white backdrop-blur-sm">
+      <header className="fixed inset-x-0 top-0 z-20 border-b border-white/15 bg-brand-900/40 text-white backdrop-blur-sm">
         <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
-          <a href="#top" className="flex items-center gap-3">
+          <a href="#top" onClick={() => setActiveSection('top')} className="flex items-center gap-3">
             <img src={logo} alt="College of Technologies logo" className="h-12 w-12 rounded-full bg-white object-contain p-0.5" />
             <span className="border-l border-white/25 pl-3 leading-tight text-white">
               <span className="block text-sm font-bold sm:text-base">College of Technologies</span>
@@ -62,10 +63,26 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
           </a>
 
           <nav className="hidden items-center gap-8 text-[11px] font-semibold uppercase tracking-wide text-blue-50 lg:flex">
-            <a href="#top" className="border-b-2 border-white py-7 text-white">Home</a>
-            <a href="#about" className="transition-colors hover:text-white">About</a>
-            <a href="#enrollment" className="transition-colors hover:text-white">Enrollment</a>
-            <a href="#contact" className="transition-colors hover:text-white">Contact</a>
+            {([
+              ['top', 'Home'],
+              ['about', 'About'],
+              ['enrollment', 'Enrollment'],
+              ['contact', 'Contact'],
+            ] as const).map(([section, label]) => (
+              <a
+                key={section}
+                href={`#${section}`}
+                onClick={() => setActiveSection(section)}
+                aria-current={activeSection === section ? 'location' : undefined}
+                className={`border-b-2 py-7 transition-colors ${
+                  activeSection === section
+                    ? 'border-white text-white'
+                    : 'border-transparent text-blue-50 hover:border-white/60 hover:text-white'
+                }`}
+              >
+                {label}
+              </a>
+            ))}
           </nav>
 
           <button
