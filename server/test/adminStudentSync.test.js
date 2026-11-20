@@ -69,7 +69,7 @@ async function fixture(t) {
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
-  const token = jwt.sign({ userId: admin._id, role: 'admin', jti: 'test-session' }, process.env.JWT_SECRET);
+  const token = jwt.sign({ tokenType: 'access', userId: admin._id, role: 'admin', jti: 'test-session' }, process.env.JWT_SECRET);
   const put = (path, body) => fetch(`http://127.0.0.1:${server.address().port}${path}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

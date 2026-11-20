@@ -73,9 +73,12 @@ test('enrollment approval updates student status and synchronizes department met
   t.after(() => new Promise((resolve) => server.close(resolve)));
 
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'enrollment-approval-session',
     userId: 'faculty-document-id',
-    role: 'faculty'
+    role: 'faculty',
+    departmentCode: 'IT',
+    isVerifiedEnrollmentOfficer: true
   }, process.env.JWT_SECRET);
   const response = await fetch(
     `http://127.0.0.1:${server.address().port}/api/faculty-evaluations/student/2021301236/enrollment-approval`,

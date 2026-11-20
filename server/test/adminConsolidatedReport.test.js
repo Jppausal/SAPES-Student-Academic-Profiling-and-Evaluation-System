@@ -99,7 +99,7 @@ async function fixture(t) {
   t.after(() => new Promise(resolve => server.close(resolve)));
   const get = role => fetch(`http://127.0.0.1:${server.address().port}/students/REPORT-TEST/report`, {
     headers: role
-      ? { Authorization: `Bearer ${jwt.sign({ userId: role, role, jti: 'test-session' }, process.env.JWT_SECRET)}` }
+      ? { Authorization: `Bearer ${jwt.sign({ tokenType: 'access', userId: role, role, jti: 'test-session' }, process.env.JWT_SECRET)}` }
       : {}
   });
   return { state, get };

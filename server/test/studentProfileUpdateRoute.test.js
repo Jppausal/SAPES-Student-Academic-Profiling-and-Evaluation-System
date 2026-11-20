@@ -54,6 +54,7 @@ test('student self-service saves all address location fields including region', 
   t.after(() => new Promise(resolve => server.close(resolve)));
 
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'student-profile-session',
     userId: student._id,
     role: 'student'
@@ -154,6 +155,7 @@ test('student profile update syncs root firstName and lastName and persists heal
   t.after(() => new Promise(resolve => server.close(resolve)));
 
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'student-name-sync-session',
     userId: student._id,
     role: 'student'

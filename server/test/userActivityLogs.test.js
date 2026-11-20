@@ -40,7 +40,7 @@ async function setupServer(t) {
     const headers = { ...options.headers };
     if (userPayload) {
       headers.Authorization = `Bearer ${jwt.sign(
-        { userId: userPayload.userId, role: userPayload.role, jti: 'test-session-id' },
+        { tokenType: 'access', userId: userPayload.userId, role: userPayload.role, jti: 'test-session-id' },
         process.env.JWT_SECRET
       )}`;
     }

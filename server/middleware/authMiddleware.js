@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
-const { getAccountModel } = require('../utils/accountCollections');
-const SessionToken = require('../models/SessionToken');
 
-const authenticateToken = async (req, res, next) => {
+const ROLES = new Set(['admin', 'faculty', 'student']);
+
+const authenticateToken = (req, res, next) => {
   const authorization = req.headers.authorization;
   const [scheme, token, ...extraParts] = authorization
     ? authorization.trim().split(/\s+/)
@@ -20,49 +20,18 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    const AccountModel = getAccountModel(req.user.role);
-    if (!req.user.jti || !AccountModel) {
-      return res.status(401).json({ success: false, message: 'Token must be renewed' });
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (
+      !payload
+      || payload.tokenType !== 'access'
+      || typeof payload.userId !== 'string'
+      || !payload.userId
+      || !ROLES.has(payload.role)
+    ) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
     }
 
-    const session = await SessionToken.findOne({
-      jti: req.user.jti,
-      userId: req.user.userId,
-      accountRole: req.user.role,
-      revokedAt: null,
-      expiresAt: { $gt: new Date() }
-    }).lean();
-    if (!session) {
-      return res.status(401).json({ success: false, message: 'Session is no longer valid' });
-    }
-
-    const account = await AccountModel.findById(req.user.userId)
-      .select('username role accountStatus department departmentCode designation isVerifiedEnrollmentOfficer')
-      .lean();
-    if (!account) {
-      return res.status(401).json({ success: false, message: 'Account no longer exists' });
-    }
-
-    if (account.role !== req.user.role) {
-      return res.status(401).json({ success: false, message: 'Account role no longer matches this session' });
-    }
-
-    if (account.accountStatus !== 'active') {
-      return res.status(403).json({ success: false, message: 'Account is not active' });
-    }
-
-    // Use current database values so role/account changes take effect immediately
-    // instead of trusting claims captured when the JWT was issued.
-    req.user.role = account.role;
-    req.user.username = account.username;
-    req.user.department = account.department || '';
-    if (account.role === 'faculty') {
-      req.user.departmentCode = account.departmentCode || '';
-      req.user.designation = account.designation || '';
-      req.user.isVerifiedEnrollmentOfficer = Boolean(account.isVerifiedEnrollmentOfficer);
-    }
-
+    req.user = payload;
     next();
   } catch (error) {
     return res.status(401).json({

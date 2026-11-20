@@ -138,10 +138,13 @@ test('faculty workspace returns the complete student profile including medical d
   });
 
   const token = jwt.sign({
+    tokenType: 'access',
     jti: 'faculty-session-id',
     userId: 'faculty-document-id',
     role: 'faculty',
-    username: 'faculty.user'
+    username: 'faculty.user',
+    departmentCode: 'IT',
+    isVerifiedEnrollmentOfficer: true
   }, process.env.JWT_SECRET);
   const response = await fetch(
     `http://127.0.0.1:${server.address().port}/api/faculty-evaluations/student/${student.institutionId}`,

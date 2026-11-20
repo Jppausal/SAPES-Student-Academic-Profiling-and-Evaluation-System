@@ -233,7 +233,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       )}
 
       <div className="student-dashboard-summary">
-        <article className="student-dashboard-card student-dashboard-status-card">
+        <article className="student-dashboard-card student-dashboard-status-card student-dashboard-card-enter" style={{ animationDelay: '0ms' }}>
           <div className="student-dashboard-card-topline">
             <span className="student-dashboard-card-icon"><CalendarDays aria-hidden="true" /></span>
             <div className="student-dashboard-card-label">Enrollment status</div>
@@ -252,7 +252,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </button>
         </article>
 
-        <article className="student-dashboard-card student-dashboard-standing-card">
+        <article className="student-dashboard-card student-dashboard-standing-card student-dashboard-card-enter" style={{ animationDelay: '120ms' }}>
           <div className="student-dashboard-card-topline">
             <span className="student-dashboard-card-icon"><BarChart3 aria-hidden="true" /></span>
             <div className="student-dashboard-card-label">Academic standing</div>
@@ -270,7 +270,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </button>
         </article>
 
-        <article className="student-dashboard-card student-dashboard-course-card">
+        <article className="student-dashboard-card student-dashboard-course-card student-dashboard-card-enter" style={{ animationDelay: '240ms' }}>
           <div className="student-dashboard-card-topline">
             <span className="student-dashboard-card-icon"><FileText aria-hidden="true" /></span>
             <div className="student-dashboard-card-label">Course / Year Level / Section</div>
@@ -285,7 +285,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </button>
         </article>
 
-        <article className="student-dashboard-card student-dashboard-profile-card">
+        <article className="student-dashboard-card student-dashboard-profile-card student-dashboard-card-enter" style={{ animationDelay: '360ms' }}>
           <div className="student-dashboard-card-topline">
             <span className="student-dashboard-card-icon"><UserRound aria-hidden="true" /></span>
             <div className="student-dashboard-card-label">Profile completion</div>

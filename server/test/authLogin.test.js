@@ -46,18 +46,9 @@ test('restored faculty sessions retain enrollment officer department metadata', 
     isVerifiedEnrollmentOfficer: true,
     accountStatus: 'active'
   };
-  const selectedFields = [];
-  t.mock.method(FacultyUser, 'findById', () => ({
-    select(fields) {
-      selectedFields.push(fields);
-      return this;
-    },
-    lean: async () => account
-  }));
-  t.mock.method(SessionToken, 'findOne', () => ({
-    select() { return this; },
-    lean: async () => ({ _id: 'faculty-session-token-id' })
-  }));
+  const accountLookup = t.mock.method(FacultyUser, 'findById', () => {
+    throw new Error('Stateless session restoration must not query the account');
+  });
 
   const app = express();
   app.use('/api/auth', authRoutes);
@@ -66,9 +57,19 @@ test('restored faculty sessions retain enrollment officer department metadata', 
   t.after(() => new Promise((resolve) => server.close(resolve)));
 
   const token = jwt.sign({
-    jti: 'faculty-session-jti',
+    tokenType: 'access',
+    id: account._id,
     userId: account._id,
-    role: 'faculty'
+    role: 'faculty',
+    username: account.username,
+    firstName: account.firstName,
+    lastName: account.lastName,
+    email: account.email,
+    employeeId: account.employeeId,
+    department: account.department,
+    departmentCode: account.departmentCode,
+    designation: account.designation,
+    isVerifiedEnrollmentOfficer: account.isVerifiedEnrollmentOfficer
   }, process.env.JWT_SECRET);
   const response = await fetch(
     `http://127.0.0.1:${server.address().port}/api/auth/session`,
@@ -80,11 +81,7 @@ test('restored faculty sessions retain enrollment officer department metadata', 
   assert.equal(payload.user.departmentCode, 'IT');
   assert.equal(payload.user.designation, 'IT-Enrollment Officer');
   assert.equal(payload.user.isVerifiedEnrollmentOfficer, true);
-  assert.ok(selectedFields.every((fields) =>
-    fields.includes('departmentCode')
-    && fields.includes('designation')
-    && fields.includes('isVerifiedEnrollmentOfficer')
-  ));
+  assert.equal(accountLookup.mock.callCount(), 0);
 });
 
 const matchesQuery = (account, query) => {
@@ -105,7 +102,9 @@ test('student login authenticates from the Student collection', async (t) => {
   const originalFindOnes = Object.fromEntries(
     Object.entries(accountModels).map(([role, AccountModel]) => [role, AccountModel.findOne])
   );
-  const originalCreateSessionToken = SessionToken.create;
+  const createSessionToken = t.mock.method(SessionToken, 'create', async () => {
+    throw new Error('Stateless login must not create a server-side session');
+  });
   const originalJwtSecret = process.env.JWT_SECRET;
   const studentAccount = {
     _id: 'student-doc-id',
@@ -122,7 +121,6 @@ test('student login authenticates from the Student collection', async (t) => {
   const lookupQueries = [];
 
   mockAccountCollections([studentAccount], lookupQueries);
-  SessionToken.create = async () => ({});
   process.env.JWT_SECRET = 'test-secret';
 
   const app = express();
@@ -135,7 +133,6 @@ test('student login authenticates from the Student collection', async (t) => {
     for (const [role, AccountModel] of Object.entries(accountModels)) {
       AccountModel.findOne = originalFindOnes[role];
     }
-    SessionToken.create = originalCreateSessionToken;
     if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = originalJwtSecret;
   });
@@ -152,6 +149,11 @@ test('student login authenticates from the Student collection', async (t) => {
   const payload = await response.json();
   assert.equal(payload.user.role, 'student');
   assert.equal(payload.user.studentNumber, '2021301234');
+  const accessToken = jwt.verify(payload.token, process.env.JWT_SECRET);
+  assert.equal(accessToken.tokenType, 'access');
+  assert.equal(accessToken.userId, studentAccount._id);
+  assert.equal(accessToken.jti, undefined);
+  assert.equal(createSessionToken.mock.callCount(), 0);
   assert.ok(lookupQueries.some((query) =>
     query.$or?.some((condition) => condition.email === '2021301234@student.buksu.edu.ph')
   ));

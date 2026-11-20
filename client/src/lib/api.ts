@@ -1,4 +1,13 @@
 const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+export const SESSION_EXPIRED_EVENT = 'sapes:session-expired';
+const publicAuthPaths = new Set([
+  '/api/auth/login',
+  '/api/auth/google',
+  '/api/auth/logout',
+  '/api/auth/password-reset/request',
+  '/api/auth/password-reset/verify',
+  '/api/auth/password-reset/confirm',
+]);
 
 export type ServerStatus = 'checking' | 'online' | 'offline';
 
@@ -74,7 +83,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('sapes_jwt');
+  const token = publicAuthPaths.has(path) ? null : localStorage.getItem('sapes_jwt');
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
@@ -86,6 +95,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
+    if (
+      response.status === 401
+      && token
+      && localStorage.getItem('sapes_jwt') === token
+    ) {
+      localStorage.removeItem('sapes_jwt');
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
     throw new ApiError(payload?.message || `Request failed with status ${response.status}`, response.status, payload);
   }
   return payload;
@@ -1098,7 +1115,14 @@ export async function checkServerHealth(): Promise<boolean> {
   }
 }
 
-export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp' | 'passwordGenerator';
+export type IntegrationName =
+  | 'googleAuth'
+  | 'recaptcha'
+  | 'smtp'
+  | 'passwordGenerator'
+  | 'cloudinary'
+  | 'psgcCloud'
+  | 'mongodbAtlas';
 export interface IntegrationSettingItem {
   enabled: boolean;
   configured: boolean;

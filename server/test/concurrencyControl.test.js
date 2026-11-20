@@ -97,7 +97,7 @@ async function createFixture(t) {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${jwt.sign(
-          { userId: facultyId, role, jti: 'test' },
+          { tokenType: 'access', userId: facultyId, role, jti: 'test' },
           process.env.JWT_SECRET
         )}`
       },

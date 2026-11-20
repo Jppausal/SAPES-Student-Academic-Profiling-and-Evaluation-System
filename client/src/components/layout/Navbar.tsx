@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import logo from '../../assets/branding/logo ccot.jpg';
 import {
@@ -35,6 +35,8 @@ interface NavbarProps {
   onStudentSearch: (query: string) => void;
 }
 
+type StudentTab = 'dashboard' | 'records' | 'profile' | 'audit';
+
 export const Navbar: React.FC<NavbarProps> = ({
   activePage,
   onStudentSearch,
@@ -58,6 +60,74 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [suggestionsError, setSuggestionsError] = useState('');
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const studentSearchInput = useRef<HTMLInputElement>(null);
+  const studentNavigation = useRef<HTMLElement>(null);
+  const studentNavigationButtons = useRef(new Map<StudentTab, HTMLButtonElement>());
+  const [studentIndicator, setStudentIndicator] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const facultyNavigation = useRef<HTMLElement>(null);
+  const facultyNavigationButtons = useRef(new Map<FacultyPage, HTMLButtonElement>());
+  const [facultyIndicator, setFacultyIndicator] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const navigation = studentNavigation.current;
+    const activeButton = studentActiveTab
+      ? studentNavigationButtons.current.get(studentActiveTab)
+      : undefined;
+    if (!navigation || !activeButton) {
+      setStudentIndicator(null);
+      return;
+    }
+
+    const updateIndicator = () => {
+      setStudentIndicator({
+        left: activeButton.offsetLeft,
+        top: activeButton.offsetTop,
+        width: activeButton.offsetWidth,
+        height: activeButton.offsetHeight,
+      });
+    };
+
+    updateIndicator();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateIndicator);
+    observer?.observe(navigation);
+    studentNavigationButtons.current.forEach((button) => observer?.observe(button));
+    window.addEventListener('resize', updateIndicator);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateIndicator);
+    };
+  }, [studentActiveTab]);
+
+  useLayoutEffect(() => {
+    const navigation = facultyNavigation.current;
+    const activeButton = activePage
+      ? facultyNavigationButtons.current.get(activePage)
+      : undefined;
+    if (!navigation || !activeButton) {
+      setFacultyIndicator(null);
+      return;
+    }
+
+    const updateIndicator = () => {
+      setFacultyIndicator({
+        left: activeButton.offsetLeft,
+        top: activeButton.offsetTop,
+        width: activeButton.offsetWidth,
+        height: activeButton.offsetHeight,
+      });
+    };
+
+    updateIndicator();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateIndicator);
+    observer?.observe(navigation);
+    facultyNavigationButtons.current.forEach((button) => observer?.observe(button));
+    window.addEventListener('resize', updateIndicator);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateIndicator);
+    };
+  }, [activePage]);
 
   useEffect(() => {
     if (!isUserMenuOpen) return;
@@ -162,7 +232,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {isFaculty && onNavigate && (
-          <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex" aria-label="Faculty workspace">
+          <nav ref={facultyNavigation} className="faculty-top-navigation hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex" aria-label="Faculty workspace">
+            <span
+              className="faculty-navigation-indicator"
+              aria-hidden="true"
+              style={facultyIndicator ? {
+                left: facultyIndicator.left,
+                top: facultyIndicator.top,
+                width: facultyIndicator.width,
+                height: facultyIndicator.height,
+                opacity: 1,
+              } : undefined}
+            />
             {([
               ['dashboard', LayoutDashboard, 'Dashboard'],
               ['evaluations', ClipboardCheck, 'Evaluations'],
@@ -170,13 +251,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             ] as const).map(([page, Icon, label]) => (
               <button
                 key={page}
+                ref={(element) => {
+                  if (element) facultyNavigationButtons.current.set(page, element);
+                  else facultyNavigationButtons.current.delete(page);
+                }}
                 type="button"
                 onClick={() => onNavigate(page)}
                 aria-current={activePage === page ? 'page' : undefined}
-                className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors ${
+                className={`faculty-top-navigation-button flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors ${
                   activePage === page
-                    ? 'bg-white/15 text-white shadow-inner'
-                    : 'text-brand-100 hover:bg-white/10 hover:text-white'
+                    ? 'active text-white'
+                    : 'text-brand-100 hover:text-white'
                 }`}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
@@ -187,7 +272,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         )}
 
         {currentUser?.role === 'student' && onStudentNavigate && (
-          <nav className="student-top-navigation" aria-label="Student workspace">
+          <nav ref={studentNavigation} className="student-top-navigation" aria-label="Student workspace">
+            <span
+              className="student-navigation-indicator"
+              aria-hidden="true"
+              style={studentIndicator ? {
+                left: studentIndicator.left,
+                top: studentIndicator.top,
+                width: studentIndicator.width,
+                height: studentIndicator.height,
+                opacity: 1,
+              } : undefined}
+            />
             {([
               ['dashboard', LayoutDashboard, 'Dashboard'],
               ['records', BookOpen, 'Academic Records'],
@@ -196,6 +292,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             ] as const).map(([tab, Icon, label]) => (
               <button
                 key={tab}
+                ref={(element) => {
+                  if (element) studentNavigationButtons.current.set(tab, element);
+                  else studentNavigationButtons.current.delete(tab);
+                }}
                 type="button"
                 onClick={() => onStudentNavigate(tab)}
                 className={studentActiveTab === tab ? 'active' : ''}

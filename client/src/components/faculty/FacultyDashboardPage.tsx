@@ -3,6 +3,7 @@ import { FacultyRosterStudent, fetchFacultyEvaluationRoster } from '../../lib/ap
 import { TECHNOLOGY_PROGRAMS } from '../../lib/academicPrograms';
 import { ATTENTION_THRESHOLD, average, buildAttentionRows, buildSectionRows } from '../../lib/facultyAttention';
 import { Badge } from '../common/Badge';
+import { RollingNumber } from '../common/RollingNumber';
 import type { EvaluationTarget, FacultyPage } from '../../types';
 import { AlertTriangle, ArrowRight, BookOpen, CheckCircle2, ClipboardCheck, Clock3, GraduationCap, Search, Users } from 'lucide-react';
 import { FacultyDashboardHeader } from './FacultyDashboardHeader';
@@ -128,12 +129,12 @@ export const FacultyDashboardPage: React.FC<FacultyDashboardPageProps> = ({ facu
               { label: 'Pending Enrollment', value: pendingEnrollment, hint: 'Awaiting an enrollment decision', icon: GraduationCap, statusIcon: Clock3, statusTone: 'text-brand-600', tone: 'bg-blue-100 text-blue-700', ghostTone: 'text-blue-100', border: 'border-brand-600' },
               { label: 'Completed Evaluations', value: evaluatedProfiles, hint: 'Faculty evaluation recorded', icon: BookOpen, statusIcon: CheckCircle2, statusTone: 'text-emerald-600', tone: 'bg-blue-100 text-blue-700', ghostTone: 'text-blue-100', border: 'border-emerald-600' },
             ].map((card) => (
-              <div key={card.label} className={`relative min-h-[150px] overflow-hidden rounded-2xl border border-slate-200 border-b-4 ${card.border} bg-white px-5 py-4 shadow-sm`}>
-                <card.icon className={`pointer-events-none absolute -bottom-2 -right-2 h-20 w-20 ${card.ghostTone}`} aria-hidden="true" />
+              <div key={card.label} className={`relative min-h-[180px] overflow-hidden rounded-2xl border border-slate-200 border-b-4 ${card.border} bg-white px-5 py-4 shadow-sm`}>
+                <card.icon className={`pointer-events-none absolute bottom-3 right-3 h-20 w-20 ${card.ghostTone}`} aria-hidden="true" />
                 <div className="relative flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-brand-900">{card.label}</p>
-                    <p className="mt-2 text-3xl font-extrabold tracking-tight text-brand-900">{card.value}</p>
+                    <p className="mt-2 text-3xl font-extrabold tracking-tight text-brand-900"><RollingNumber value={card.value} /></p>
                   </div>
                   <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.tone}`}>
                     <card.icon className="h-5 w-5" aria-hidden="true" />

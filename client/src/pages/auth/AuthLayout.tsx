@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
+import { MotionConfig, motion } from 'framer-motion';
 import { ArrowLeft, BriefcaseBusiness, ClipboardList, UserRound } from 'lucide-react';
-import campus from '../../assets/branding/cot building.jpg';
 import logo from '../../assets/branding/logo ccot.jpg';
+import { AuthBackground } from './AuthBackground';
 
 type AuthLayoutProps = {
   title: string;
@@ -19,10 +20,9 @@ const features = [
 export function AuthLayout({ title, subtitle, children, onBack }: AuthLayoutProps) {
   return (
     <main
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-900 bg-cover bg-center px-4 py-8 sm:px-8"
-      style={{ backgroundImage: `url("${campus}")` }}
+      className="relative isolate flex min-h-screen items-center justify-center bg-brand-900 px-4 py-8 sm:px-8"
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/75 to-brand-900/65" />
+      <AuthBackground />
 
       <div className="relative z-10 grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
         <section className="mx-auto flex w-full max-w-xl flex-col justify-center text-white">
@@ -57,29 +57,38 @@ export function AuthLayout({ title, subtitle, children, onBack }: AuthLayoutProp
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-md rounded-lg bg-white px-6 py-7 shadow-2xl sm:px-8 sm:py-8">
-          <div className="mb-5">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-            <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
-          </div>
-
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-brand-600 transition-colors hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        <div className="relative mx-auto w-full max-w-md">
+          <MotionConfig reducedMotion="user">
+            <motion.section
+              initial={{ opacity: 0, scale: 0.92, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+              className="relative z-10 rounded-lg bg-white px-6 py-7 shadow-2xl sm:px-8 sm:py-8"
             >
-              <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-              Back
-            </button>
-          )}
+              <div className="mb-5">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+                <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
+              </div>
 
-          {children}
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-brand-600 transition-colors hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                  <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                  Back
+                </button>
+              )}
 
-          <p className="mt-6 text-center text-[11px] text-slate-500">
-            © 2025 College of Technologies. All rights reserved.
-          </p>
-        </section>
+              {children}
+
+              <p className="mt-6 text-center text-[11px] text-slate-500">
+                © 2025 College of Technologies. All rights reserved.
+              </p>
+            </motion.section>
+          </MotionConfig>
+        </div>
       </div>
     </main>
   );

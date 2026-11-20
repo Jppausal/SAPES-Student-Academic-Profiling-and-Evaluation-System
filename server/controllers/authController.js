@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const crypto = require('node:crypto');
 const { OAuth2Client } = require('google-auth-library');
 const Student = require('../models/Student');
-const SessionToken = require('../models/SessionToken');
 const authenticateToken = require('../middleware/authMiddleware');
 const verifyHuman = require('../middleware/recaptcha');
 const { sendPasswordResetCode } = require('../utils/email');
@@ -85,25 +84,8 @@ const getDefaultStudentEnrollment = () => {
   };
 };
 
-const createApplicationToken = async (user) => {
-  const jti = crypto.randomUUID();
-  const token = jwt.sign(
-    { jti, userId: user._id, role: user.role, username: user.username },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
-  );
-  const payload = jwt.decode(token);
-  await SessionToken.create({
-    jti,
-    userId: user._id,
-    accountRole: user.role,
-    expiresAt: new Date(payload.exp * 1000)
-  });
-  return token;
-};
-
 const safeUser = (user) => ({
-  id: user._id,
+  id: user._id || user.id || user.userId,
   username: user.username,
   role: user.role,
   firstName: user.firstName || user.personalInformation?.firstName || '',
@@ -122,6 +104,20 @@ const safeUser = (user) => ({
     ? { studentNumber: user.studentNumber || user.institutionId }
     : {})
 });
+
+const createApplicationToken = (user) => {
+  const sessionUser = safeUser(user);
+  return jwt.sign(
+    {
+      tokenType: 'access',
+      ...sessionUser,
+      id: String(sessionUser.id),
+      userId: String(sessionUser.id)
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+  );
+};
 
 router.post('/login', checkLoginRateLimit, verifyHuman, async (req, res) => {
   try {
@@ -200,7 +196,7 @@ router.post('/login', checkLoginRateLimit, verifyHuman, async (req, res) => {
     return res.json({
       success: true,
       message: 'Login successful',
-      token: await createApplicationToken(account),
+      token: createApplicationToken(account),
       user: safeUser(account)
     });
   } catch (error) {
@@ -464,7 +460,7 @@ router.post('/password-reset/verify', passwordResetVerifyLimiter, async (req, re
       return res.status(400).json({ success: false, message: 'The verification code is invalid or expired' });
     }
     const resetAuthorization = jwt.sign(
-      { purpose: 'password_reset', userId: account._id, role, nonce },
+      { tokenType: 'password_reset', purpose: 'password_reset', userId: account._id, role, nonce },
       process.env.JWT_SECRET,
       { expiresIn: '10m' }
     );
@@ -582,19 +578,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
 });
 
 router.get('/session', authenticateToken, async (req, res) => {
-  try {
-    const AccountModel = getAccountModel(req.user.role);
-    const user = await AccountModel?.findById(req.user.userId)
-      .select('username role firstName lastName email studentNumber institutionId personalInformation employeeId department departmentCode designation isVerifiedEnrollmentOfficer accountStatus')
-      .lean();
-    if (!user || user.accountStatus !== 'active') {
-      return res.status(401).json({ success: false, message: 'Account no longer exists or is inactive' });
-    }
-    return res.json({ success: true, user: safeUser(user) });
-  } catch (error) {
-    console.error('Session lookup error:', error);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  }
+  return res.json({ success: true, user: safeUser(req.user) });
 });
 
 router.post('/google', async (req, res) => {
@@ -755,7 +739,7 @@ router.post('/google', async (req, res) => {
     return res.json({
       success: true,
       message: 'Google login successful',
-      token: await createApplicationToken(account),
+      token: createApplicationToken(account),
       user: safeUser(account)
     });
   } catch (error) {

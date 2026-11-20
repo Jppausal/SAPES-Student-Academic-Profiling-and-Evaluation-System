@@ -1,5 +1,13 @@
 const SystemSettings = require('../models/SystemSettings');
-const defaults = { googleAuth: true, recaptcha: false, smtp: true, passwordGenerator: true };
+const defaults = {
+  googleAuth: true,
+  recaptcha: false,
+  smtp: true,
+  passwordGenerator: true,
+  cloudinary: true,
+  psgcCloud: true,
+  mongodbAtlas: true
+};
 
 /**
  * Masks a credential so that only the first 5 characters are visible,
@@ -74,7 +82,14 @@ function configuration(record) {
         Number(process.env.SMTP_PORT || 587) > 0 &&
         Number(process.env.SMTP_PORT || 587) <= 65535
     ),
-    passwordGenerator: true
+    passwordGenerator: true,
+    cloudinary: Boolean(
+      process.env.CLOUDINARY_CLOUD_NAME?.trim() &&
+      process.env.CLOUDINARY_API_KEY?.trim() &&
+      process.env.CLOUDINARY_API_SECRET?.trim()
+    ),
+    psgcCloud: true,
+    mongodbAtlas: Boolean(process.env.MONGO_URI?.trim() || process.env.ATLAS_URI?.trim())
   };
 }
 
@@ -156,6 +171,19 @@ async function readSettings(options = {}) {
         item.keyLabel = '';
         item.canCustomize = false;
       }
+    } else if (name === 'cloudinary') {
+      if (isAdmin) {
+        item.maskedKey = maskCredential(process.env.CLOUDINARY_API_KEY?.trim() || '');
+        item.maskedDefaultKey = maskCredential(process.env.CLOUDINARY_API_KEY?.trim() || '');
+        item.hasKey = Boolean(process.env.CLOUDINARY_API_KEY?.trim());
+        item.isCustomized = false;
+        item.keyLabel = 'API Key';
+        item.canCustomize = false;
+      }
+    } else if (name === 'psgcCloud') {
+      item.canCustomize = false;
+    } else if (name === 'mongodbAtlas') {
+      item.canCustomize = false;
     }
 
     integrations[name] = item;
@@ -176,6 +204,14 @@ async function requireIntegration(name) {
         ? setting.enabled
           ? 'Password generator is not configured.'
           : 'Password generator is currently disabled.'
+        : name === 'cloudinary'
+        ? setting.enabled
+          ? 'Cloudinary is not configured.'
+          : 'Cloudinary is currently disabled.'
+        : name === 'psgcCloud'
+        ? 'PSGC Cloud is currently unavailable.'
+        : name === 'mongodbAtlas'
+        ? 'MongoDB Atlas is currently unavailable.'
         : 'Email service is currently unavailable.'
     );
     error.status = 503;

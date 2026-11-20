@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
 import { StudentPortal } from './components/student/StudentPortal';
@@ -71,35 +72,55 @@ const AppContent: React.FC = () => {
     return <div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm font-medium text-slate-500">Validating your session…</div>;
   }
 
-  if (authView === 'login') {
-    return (
-      <LoginPage
-        onLogin={async (username, password, recaptchaToken) => {
-          const result = await login(username, password, recaptchaToken);
-          if (result.success) setAuthView('dashboard');
-          return result;
-        }}
-        onGoogleLogin={async (credential) => {
-          const result = await loginWithGoogle(credential);
-          if (result.success) setAuthView('dashboard');
-          return result;
-        }}
-        onBack={() => setAuthView('landing')}
-        onForgotPassword={() => setAuthView('forgot-password')}
-      />
-    );
-  }
-
   if (authView === 'forgot-password') {
     return <ForgotPasswordPage onBack={() => setAuthView('login')} />;
   }
 
-  if (authView === 'landing') {
-    return <AuthLandingPage onLogin={() => setAuthView('login')} />;
-  }
-
-  if (!currentUser) {
-    return <AuthLandingPage onLogin={() => setAuthView('login')} />;
+  if (authView === 'login' || authView === 'landing' || !currentUser) {
+    return (
+      <div className="relative min-h-screen bg-brand-950">
+        <MotionConfig reducedMotion="user">
+          <AnimatePresence initial={false}>
+            {authView === 'login' ? (
+              <motion.div
+                key="login"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className="absolute inset-0 min-h-screen bg-brand-950"
+              >
+                <LoginPage
+                  onLogin={async (username, password, recaptchaToken) => {
+                    const result = await login(username, password, recaptchaToken);
+                    if (result.success) setAuthView('dashboard');
+                    return result;
+                  }}
+                  onGoogleLogin={async (credential) => {
+                    const result = await loginWithGoogle(credential);
+                    if (result.success) setAuthView('dashboard');
+                    return result;
+                  }}
+                  onBack={() => setAuthView('landing')}
+                  onForgotPassword={() => setAuthView('forgot-password')}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="landing"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className="absolute inset-0 min-h-screen bg-brand-950"
+              >
+                <AuthLandingPage onLogin={() => setAuthView('login')} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </MotionConfig>
+      </div>
+    );
   }
 
   const navigateFacultyPage = (page: FacultyPage) => {
@@ -140,7 +161,7 @@ const AppContent: React.FC = () => {
           />
         )}
         {currentUser?.role === 'faculty' && (
-          <>
+          <div key={activePage} className="workspace-page-transition">
             {activePage === 'student-search' ? <StudentSearchPage initialQuery={studentSearchQuery} />
               : activePage === 'student-records' ? <FacultyAcademicRecordsPage fixedProgram={departmentProgram} canApproveEnrollment={currentUser.isVerifiedEnrollmentOfficer} />
                 : activePage === 'evaluations' ? <FacultyEvaluationPage initialTarget={evaluationTarget} fixedProgram={departmentProgram} />
@@ -164,7 +185,7 @@ const AppContent: React.FC = () => {
                           }}
                         />
                   )}
-          </>
+          </div>
         )}
         {currentUser?.role === 'admin' && <AdminPortal />}
       </main>

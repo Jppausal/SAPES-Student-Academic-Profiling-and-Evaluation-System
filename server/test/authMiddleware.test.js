@@ -1,36 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
-
-const SessionToken = require('../models/SessionToken');
-const Student = require('../models/Student');
 const authenticateToken = require('../middleware/authMiddleware');
 
-const originalFindSession = SessionToken.findOne;
-const originalFindStudent = Student.findById;
 const originalJwtSecret = process.env.JWT_SECRET;
 
-const queryReturning = (value) => ({
-  select() {
-    return this;
-  },
-  lean() {
-    return Promise.resolve(value);
-  }
-});
-
-const makeRequest = () => {
-  const token = jwt.sign(
-    {
-      jti: 'test-session',
-      userId: '507f1f77bcf86cd799439011',
-      role: 'student',
-      username: 'old-username'
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '5m' }
-  );
-
+const makeRequest = (payload, options) => {
+  const token = jwt.sign(payload, process.env.JWT_SECRET, options);
   return { headers: { authorization: `Bearer ${token}` } };
 };
 
@@ -49,13 +25,6 @@ const makeResponse = () => ({
 
 test.beforeEach(() => {
   process.env.JWT_SECRET = 'test-only-jwt-secret';
-  SessionToken.findOne = () => queryReturning({ _id: 'session-id' });
-  Student.findById = () => queryReturning(null);
-});
-
-test.afterEach(() => {
-  SessionToken.findOne = originalFindSession;
-  Student.findById = originalFindStudent;
 });
 
 test.after(() => {
@@ -66,70 +35,79 @@ test.after(() => {
   }
 });
 
-test('allows an active role-matched account and refreshes mutable identity claims', async () => {
-  Student.findById = () => queryReturning({
-    username: 'current-username',
-    role: 'student',
-    accountStatus: 'active'
+test('authenticates a signed access token without database session or account lookups', () => {
+  const req = makeRequest({
+    tokenType: 'access',
+    userId: '507f1f77bcf86cd799439011',
+    role: 'faculty',
+    username: 'faculty.user',
+    departmentCode: 'IT',
+    isVerifiedEnrollmentOfficer: true
   });
-  const req = makeRequest();
   const res = makeResponse();
   let nextCalled = false;
 
-  await authenticateToken(req, res, () => {
+  authenticateToken(req, res, () => {
     nextCalled = true;
   });
 
   assert.equal(nextCalled, true);
-  assert.equal(req.user.role, 'student');
-  assert.equal(req.user.username, 'current-username');
+  assert.equal(req.user.role, 'faculty');
+  assert.equal(req.user.departmentCode, 'IT');
+  assert.equal(req.user.isVerifiedEnrollmentOfficer, true);
 });
 
-test('rejects an existing session after the account is suspended', async () => {
-  Student.findById = () => queryReturning({
-    username: 'student-account',
-    role: 'student',
-    accountStatus: 'suspended'
-  });
-  const req = makeRequest();
-  const res = makeResponse();
-  let nextCalled = false;
-
-  await authenticateToken(req, res, () => {
-    nextCalled = true;
-  });
-
-  assert.equal(nextCalled, false);
-  assert.equal(res.statusCode, 403);
-  assert.deepEqual(res.body, { success: false, message: 'Account is not active' });
-});
-
-test('rejects a session when its account no longer exists', async () => {
-  Student.findById = () => queryReturning(null);
-  const req = makeRequest();
+test('rejects password-reset JWTs as access tokens', () => {
+  const req = makeRequest({
+    tokenType: 'password_reset',
+    purpose: 'password_reset',
+    userId: '507f1f77bcf86cd799439011',
+    role: 'student'
+  }, { expiresIn: '5m' });
   const res = makeResponse();
 
-  await authenticateToken(req, res, () => assert.fail('next should not be called'));
+  authenticateToken(req, res, () => assert.fail('next should not be called'));
 
   assert.equal(res.statusCode, 401);
-  assert.deepEqual(res.body, { success: false, message: 'Account no longer exists' });
+  assert.deepEqual(res.body, { success: false, message: 'Invalid or expired token' });
 });
 
-test('authenticates a student account stored only in the Student collection', async () => {
-  Student.findById = () => queryReturning({
-    username: 'student-account',
-    role: 'student',
-    accountStatus: 'active'
-  });
-  const req = makeRequest();
+test('rejects expired access tokens', () => {
+  const req = makeRequest({
+    tokenType: 'access',
+    userId: '507f1f77bcf86cd799439011',
+    role: 'student'
+  }, { expiresIn: '-1s' });
   const res = makeResponse();
-  let nextCalled = false;
 
-  await authenticateToken(req, res, () => {
-    nextCalled = true;
+  authenticateToken(req, res, () => assert.fail('next should not be called'));
+
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(res.body, { success: false, message: 'Invalid or expired token' });
+});
+
+test('rejects pre-stateless tokens so users must sign in to receive the new claims', () => {
+  const req = makeRequest({
+    userId: '507f1f77bcf86cd799439011',
+    role: 'student',
+    jti: 'old-session-id'
   });
+  const res = makeResponse();
 
-  assert.equal(nextCalled, true);
-  assert.equal(req.user.role, 'student');
-  assert.equal(req.user.username, 'student-account');
+  authenticateToken(req, res, () => assert.fail('next should not be called'));
+
+  assert.equal(res.statusCode, 401);
+});
+
+test('rejects access tokens with missing or unsupported identity claims', () => {
+  const req = makeRequest({
+    tokenType: 'access',
+    userId: '507f1f77bcf86cd799439011',
+    role: 'superuser'
+  });
+  const res = makeResponse();
+
+  authenticateToken(req, res, () => assert.fail('next should not be called'));
+
+  assert.equal(res.statusCode, 401);
 });

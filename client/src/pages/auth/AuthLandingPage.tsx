@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   ClipboardCheck,
@@ -12,8 +12,8 @@ import {
   UsersRound,
 } from 'lucide-react';
 import logo from '../../assets/branding/logo ccot.jpg';
-import schoolPhoto from '../../assets/branding/cot building.jpg';
 import lowerPagePhoto from '../../assets/branding/landingpage.jpg';
+import { AuthBackground } from './AuthBackground';
 
 type AuthLandingPageProps = {
   onLogin: () => void;
@@ -21,6 +21,7 @@ type AuthLandingPageProps = {
 
 export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
   const heroRef = useRef<HTMLElement>(null);
+  const [activeSection, setActiveSection] = useState<'top' | 'about' | 'enrollment' | 'contact'>('top');
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -49,9 +50,9 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
 
   return (
     <div id="top" className="min-h-screen bg-brand-900 text-white">
-      <header className="absolute inset-x-0 top-0 z-20 border-b border-white/15 bg-brand-900/40 text-white backdrop-blur-sm">
+      <header className="fixed inset-x-0 top-0 z-20 border-b border-white/15 bg-brand-900/40 text-white backdrop-blur-sm">
         <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
-          <a href="#top" className="flex items-center gap-3">
+          <a href="#top" onClick={() => setActiveSection('top')} className="flex items-center gap-3">
             <img src={logo} alt="College of Technologies logo" className="h-12 w-12 rounded-full bg-white object-contain p-0.5" />
             <span className="border-l border-white/25 pl-3 leading-tight text-white">
               <span className="block text-sm font-bold sm:text-base">College of Technologies</span>
@@ -62,10 +63,26 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
           </a>
 
           <nav className="hidden items-center gap-8 text-[11px] font-semibold uppercase tracking-wide text-blue-50 lg:flex">
-            <a href="#top" className="border-b-2 border-white py-7 text-white">Home</a>
-            <a href="#about" className="transition-colors hover:text-white">About</a>
-            <a href="#enrollment" className="transition-colors hover:text-white">Enrollment</a>
-            <a href="#contact" className="transition-colors hover:text-white">Contact</a>
+            {([
+              ['top', 'Home'],
+              ['about', 'About'],
+              ['enrollment', 'Enrollment'],
+              ['contact', 'Contact'],
+            ] as const).map(([section, label]) => (
+              <a
+                key={section}
+                href={`#${section}`}
+                onClick={() => setActiveSection(section)}
+                aria-current={activeSection === section ? 'location' : undefined}
+                className={`border-b-2 py-7 transition-colors ${
+                  activeSection === section
+                    ? 'border-white text-white'
+                    : 'border-transparent text-blue-50 hover:border-white/60 hover:text-white'
+                }`}
+              >
+                {label}
+              </a>
+            ))}
           </nav>
 
           <button
@@ -82,17 +99,9 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
       <main>
         <section
           ref={heroRef}
-          className="relative isolate flex min-h-screen min-h-[100svh] items-center overflow-hidden bg-brand-900 px-5 pb-16 pt-28 sm:px-8 sm:pt-32 lg:px-10"
+          className="relative isolate flex min-h-screen min-h-[100svh] items-center bg-brand-900 px-5 pb-16 pt-28 sm:px-8 sm:pt-32 lg:px-10"
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{ opacity: 'var(--landing-fade, 1)' }}
-          >
-            <img src={schoolPhoto} alt="" className="h-full w-full object-cover object-center" />
-            <div className="absolute inset-0 bg-gradient-to-r from-brand-950/90 via-brand-900/65 to-brand-900/35" />
-            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-brand-900" />
-          </div>
+          <AuthBackground style={{ opacity: 'var(--landing-fade, 1)' }} />
 
           <div
             className="relative z-10 mx-auto w-full max-w-7xl"
@@ -156,7 +165,11 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
                 <h2 className="mt-4 text-xl font-bold text-white">For Students</h2>
                 <div className="mt-3 h-0.5 w-9 bg-brand-300" />
                 <p className="mt-4 max-w-sm text-sm leading-6 text-blue-100">Access your academic records and manage your enrollment information using your institutional account.</p>
-                <button type="button" onClick={onLogin} className="mt-5 flex items-center gap-3 rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-wide text-brand-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  className="mt-5 flex items-center gap-3 rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-wide text-brand-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
                   Student Login <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -165,7 +178,11 @@ export function AuthLandingPage({ onLogin }: AuthLandingPageProps) {
                 <h2 className="mt-4 text-xl font-bold text-white">For School Staff</h2>
                 <div className="mt-3 h-0.5 w-9 bg-brand-300" />
                 <p className="mt-4 max-w-sm text-sm leading-6 text-blue-100">Access the admin portal to manage applications, students, and reports.</p>
-                <button type="button" onClick={onLogin} className="mt-5 flex items-center gap-3 rounded-md border border-white/50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                <button
+                  type="button"
+                  onClick={onLogin}
+                  className="mt-5 flex items-center gap-3 rounded-md border border-white/50 px-5 py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
                   Staff Login <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

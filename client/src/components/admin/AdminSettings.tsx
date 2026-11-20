@@ -58,6 +58,21 @@ const descriptions: Record<IntegrationName, { title: string; description: string
     description:
       'Generates high-entropy passwords via the API Ninjas Password Generator API when creating new accounts. When disabled or unconfigured, the system uses the secure built-in cryptographic generator.',
   },
+  cloudinary: {
+    title: 'Cloudinary',
+    description:
+      'Stores student medical certificates as secure image or PDF uploads. Requires a cloud name, API key, and API secret.',
+  },
+  psgcCloud: {
+    title: 'PSGC Cloud',
+    description:
+      'Provides Philippine regions, provinces, municipalities/cities, and barangays for address selection.',
+  },
+  mongodbAtlas: {
+    title: 'MongoDB Atlas',
+    description:
+      'Cloud database service used for SAPES application data. This is infrastructure configuration rather than an application API integration.',
+  },
 };
 
 export function AdminSettings({ onAudit }: { onAudit: () => void }) {
@@ -691,7 +706,7 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
           </p>
           {!settings && !error && <p role="status">Loading app settings…</p>}
           {settings &&
-            (Object.keys(descriptions) as IntegrationName[]).map((name) => {
+            (['googleAuth', 'recaptcha', 'smtp', 'passwordGenerator'] as IntegrationName[]).map((name) => {
               const setting = settings?.integrations?.[name] ?? {
                 enabled: true,
                 configured: true,
@@ -808,6 +823,47 @@ export function AdminSettings({ onAudit }: { onAudit: () => void }) {
                 </div>
               );
             })}
+          {settings && (
+            <div className="mt-5 space-y-3 border-t border-slate-200 pt-4">
+              <h4 className="text-sm font-bold text-slate-800">Infrastructure &amp; External Services</h4>
+              {(['cloudinary', 'psgcCloud', 'mongodbAtlas'] as IntegrationName[]).map((name) => {
+                const setting = settings.integrations[name];
+                const isConfigured = Boolean(setting?.configured);
+                const isEnabled = Boolean(setting?.enabled);
+                const isMongoRequired = name === 'mongodbAtlas';
+                return (
+                  <div key={name} className="admin-integration-row">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-semibold">{descriptions[name].title}</span>
+                      {isMongoRequired ? (
+                        <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-1 text-[11px] font-semibold text-sky-800">
+                          Required infrastructure
+                        </span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          aria-label={descriptions[name].title}
+                          checked={isEnabled && isConfigured}
+                          disabled={saving || !isConfigured}
+                          onChange={(event) => void toggle(name, event.target.checked)}
+                        />
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm">
+                      Status: {isConfigured ? 'Configured' : 'Not configured'}
+                      {isMongoRequired
+                        ? ' · Required'
+                        : isConfigured && isEnabled
+                          ? ' · Active'
+                          : ' · Disabled'}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600">{descriptions[name].description}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {saving && <p role="status" className="text-xs text-indigo-600 mt-2">Saving configuration…</p>}
         </section>
       )}

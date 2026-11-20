@@ -78,7 +78,7 @@ async function fixture(t) {
   const app = express(); app.use(express.json()); app.use('/settings', require('../routes/settingsRoutes')); app.use('/auth', require('../routes/authRoutes'));
   const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => { if (server.closeAllConnections) server.closeAllConnections(); server.close(resolve); }));
-  const request = (path, role, body, methodOverride) => fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: methodOverride || (body ? (path.startsWith('/auth') || path.includes('/send-mfa') ? 'POST' : 'PUT') : 'GET'), headers: { 'Content-Type': 'application/json', ...(role ? { Authorization: `Bearer ${jwt.sign({ userId: '507f1f77bcf86cd799439011', role, jti: 'test' }, process.env.JWT_SECRET)}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const request = (path, role, body, methodOverride) => fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: methodOverride || (body ? (path.startsWith('/auth') || path.includes('/send-mfa') ? 'POST' : 'PUT') : 'GET'), headers: { 'Content-Type': 'application/json', ...(role ? { Authorization: `Bearer ${jwt.sign({ tokenType: 'access', userId: '507f1f77bcf86cd799439011', role, jti: 'test' }, process.env.JWT_SECRET)}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
   return { state, request, audit, mfaTokens, deny: () => { permissions = []; } };
 }
 test('admin settings read/update returns safe flags and audits old/new values', async t => {
