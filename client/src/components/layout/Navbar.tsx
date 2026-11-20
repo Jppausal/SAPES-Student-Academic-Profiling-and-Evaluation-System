@@ -309,7 +309,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         )}
 
         {currentUser && (
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
           {currentUser.role === 'student' && onStudentNotificationsToggle && (
             <button
               type="button"

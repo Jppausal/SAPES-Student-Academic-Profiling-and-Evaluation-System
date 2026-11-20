@@ -14,12 +14,6 @@ const {
   getAccountModelName
 } = require('../utils/accountCollections');
 const { getGoogleClientId } = require('../utils/systemSettings');
-const {
-  loginRateLimiter,
-  passwordResetRequestRateLimiter,
-  passwordResetRateLimiter,
-  googleAuthRateLimiter
-} = require('../middleware/rateLimiters');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -113,7 +107,7 @@ const createApplicationToken = (user) => {
   );
 };
 
-router.post('/login', loginRateLimiter, verifyHuman, async (req, res) => {
+router.post('/login', verifyHuman, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || !password) {
@@ -322,7 +316,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/password-reset/request', passwordResetRequestRateLimiter, verifyHuman, async (req, res) => {
+router.post('/password-reset/request', verifyHuman, async (req, res) => {
   const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
     await require('../utils/systemSettings').requireIntegration('smtp');
@@ -349,7 +343,7 @@ router.post('/password-reset/request', passwordResetRequestRateLimiter, verifyHu
   }
 });
 
-router.post('/password-reset/verify', passwordResetRateLimiter, async (req, res) => {
+router.post('/password-reset/verify', async (req, res) => {
   try {
     const { username, code } = req.body || {};
     if (typeof username !== 'string' || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
@@ -414,7 +408,7 @@ router.post('/password-reset/verify', passwordResetRateLimiter, async (req, res)
   }
 });
 
-router.post('/password-reset/confirm', passwordResetRateLimiter, async (req, res) => {
+router.post('/password-reset/confirm', async (req, res) => {
   try {
     const { resetAuthorization, newPassword } = req.body || {};
     if (
@@ -514,7 +508,7 @@ router.get('/session', authenticateToken, async (req, res) => {
   return res.json({ success: true, user: safeUser(req.user) });
 });
 
-router.post('/google', googleAuthRateLimiter, async (req, res) => {
+router.post('/google', async (req, res) => {
   try {
     await require('../utils/systemSettings').requireIntegration('googleAuth');
     const { credential } = req.body || {};

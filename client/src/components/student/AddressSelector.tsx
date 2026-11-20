@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { fetchIntegrationSettings } from '../../lib/api';
 
 type Place = { code: string; name: string };
 type Address = Record<string, string>;
@@ -16,9 +17,21 @@ const load = async (path: string): Promise<Place[]> => {
 const selectClass = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2';
 
 export const AddressSelector: React.FC<{ title: string; address: Address; onChange: (field: string, value: string) => void }> = ({ title, address, onChange }) => {
+  const [psgcEnabled, setPsgcEnabled] = useState(true);
   const [regions, setRegions] = useState<Place[]>([]); const [provinces, setProvinces] = useState<Place[]>([]); const [cities, setCities] = useState<Place[]>([]); const [barangays, setBarangays] = useState<Place[]>([]); const [regionCode, setRegionCode] = useState(''); const [provinceCode, setProvinceCode] = useState(''); const [cityCode, setCityCode] = useState(''); const [error, setError] = useState('');
   const userChangedAddress = useRef(false);
-  useEffect(() => { load('/regions').then(setRegions).catch((reason) => setError(reason.message)); }, []);
+  useEffect(() => {
+    fetchIntegrationSettings()
+      .then((settings) => setPsgcEnabled(settings.integrations.psgcCloud?.enabled !== false))
+      .catch(() => setPsgcEnabled(true));
+  }, []);
+  useEffect(() => {
+    if (!psgcEnabled) {
+      setError('Philippine location service is disabled');
+      return;
+    }
+    load('/regions').then(setRegions).catch((reason) => setError(reason.message));
+  }, [psgcEnabled]);
   useEffect(() => {
     if (!regions.length || userChangedAddress.current || !address.region || (address.country && address.country !== 'Philippines')) return;
     let active = true;

@@ -145,20 +145,6 @@ The Vite dev server proxies `/api` requests to the local Express API. The API
 connects to the cloud database configured in `server/.env`; the browser must
 never connect to MongoDB Atlas directly.
 
-### API rate limits
-
-The API limits each client IP to 300 requests per 15 minutes. Authentication
-routes have tighter limits: 10 login attempts, 5 password-reset requests, 10
-password-reset verification/confirmation attempts, and 10 Google sign-in
-attempts per 15 minutes. Limited requests return HTTP `429` with a JSON error
-and standard `RateLimit` headers.
-
-The built-in limiter store is in memory and is local to each server process.
-Deployments with multiple API instances should use a shared rate-limit store
-and configure Express proxy trust only for their known reverse-proxy hops so
-client IPs are identified correctly.
-
----
 
 ## Verifying the Setup
 

@@ -18,6 +18,15 @@ module.exports = mongoose.model('SystemSettings', new mongoose.Schema({
     passwordGenerator: {
       enabled: { type: Boolean, default: true },
       customApiKey: { type: String, default: '' }
+    },
+    cloudinary: {
+      enabled: { type: Boolean, default: true }
+    },
+    psgcCloud: {
+      enabled: { type: Boolean, default: true }
+    },
+    mongodbAtlas: {
+      enabled: { type: Boolean, default: true }
     }
   },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' }

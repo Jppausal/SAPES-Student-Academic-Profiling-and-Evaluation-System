@@ -1010,7 +1010,14 @@ export async function checkServerHealth(): Promise<boolean> {
   }
 }
 
-export type IntegrationName = 'googleAuth' | 'recaptcha' | 'smtp' | 'passwordGenerator';
+export type IntegrationName =
+  | 'googleAuth'
+  | 'recaptcha'
+  | 'smtp'
+  | 'passwordGenerator'
+  | 'cloudinary'
+  | 'psgcCloud'
+  | 'mongodbAtlas';
 export interface IntegrationSettingItem {
   enabled: boolean;
   configured: boolean;

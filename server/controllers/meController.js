@@ -10,6 +10,7 @@ const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile'
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { getAccountModelName } = require('../utils/accountCollections');
 const cloudinary = require('cloudinary').v2;
+const { requireIntegration } = require('../utils/systemSettings');
 
 const router = express.Router();
 const studentAccountFilter = (userId) => ({ _id: userId });
@@ -21,6 +22,17 @@ const uploadMedicalCertificate = async (certificate, userId) => {
   if (certificate.fileSize > MAX_UPLOAD_SIZE) {
     throw new Error('Uploaded file is too large. Please choose a file no larger than 50MB.');
   }
+
+  let cloudinaryEnabled = false;
+  try {
+    await requireIntegration('cloudinary');
+    cloudinaryEnabled = true;
+  } catch (error) {
+    if (certificate.fileSize <= 5 * 1024 * 1024) return certificate;
+    throw error;
+  }
+
+  if (!cloudinaryEnabled) return certificate;
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
   const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
