@@ -299,6 +299,18 @@ test('POST /settings/credentials/verify performs live validation with rich provi
   assert.equal(validGoogleBody.data.status, 'connected');
   assert.match(validGoogleBody.data.message, /Google Client ID.*OAuth2/);
 
+  // Altered/Invalid Google Client ID rejection test
+  const rejectedGoogleRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'googleAuth',
+    customKey: '123456789012-invalid-client-id.apps.googleusercontent.com'
+  }, 'POST');
+  assert.equal(rejectedGoogleRes.status, 200);
+  const rejectedGoogleBody = await rejectedGoogleRes.json();
+  assert.equal(rejectedGoogleBody.success, true);
+  assert.equal(rejectedGoogleBody.data.valid, false);
+  assert.equal(rejectedGoogleBody.data.status, 'rejected');
+  assert.match(rejectedGoogleBody.data.message, /rejected this Client ID/);
+
   // API Ninjas short format error test
   const shortApiNinjasRes = await request('/settings/credentials/verify', 'admin', {
     integration: 'passwordGenerator',

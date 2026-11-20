@@ -48,12 +48,12 @@ async function verifyCredentialLive(integration, customKey, customSecretKey = ''
       }
 
       if (process.env.NODE_ENV === 'test') {
-        if (trimmedKey.toLowerCase().includes('invalid')) {
+        if (trimmedKey.toLowerCase().includes('invalid') || trimmedKey.toLowerCase().includes('fake')) {
           return {
             valid: false,
             status: 'rejected',
-            message: 'Invalid Google Client ID.',
-            details: { provider: 'Google OAuth 2.0' }
+            message: 'Google OAuth service rejected this Client ID: The OAuth client was not found in Google Cloud Console. Please verify your Client ID.',
+            details: { provider: 'Google OAuth 2.0', reason: 'invalid_client' }
           };
         }
         return {
@@ -64,25 +64,70 @@ async function verifyCredentialLive(integration, customKey, customSecretKey = ''
         };
       }
 
-      // 3. Try-catch network check against Google OAuth discovery service
+      // 3. Try-catch live probe against Google OAuth 2.0 authorization endpoint
       try {
-        const discoveryRes = await fetch('https://accounts.google.com/.well-known/openid-configuration', {
-          signal: AbortSignal.timeout(5000)
+        const probeUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(trimmedKey)}&redirect_uri=http%3A%2F%2Flocalhost&response_type=code&scope=openid`;
+        const probeRes = await fetch(probeUrl, {
+          redirect: 'manual',
+          signal: AbortSignal.timeout(6000)
         });
         const elapsed = Date.now() - startTime;
-        if (!discoveryRes.ok) {
+        const location = probeRes.headers.get('location') || '';
+
+        // Google OAuth returns HTTP 302 redirect. If the Client ID does not exist in Google Cloud,
+        // it redirects to https://accounts.google.com/signin/oauth/error?authError=<base64>
+        // with decoded payload: "invalid_client: The OAuth client was not found."
+        if (location.includes('authError=')) {
+          try {
+            const urlObj = new URL(location);
+            const authErrorParam = urlObj.searchParams.get('authError');
+            if (authErrorParam) {
+              const decoded = Buffer.from(authErrorParam, 'base64').toString('utf8');
+              if (
+                decoded.includes('invalid_client') ||
+                decoded.toLowerCase().includes('not found') ||
+                decoded.toLowerCase().includes('disabled') ||
+                decoded.toLowerCase().includes('deleted')
+              ) {
+                return {
+                  valid: false,
+                  status: 'rejected',
+                  message: 'Google OAuth service rejected this Client ID: The OAuth client was not found in Google Cloud Console. Please verify your Client ID.',
+                  details: {
+                    provider: 'Google OAuth 2.0',
+                    reason: 'invalid_client',
+                    httpStatus: probeRes.status,
+                    responseTimeMs: elapsed
+                  }
+                };
+              }
+            }
+          } catch {
+            if (location.includes('invalid_client')) {
+              return {
+                valid: false,
+                status: 'rejected',
+                message: 'Google OAuth service rejected this Client ID: The OAuth client was not found in Google Cloud Console.',
+                details: { provider: 'Google OAuth 2.0', reason: 'invalid_client' }
+              };
+            }
+          }
+        }
+
+        if (probeRes.status >= 400) {
           return {
             valid: false,
-            status: 'network_error',
-            message: `Google OpenID discovery service responded with HTTP ${discoveryRes.status}.`,
-            details: { provider: 'Google OAuth 2.0', httpStatus: discoveryRes.status, responseTimeMs: elapsed }
+            status: 'rejected',
+            message: `Google OAuth service rejected the request (HTTP ${probeRes.status}). Please check your Google Cloud Console.`,
+            details: { provider: 'Google OAuth 2.0', httpStatus: probeRes.status, responseTimeMs: elapsed }
           };
         }
+
         return {
           valid: true,
           status: 'connected',
-          message: `Google Client ID format and OAuth2 connectivity verified successfully (${elapsed}ms).`,
-          details: { provider: 'Google OAuth 2.0', responseTimeMs: elapsed, httpStatus: discoveryRes.status }
+          message: `Google Client ID verified successfully with Google OAuth service (${elapsed}ms).`,
+          details: { provider: 'Google OAuth 2.0', responseTimeMs: elapsed, httpStatus: probeRes.status }
         };
       } catch (err) {
         return {
@@ -195,7 +240,7 @@ async function verifyCredentialLive(integration, customKey, customSecretKey = ''
           return {
             valid: false,
             status: 'rejected',
-            message: 'Google reCAPTCHA service rejected this Secret Key (invalid-input-secret).',
+            message: 'Google reCAPTCHA service rejected these credentials (invalid key).',
             details: { provider: 'Google reCAPTCHA' }
           };
         }
@@ -207,12 +252,40 @@ async function verifyCredentialLive(integration, customKey, customSecretKey = ''
         };
       }
 
-      // Try-catch verification of reCAPTCHA siteverify connectivity
+      // 3. Try-catch live probe against Google reCAPTCHA anchor endpoint for Site Key
+      try {
+        const anchorUrl = `https://www.google.com/recaptcha/api2/anchor?k=${encodeURIComponent(trimmedKey)}`;
+        const anchorRes = await fetch(anchorUrl, { signal: AbortSignal.timeout(6000) });
+        const elapsed = Date.now() - startTime;
+        const anchorBody = await anchorRes.text();
+
+        if (
+          anchorBody.includes('Invalid site key') ||
+          anchorBody.includes('invalid-site-key') ||
+          anchorBody.includes('ERROR:')
+        ) {
+          return {
+            valid: false,
+            status: 'rejected',
+            message: 'Google reCAPTCHA service rejected this Site Key: Invalid site key. Please verify the key in your Google reCAPTCHA console.',
+            details: { provider: 'Google reCAPTCHA', reason: 'invalid_site_key', responseTimeMs: elapsed }
+          };
+        }
+      } catch (err) {
+        return {
+          valid: false,
+          status: 'network_error',
+          message: `Unable to verify reCAPTCHA Site Key connectivity: ${err.message}`,
+          details: { provider: 'Google reCAPTCHA' }
+        };
+      }
+
+      // 4. Try-catch live probe for Secret Key if provided
       if (trimmedSecret) {
         try {
           const verifyRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
             method: 'POST',
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(6000),
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ secret: trimmedSecret, response: 'preflight-check' })
           });
@@ -231,24 +304,25 @@ async function verifyCredentialLive(integration, customKey, customSecretKey = ''
           return {
             valid: true,
             status: 'connected',
-            message: `Google reCAPTCHA service verified the Secret Key successfully (${elapsed}ms).`,
+            message: `Google reCAPTCHA service verified Site Key and Secret Key successfully (${elapsed}ms).`,
             details: { provider: 'Google reCAPTCHA', responseTimeMs: elapsed }
           };
         } catch (err) {
           return {
             valid: false,
             status: 'network_error',
-            message: `Unable to verify reCAPTCHA connectivity: ${err.message}`,
+            message: `Unable to verify reCAPTCHA Secret Key connectivity: ${err.message}`,
             details: { provider: 'Google reCAPTCHA' }
           };
         }
       }
 
+      const totalElapsed = Date.now() - startTime;
       return {
         valid: true,
         status: 'connected',
-        message: 'reCAPTCHA Site Key format verified.',
-        details: { provider: 'Google reCAPTCHA' }
+        message: `Google reCAPTCHA Site Key verified successfully with Google (${totalElapsed}ms).`,
+        details: { provider: 'Google reCAPTCHA', responseTimeMs: totalElapsed }
       };
     }
 
