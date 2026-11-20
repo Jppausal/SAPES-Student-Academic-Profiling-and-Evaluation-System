@@ -321,7 +321,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.removeItem('sapes_jwt');
         setCurrentUserId(null);
       }
-      return { success: false, message: error instanceof Error ? error.message : 'Login failed' };
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Login failed',
+        retryAfterSeconds: (error as any)?.retryAfterSeconds,
+        code: (error as any)?.code
+      };
     }
   };
 

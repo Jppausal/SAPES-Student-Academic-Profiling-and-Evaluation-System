@@ -36,9 +36,11 @@ const facultyEvaluationSchema = new mongoose.Schema(
     }
   },
   {
-  timestamps: true,
-  collection: 'faculty_evaluations'
-}
+    timestamps: true,
+    optimisticConcurrency: true,
+    versionKey: 'version',
+    collection: 'faculty_evaluations'
+  }
 );
 
 module.exports = mongoose.model(

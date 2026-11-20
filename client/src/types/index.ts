@@ -1,5 +1,5 @@
 export type UserRole = 'student' | 'faculty' | 'admin';
-export type FacultyPage = 'dashboard' | 'student-search' | 'student-records' | 'evaluations';
+export type FacultyPage = 'dashboard' | 'student-search' | 'student-records' | 'evaluations' | 'activity';
 
 export type EvaluationTarget = { institutionId: string; program: string };
 

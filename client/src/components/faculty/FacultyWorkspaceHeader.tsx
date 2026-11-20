@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, ClipboardCheck, LayoutDashboard } from 'lucide-react';
+import { BookOpen, ClipboardCheck, History, LayoutDashboard } from 'lucide-react';
 import type { FacultyPage } from '../../types';
 import '../student/student-workspace.css';
 
@@ -12,6 +12,7 @@ const tabs: Array<{ page: FacultyPage; label: string; icon: typeof LayoutDashboa
   { page: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { page: 'evaluations', label: 'Evaluations', icon: ClipboardCheck },
   { page: 'student-records', label: 'Academic records', icon: BookOpen },
+  { page: 'activity', label: 'Activity log', icon: History },
 ];
 
 export const FacultyWorkspaceHeader: React.FC<FacultyWorkspaceHeaderProps> = ({ activePage, onNavigate }) => (

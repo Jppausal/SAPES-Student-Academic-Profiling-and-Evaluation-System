@@ -19,6 +19,17 @@ const { getActiveAcademicPeriod } = require('../utils/academicPeriodSettings');
 const { processBulkStudentImport } = require('../utils/bulkStudentImport');
 const { DEPARTMENTS, buildStudentDepartmentFilter, getEnrollmentOfficerDepartment } = require('../utils/departmentAccess');
 const { syncDepartmentMetrics } = require('../utils/departmentMetrics');
+const {
+  bulkImportLimiter,
+  reportExportLimiter,
+  studentStatusUpdateLimiter,
+  evaluationSubmitLimiter,
+  studentProfileUpdateLimiter
+} = require('../middleware/transactionRateLimiter');
+const {
+  verifyLockForWrite,
+  releaseLock
+} = require('../utils/lockManager');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -51,7 +62,19 @@ router.put('/:institutionId/classification', authenticateToken, authorizeRoles('
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
     Object.assign(student.classification, profileUpdate.value.classification);
     await student.save();
-    await AuditLog.create({ userId: req.user.userId, userRole: req.user.role, userModel: getAccountModelName(req.user.role), action: 'UPDATE_STUDENT_CLASSIFICATION', targetType: 'student', targetId: student._id, details: { institutionId: student.institutionId } });
+    await AuditLog.create({
+      userId: req.user.userId,
+      userRole: req.user.role,
+      userModel: getAccountModelName(req.user.role),
+      action: 'UPDATE_STUDENT_CLASSIFICATION',
+      targetType: 'student',
+      targetId: student._id,
+      details: {
+        studentId: student._id,
+        institutionId: student.institutionId,
+        classification: profileUpdate.value?.classification
+      }
+    });
     return res.json({ success: true, data: student.classification });
   } catch (error) { console.error('Classification update failed:', error); return res.status(500).json({ success: false, message: 'Server error' }); }
 });
@@ -76,6 +99,7 @@ router.put(
   authenticateToken,
   authorizeRoles('faculty', 'admin'),
   authorizeAnyPermission('submit_evaluations', 'manage_academic_records'),
+  studentStatusUpdateLimiter,
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -128,6 +152,18 @@ router.put(
 
       const filter = buildStudentDepartmentFilter(req.user, { institutionId });
       if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+
+      // Check pessimistic record lock compatibility
+      const lockCheck = await verifyLockForWrite(
+        'STUDENT',
+        institutionId,
+        req.user,
+        req.headers['x-lock-token'] || req.body?.lockToken
+      );
+      if (!lockCheck.allowed) {
+        return res.status(lockCheck.status).json(lockCheck);
+      }
+
       const student = await Student.findOne(filter);
 
       if (!student) {
@@ -137,36 +173,89 @@ router.put(
         });
       }
 
-      student.academicStatus.currentStatus = status.trim();
-      student.academicStatus.isOnProbation = ['probation', 'probationary', 'on probation'].includes(status.trim().toLowerCase());
-      student.academicStatus.probationReason = student.academicStatus.isOnProbation
-        ? reason?.trim() || undefined
-        : undefined;
-      student.academicStatus.statusRemarks = remarks;
-      student.academicStatus.effectiveDate = parsedEffectiveDate;
-      await student.save();
+      // Concurrency: Use MongoDB Multi-Document ACID Transaction with graceful fallback for standalone setups
+      let session = null;
+      let usedTransaction = false;
+      try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+        usedTransaction = true;
+      } catch (_sessErr) {
+        // Standalone Mongo without replica set does not support multi-doc transactions
+        session = null;
+        usedTransaction = false;
+      }
 
-      const history = await StudentStatusHistory.create({
-        studentId: student._id,
-        status: status.trim(),
-        reason,
-        effectiveDate: parsedEffectiveDate,
-        recordedBy: req.user.userId,
-        recordedByModel: getAccountModelName(req.user.role),
-        remarks
-      });
+      let history = null;
+      try {
+        const sessionOpt = usedTransaction && session ? { session } : {};
 
-      await AuditLog.create({
-        userId: req.user.userId,
-        userRole: req.user.role,
-        userModel: getAccountModelName(req.user.role),
-        action: 'UPDATE_STUDENT_STATUS',
-        targetType: 'student_status_history',
-        targetId: history._id,
-        details: {
-          institutionId,
-          status: history.status
+        student.academicStatus.currentStatus = status.trim();
+        student.academicStatus.isOnProbation = ['probation', 'probationary', 'on probation'].includes(status.trim().toLowerCase());
+        student.academicStatus.probationReason = student.academicStatus.isOnProbation
+          ? reason?.trim() || undefined
+          : undefined;
+        student.academicStatus.statusRemarks = remarks;
+        student.academicStatus.effectiveDate = parsedEffectiveDate;
+        await student.save(sessionOpt);
+
+        const historyDocs = await StudentStatusHistory.create(
+          [
+            {
+              studentId: student._id,
+              status: status.trim(),
+              reason,
+              effectiveDate: parsedEffectiveDate,
+              recordedBy: req.user.userId,
+              recordedByModel: getAccountModelName(req.user.role),
+              remarks
+            }
+          ],
+          sessionOpt
+        );
+        history = Array.isArray(historyDocs) ? historyDocs[0] : historyDocs;
+
+        await AuditLog.create(
+          [
+            {
+              userId: req.user.userId,
+              userRole: req.user.role,
+              userModel: getAccountModelName(req.user.role),
+              action: 'UPDATE_STUDENT_STATUS',
+              targetType: 'student_status_history',
+              targetId: student._id,
+              details: {
+                studentId: student._id,
+                historyId: history._id,
+                institutionId,
+                status: history.status,
+                reason: history.reason
+              }
+            }
+          ],
+          sessionOpt
+        );
+
+        if (usedTransaction && session) {
+          await session.commitTransaction();
         }
+      } catch (txError) {
+        if (usedTransaction && session) {
+          await session.abortTransaction();
+        }
+        throw txError;
+      } finally {
+        if (session) {
+          session.endSession();
+        }
+      }
+
+      // Strict 2PL Shrinking Phase: release lock upon commit
+      await releaseLock({
+        resourceType: 'STUDENT',
+        resourceId: institutionId,
+        user: req.user,
+        lockToken: req.headers['x-lock-token'] || req.body?.lockToken
       });
 
       res.json({
@@ -198,10 +287,11 @@ router.put(
   authenticateToken,
   authorizeRoles('faculty'),
   authorizePermission('submit_evaluations'),
+  evaluationSubmitLimiter,
   async (req, res) => {
     try {
       const { institutionId } = req.params;
-      const { evaluationStatus, reasons, remarks } = req.body || {};
+      const { evaluationStatus, reasons, remarks, expectedVersion } = req.body || {};
       const validStatuses = ['eligible', 'not_eligible', 'for_review'];
 
       if (!validStatuses.includes(evaluationStatus)) {
@@ -238,6 +328,18 @@ router.put(
 
       const filter = buildStudentDepartmentFilter(req.user, { institutionId });
       if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+
+      // Check pessimistic record lock compatibility
+      const lockCheck = await verifyLockForWrite(
+        'STUDENT',
+        institutionId,
+        req.user,
+        req.headers['x-lock-token'] || req.body?.lockToken
+      );
+      if (!lockCheck.allowed) {
+        return res.status(lockCheck.status).json(lockCheck);
+      }
+
       const student = await Student.findOne(filter, { _id: 1, classification: 1 }).lean();
 
       if (!student) {
@@ -258,6 +360,21 @@ router.put(
         return res.status(403).json({
           success: false,
           message: 'Evaluation belongs to another faculty member'
+        });
+      }
+
+      // Optimistic Concurrency Control (OCC): check expected version against current document version
+      if (
+        evaluation &&
+        expectedVersion !== undefined &&
+        evaluation.version !== undefined &&
+        Number(expectedVersion) !== Number(evaluation.version)
+      ) {
+        return res.status(409).json({
+          success: false,
+          code: 'CONCURRENCY_CONFLICT',
+          message: 'Evaluation record was updated by another concurrent session. Please reload the latest record and try again.',
+          currentVersion: evaluation.version
         });
       }
 
@@ -292,8 +409,17 @@ router.put(
         targetId: evaluation._id,
         details: {
           institutionId,
-          evaluationStatus: evaluation.evaluationStatus
+          evaluationStatus: evaluation.evaluationStatus,
+          version: evaluation.version
         }
+      });
+
+      // Strict 2PL Shrinking Phase: release lock upon commit
+      await releaseLock({
+        resourceType: 'STUDENT',
+        resourceId: institutionId,
+        user: req.user,
+        lockToken: req.headers['x-lock-token'] || req.body?.lockToken
       });
 
       res.json({
@@ -306,10 +432,18 @@ router.put(
           evaluationStatus: evaluation.evaluationStatus,
           reasons: evaluation.reasons,
           remarks: evaluation.remarks,
-          evaluatedAt: evaluation.evaluatedAt
+          evaluatedAt: evaluation.evaluatedAt,
+          version: evaluation.version
         }
       });
     } catch (error) {
+      if (error.name === 'VersionError') {
+        return res.status(409).json({
+          success: false,
+          code: 'CONCURRENCY_CONFLICT',
+          message: 'Evaluation record was modified concurrently by another session. Please reload and try again.'
+        });
+      }
       console.error('Error saving faculty evaluation:', error);
 
       res.status(500).json({
@@ -371,7 +505,7 @@ router.get(
   }
 );
 
-// Dedicated export endpoint strictly restricted to authorized administrators with export_reports permission (A119)
+// Dedicated export endpoint strictly restricted to authorized administrators with export_reports permission (A119, A121)
 router.get(
   '/reports/export',
   authenticateToken,
@@ -396,6 +530,109 @@ router.get(
       return lastHandler(req, res, next);
     }
     return res.status(500).json({ success: false, message: 'Export handler unavailable' });
+  }
+);
+
+// Automated audit logging endpoint for report exports (A120, A121, A122)
+router.post(
+  '/reports/audit-export',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizePermission('export_reports'),
+  reportExportLimiter,
+  async (req, res) => {
+    try {
+      const {
+        reportName = 'Overall Enrolled Students Report',
+        format = 'csv',
+        recordCount = 0,
+        exportScope = 'filtered',
+        filters = {},
+        fileName = '',
+        status = 'completed',
+        errorMessage = ''
+      } = req.body || {};
+
+      const isSuccess = status !== 'failed';
+      const details = {
+        reportName,
+        format: String(format).toLowerCase(),
+        recordCount: Number(recordCount) || 0,
+        exportScope,
+        filters,
+        fileName,
+        status: isSuccess ? 'completed' : 'failed',
+        ...(errorMessage ? { errorMessage } : {})
+      };
+
+      const auditLog = await AuditLog.create({
+        userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: 'AdminUser',
+        action: isSuccess ? 'EXPORT_STUDENT_REPORTS' : 'EXPORT_STUDENT_REPORTS_FAILED',
+        targetType: 'reports',
+        details
+      });
+
+      return res.json({
+        success: true,
+        message: isSuccess ? 'Report export logged successfully' : 'Report export failure logged successfully',
+        notification: {
+          id: `notif-${Date.now()}`,
+          type: isSuccess ? 'DATA_EXPORT_COMPLETED' : 'DATA_EXPORT_FAILED',
+          title: isSuccess ? 'Data Export Completed' : 'Export Failed',
+          message: isSuccess
+            ? `Your enrolled-student report (${String(format).toUpperCase()}) has been generated successfully and is ready to download.`
+            : 'Your report could not be generated. Please try again.',
+          format: String(format).toUpperCase(),
+          recordCount: Number(recordCount) || 0,
+          timestamp: new Date().toISOString()
+        },
+        data: { auditLog }
+      });
+    } catch (error) {
+      console.error('Failed to log report export:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
+  }
+);
+
+// Automated audit logging endpoint for major report modifications (A120)
+router.post(
+  '/reports/audit-modify',
+  authenticateToken,
+  authorizeRoles('admin'),
+  authorizeAnyPermission('view_reports', 'export_reports', 'manage_system_settings'),
+  async (req, res) => {
+    try {
+      const {
+        reportName = 'Overall Enrolled Students Report',
+        modificationType = 'REPORT_CONFIGURATION_UPDATED',
+        details = {}
+      } = req.body || {};
+
+      const auditLog = await AuditLog.create({
+        userId: req.user.userId,
+        userRole: req.user.role,
+        userModel: 'AdminUser',
+        action: 'REPORT_MODIFIED',
+        targetType: 'reports',
+        details: {
+          reportName,
+          modificationType,
+          ...details
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Report modification logged successfully',
+        data: { auditLog }
+      });
+    } catch (error) {
+      console.error('Failed to log report modification:', error);
+      return res.status(500).json({ success: false, message: 'Server error' });
+    }
   }
 );
 
@@ -484,6 +721,7 @@ router.post(
   authenticateToken,
   authorizeRoles('admin'),
   authorizeAnyPermission('manage_academic_records', 'manage_users'),
+  bulkImportLimiter,
   async (req, res) => {
     try {
       const { students } = req.body || {};
@@ -1026,6 +1264,7 @@ router.get(
         return `Year ${num}`;
       };
 
+      const exportFormat = typeof req.query.format === 'string' ? req.query.format.toLowerCase() : 'json';
       if (isExportAll) {
         await AuditLog.create({
           userId: req.user.userId,
@@ -1035,6 +1274,7 @@ router.get(
           targetType: 'reports',
           details: {
             exportScope: req.query.all === 'true' ? 'all' : 'filtered',
+            format: exportFormat,
             recordCount: students.length,
             filters: {
               academicYear,
@@ -1047,8 +1287,19 @@ router.get(
         }).catch((err) => console.warn('Failed to audit report export:', err.message));
       }
 
+      const exportNotification = isExportAll ? {
+        id: `notif-${Date.now()}`,
+        type: 'DATA_EXPORT_COMPLETED',
+        title: 'Data Export Completed',
+        message: `Overall enrolled students report export generated successfully (${students.length} records).`,
+        format: exportFormat,
+        recordCount: students.length,
+        timestamp: new Date().toISOString()
+      } : undefined;
+
       return res.json({
         success: true,
+        ...(exportNotification ? { notification: exportNotification } : {}),
         data: {
           students: students.map((student) => {
             const studentRecords = recordsByStudent.get(String(student._id)) || [];
@@ -1415,6 +1666,7 @@ router.put(
   authenticateToken,
   authorizeRoles('admin'),
   authorizePermission('manage_academic_records'),
+  studentProfileUpdateLimiter,
   async (req, res) => {
     try {
       const { institutionId } = req.params;

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* College of Technologies navy-blue palette. */
   --color-brand-50: #eef4fb;

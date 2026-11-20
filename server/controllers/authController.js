@@ -13,7 +13,19 @@ const {
   getAccountModel,
   getAccountModelName
 } = require('../utils/accountCollections');
+const { parseDeviceInfo } = require('../utils/deviceInfo');
+const { recordAuditLog } = require('../utils/auditLogger');
 const { getGoogleClientId } = require('../utils/systemSettings');
+const {
+  checkLoginRateLimit,
+  recordLoginFailure,
+  clearLoginFailures
+} = require('../middleware/loginRateLimiter');
+const {
+  passwordResetRequestLimiter,
+  passwordResetVerifyLimiter,
+  changePasswordLimiter
+} = require('../middleware/transactionRateLimiter');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -107,7 +119,7 @@ const createApplicationToken = (user) => {
   );
 };
 
-router.post('/login', verifyHuman, async (req, res) => {
+router.post('/login', checkLoginRateLimit, verifyHuman, async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || !password) {
@@ -126,7 +138,10 @@ router.post('/login', verifyHuman, async (req, res) => {
         message: 'This login identifier matches multiple accounts. Contact an administrator.'
       });
     }
-    if (!account) return res.status(401).json({ success: false, message: 'Invalid username or password' });
+    if (!account) {
+      await recordLoginFailure(loginIdentifier, req.ip, req);
+      return res.status(401).json({ success: false, message: 'Invalid username or password' });
+    }
     if (account.role && account.role !== role) {
       return res.status(403).json({
         success: false,
@@ -151,12 +166,33 @@ router.post('/login', verifyHuman, async (req, res) => {
     const passwordMatch = await bcrypt.compare(password, account.passwordHash).catch(() => false);
     const legacyPasswordMatch = !passwordMatch && account.passwordHash === password;
     if (!passwordMatch && !legacyPasswordMatch) {
+      await recordLoginFailure(loginIdentifier, req.ip, req);
       return res.status(401).json({ success: false, message: 'Invalid username or password' });
     }
     if (legacyPasswordMatch) account.passwordHash = await bcrypt.hash(password, 12);
 
+    clearLoginFailures(loginIdentifier, req.ip);
+
     account.lastLoginAt = new Date();
     await account.save();
+
+    const deviceInfo = parseDeviceInfo(req);
+    await recordAuditLog({
+      userId: account._id,
+      userRole: role,
+      userModel: getAccountModelName(role),
+      action: 'USER_LOGIN',
+      targetType: 'session',
+      targetId: account._id,
+      details: {
+        method: 'password',
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        ip: deviceInfo.ip,
+        summary: deviceInfo.summary
+      }
+    });
+
     return res.json({
       success: true,
       message: 'Login successful',
@@ -169,11 +205,38 @@ router.post('/login', verifyHuman, async (req, res) => {
   }
 });
 
-router.post('/logout', (_req, res) => {
+router.post('/logout', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded && decoded.userId && decoded.role) {
+        const deviceInfo = parseDeviceInfo(req);
+        await recordAuditLog({
+          userId: decoded.userId,
+          userRole: decoded.role,
+          userModel: getAccountModelName(decoded.role),
+          action: 'USER_LOGOUT',
+          targetType: 'session',
+          targetId: decoded.userId,
+          details: {
+            method: 'manual',
+            browser: deviceInfo.browser,
+            os: deviceInfo.os,
+            ip: deviceInfo.ip,
+            summary: deviceInfo.summary
+          }
+        });
+      }
+    }
+  } catch {
+    // Gracefully ignore invalid/expired tokens on logout
+  }
   return res.json({ success: true, message: 'Logout successful' });
 });
 
-router.post('/change-password', authenticateToken, async (req, res) => {
+router.post('/change-password', authenticateToken, changePasswordLimiter, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body || {};
     if (typeof newPassword !== 'string' || newPassword.length < 8) {
@@ -316,7 +379,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/password-reset/request', verifyHuman, async (req, res) => {
+router.post('/password-reset/request', verifyHuman, passwordResetRequestLimiter, async (req, res) => {
   const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
     await require('../utils/systemSettings').requireIntegration('smtp');
@@ -343,7 +406,7 @@ router.post('/password-reset/request', verifyHuman, async (req, res) => {
   }
 });
 
-router.post('/password-reset/verify', async (req, res) => {
+router.post('/password-reset/verify', passwordResetVerifyLimiter, async (req, res) => {
   try {
     const { username, code } = req.body || {};
     if (typeof username !== 'string' || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
@@ -459,6 +522,16 @@ router.post('/password-reset/confirm', async (req, res) => {
     if (!updated) {
       return res.status(400).json({ success: false, message: 'Password-reset verification is no longer valid' });
     }
+
+    await recordAuditLog({
+      userId: updated._id,
+      userRole: authorization.role,
+      userModel: getAccountModelName(authorization.role),
+      action: 'PASSWORD_RESET',
+      targetType: 'account',
+      targetId: updated._id,
+      details: { method: 'email_reset_code' }
+    });
 
     return res.json({ success: true, message: 'Password updated. Please log in with your new password.' });
   } catch (error) {
@@ -645,6 +718,23 @@ router.post('/google', async (req, res) => {
     }
     account.lastLoginAt = new Date();
     await account.save();
+
+    const deviceInfo = parseDeviceInfo(req);
+    await recordAuditLog({
+      userId: account._id,
+      userRole: role,
+      userModel: getAccountModelName(role),
+      action: 'USER_LOGIN',
+      targetType: 'session',
+      targetId: account._id,
+      details: {
+        method: 'google',
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        ip: deviceInfo.ip,
+        summary: deviceInfo.summary
+      }
+    });
 
     return res.json({
       success: true,

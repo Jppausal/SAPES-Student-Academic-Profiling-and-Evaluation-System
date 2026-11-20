@@ -1,11 +1,11 @@
 import { useRecaptcha } from '../../hooks/useRecaptcha';
 import { fetchIntegrationSettings } from '../../lib/api';
 import React from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { AuthLayout } from './AuthLayout';
 
 type LoginPageProps = {
-  onLogin: (username: string, password: string, recaptchaToken?: string) => Promise<{ success: boolean; message?: string }>;
+  onLogin: (username: string, password: string, recaptchaToken?: string) => Promise<{ success: boolean; message?: string; retryAfterSeconds?: number; code?: string }>;
   onGoogleLogin: (credential: string) => Promise<{ success: boolean; message?: string }>;
   onBack?: () => void;
   onForgotPassword?: () => void;
@@ -13,6 +13,7 @@ type LoginPageProps = {
 
 export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPassword }: LoginPageProps) {
   const [error, setError] = React.useState('');
+  const [countdownSeconds, setCountdownSeconds] = React.useState(0);
   const captcha = useRecaptcha();
   const [loginIdentifier, setLoginIdentifier] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -23,6 +24,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
     import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
   );
   const [googleEnabled, setGoogleEnabled] = React.useState(false);
+
   React.useEffect(() => {
     fetchIntegrationSettings()
       .then((settings) => {
@@ -33,6 +35,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
       })
       .catch(() => setGoogleEnabled(false));
   }, []);
+
   const googleClientIdPresent = Boolean(googleClientId) && googleEnabled;
   const isInstitutionalEmail = ['@student.buksu.edu.ph', '@faculty.buksu.edu.ph']
     .some((domain) => loginIdentifier.trim().toLowerCase().endsWith(domain));
@@ -51,6 +54,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: async (response) => {
+          if (countdownSeconds > 0) return;
           setError('');
           setIsSubmitting(true);
           const result = await onGoogleLogin(response.credential);
@@ -87,22 +91,48 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
     return () => {
       script.onload = null;
     };
-  }, [googleClientId, googleEnabled, onGoogleLogin]);
+  }, [googleClientId, googleEnabled, onGoogleLogin, countdownSeconds]);
+
+  // Live 2-minute countdown timer
+  React.useEffect(() => {
+    if (countdownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCountdownSeconds((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdownSeconds]);
+
+  const formatCountdown = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (countdownSeconds > 0) return;
     setError('');
     setIsSubmitting(true);
     const form = new FormData(event.currentTarget);
     const loginIdentifier = String(form.get('username') || '').trim();
     const result = await onLogin(
       loginIdentifier,
-      String(form.get('password') || ''), captcha.token
+      String(form.get('password') || ''),
+      captcha.token
     );
     setIsSubmitting(false);
     if (!result.success) {
       captcha.reset();
-      setError(result.message || 'Unable to sign in.');
+      if (result.retryAfterSeconds || result.code === 'SPAM_LOGIN_DETECTED') {
+        const seconds = result.retryAfterSeconds || 120;
+        setCountdownSeconds(seconds);
+        setError(
+          result.message ||
+          `Spam login detected. Account is temporarily locked. Please wait ${formatCountdown(seconds)} before trying again.`
+        );
+      } else {
+        setError(result.message || 'Unable to sign in.');
+      }
     }
   };
 
@@ -127,14 +157,15 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
               spellCheck={false}
               placeholder="Enter your username or student ID"
               maxLength={64}
+              disabled={countdownSeconds > 0}
               onChange={(event) => {
                 setLoginIdentifier(event.target.value);
-                setError('');
+                if (countdownSeconds <= 0) setError('');
               }}
-              className="w-full bg-transparent px-3 py-2 text-sm text-slate-900 outline-none"
+              className="w-full bg-transparent px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
             />
           </div>
-          {shouldWarnAboutEmail && (
+          {shouldWarnAboutEmail && countdownSeconds <= 0 && (
             <p role="status" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               Use your institutional account: @student.buksu.edu.ph for students or @faculty.buksu.edu.ph for faculty.
             </p>
@@ -152,12 +183,14 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               placeholder="Enter your password"
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-12 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              disabled={countdownSeconds > 0}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-12 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
             />
             <button
               type="button"
+              disabled={countdownSeconds > 0}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 flex items-center px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="absolute inset-y-0 right-0 flex items-center px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-40"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-4 w-4 text-slate-500 hover:text-slate-700 transition-colors" /> : <Eye className="h-4 w-4 text-slate-500 hover:text-slate-700 transition-colors" />}
@@ -170,7 +203,28 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
 
         {captcha.view}
 
-        {error && (
+        {/* 2-Minute Anti-Spam Countdown Alert */}
+        {countdownSeconds > 0 && (
+          <div role="alert" className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 shadow-2xs dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-200 text-amber-800 font-bold dark:bg-amber-900 dark:text-amber-200">
+              <ShieldAlert className="h-4 w-4" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-amber-950 dark:text-amber-100">Spam Protection Lockout</span>
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-200/80 text-amber-900 dark:bg-amber-900/80 dark:text-amber-100">
+                  {formatCountdown(countdownSeconds)}
+                </span>
+              </div>
+              <p className="mt-1 leading-relaxed text-amber-800 dark:text-amber-300">
+                Too many failed attempts. To protect your account from spam, login is locked for 2 minutes. Please wait for the countdown to expire before trying again.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Standard Error Alert (when not locked) */}
+        {error && countdownSeconds <= 0 && (
           <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {error}
           </p>
@@ -178,10 +232,14 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
 
         <button
           type="submit"
-          disabled={isSubmitting || !captcha.ready}
+          disabled={isSubmitting || !captcha.ready || countdownSeconds > 0}
           className="w-full rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Signing in…' : 'Login'}
+          {countdownSeconds > 0
+            ? `Locked (${formatCountdown(countdownSeconds)})`
+            : isSubmitting
+            ? 'Signing in…'
+            : 'Login'}
         </button>
 
         <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -192,7 +250,7 @@ export default function LoginPage({ onLogin, onGoogleLogin, onBack, onForgotPass
 
         <div className="flex min-h-10 w-full justify-center">
           {googleClientIdPresent ? (
-            <div ref={googleButtonRef} aria-label="Continue with Google" className="w-full" />
+            <div ref={googleButtonRef} aria-label="Continue with Google" className={`w-full ${countdownSeconds > 0 ? 'pointer-events-none opacity-40' : ''}`} />
           ) : (
             <p className="text-center text-xs text-slate-500">
               Google sign-in is currently unavailable. Use your institutional account to sign in.

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
+  Bell,
   Calendar,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -17,6 +20,7 @@ import {
   Search,
   ShieldAlert,
   Users,
+  X,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -24,6 +28,8 @@ import {
   InstitutionalStudentSummary,
   EnrollmentReportFilters,
   EnrollmentAggregations,
+  recordReportExportAudit,
+  SystemExportNotification,
 } from '../../lib/api';
 import { formatAcademicGwa } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
@@ -87,6 +93,13 @@ export const AdminReportsView: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [exportScope, setExportScope] = useState<'filtered' | 'all'>('filtered');
   const [showFilters, setShowFilters] = useState(true);
+  const [notifications, setNotifications] = useState<SystemExportNotification[]>([]);
+  const [activeToast, setActiveToast] = useState<SystemExportNotification | null>(null);
+  const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
+  const unreadNotificationsCount = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications]
+  );
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -236,6 +249,102 @@ export const AdminReportsView: React.FC = () => {
     } : undefined,
   };
 
+  const notifyExportComplete = async (
+    format: 'csv' | 'excel' | 'pdf' | 'print',
+    recordCount: number,
+    fileName: string
+  ) => {
+    const formatUpper = format.toUpperCase();
+    const notifItem: SystemExportNotification = {
+      id: `notif-${Date.now()}`,
+      type: 'DATA_EXPORT_COMPLETED',
+      title: 'Data Export Completed',
+      message: `Your enrolled-student report has been generated successfully and is ready to download (${formatUpper}, ${recordCount} records).`,
+      format: formatUpper,
+      recordCount,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      isRead: false,
+    };
+
+    setNotifications((prev) => [notifItem, ...prev]);
+    setActiveToast(notifItem);
+
+    // Auto dismiss active toast after 6 seconds
+    setTimeout(() => {
+      setActiveToast((curr) => (curr?.id === notifItem.id ? null : curr));
+    }, 6000);
+
+    // Browser native notification (if granted/available)
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification('SAPES — Data Export Completed', {
+            body: notifItem.message,
+            icon: '/favicon.ico',
+          });
+        } catch {
+          // Fallback gracefully
+        }
+      } else if (Notification.permission === 'default') {
+        void Notification.requestPermission();
+      }
+    }
+
+    // Automated audit logging on backend (A120)
+    try {
+      await recordReportExportAudit({
+        reportName: 'Overall Enrolled Students Report',
+        format,
+        recordCount,
+        exportScope,
+        filters: currentFilters,
+        fileName,
+        status: 'completed',
+      });
+    } catch (auditErr) {
+      console.warn('Report export audit logging note:', auditErr);
+    }
+  };
+
+  const notifyExportFailure = async (
+    format: 'csv' | 'excel' | 'pdf' | 'print',
+    errorMessage?: string
+  ) => {
+    const formatUpper = format.toUpperCase();
+    const notifItem: SystemExportNotification = {
+      id: `notif-${Date.now()}`,
+      type: 'DATA_EXPORT_FAILED',
+      title: 'Export Failed',
+      message: 'Your report could not be generated. Please try again.',
+      format: formatUpper,
+      recordCount: 0,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      isRead: false,
+    };
+
+    setNotifications((prev) => [notifItem, ...prev]);
+    setActiveToast(notifItem);
+
+    setTimeout(() => {
+      setActiveToast((curr) => (curr?.id === notifItem.id ? null : curr));
+    }, 6000);
+
+    try {
+      await recordReportExportAudit({
+        reportName: 'Overall Enrolled Students Report',
+        format,
+        recordCount: 0,
+        exportScope,
+        filters: currentFilters,
+        fileName: '',
+        status: 'failed',
+        errorMessage: errorMessage || 'Failed to export report',
+      });
+    } catch (auditErr) {
+      console.warn('Report export failure audit logging note:', auditErr);
+    }
+  };
+
   const handleExportCSV = async () => {
     if (!isAuthorizedAdmin) {
       setError('Export functions are strictly restricted to authorized administrative personnel.');
@@ -243,9 +352,13 @@ export const AdminReportsView: React.FC = () => {
     }
     try {
       const dataToExport = await getExportData();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       exportStudentsToCSV(dataToExport, exportOptionsPayload);
+      void notifyExportComplete('csv', dataToExport.length, `overall-enrolled-students-${timestamp}.csv`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to export CSV.');
+      const msg = err instanceof Error ? err.message : 'Unable to export CSV.';
+      setError(msg);
+      void notifyExportFailure('csv', msg);
     }
   };
 
@@ -256,9 +369,13 @@ export const AdminReportsView: React.FC = () => {
     }
     try {
       const dataToExport = await getExportData();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       exportStudentsToExcel(dataToExport, exportOptionsPayload);
+      void notifyExportComplete('excel', dataToExport.length, `overall-enrolled-students-${timestamp}.xlsx`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to export Excel workbook.');
+      const msg = err instanceof Error ? err.message : 'Unable to export Excel workbook.';
+      setError(msg);
+      void notifyExportFailure('excel', msg);
     }
   };
 
@@ -269,9 +386,13 @@ export const AdminReportsView: React.FC = () => {
     }
     try {
       const dataToExport = await getExportData();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       exportStudentsToPDF(dataToExport, exportOptionsPayload);
+      void notifyExportComplete('pdf', dataToExport.length, `overall-enrolled-students-${timestamp}.pdf`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to generate direct PDF file.');
+      const msg = err instanceof Error ? err.message : 'Unable to generate direct PDF file.';
+      setError(msg);
+      void notifyExportFailure('pdf', msg);
     }
   };
 
@@ -283,8 +404,11 @@ export const AdminReportsView: React.FC = () => {
     try {
       const dataToExport = await getExportData();
       printOfficialStudentReport(dataToExport, exportOptionsPayload);
+      void notifyExportComplete('print', dataToExport.length, 'official-print-report');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to prepare print report.');
+      const msg = err instanceof Error ? err.message : 'Unable to prepare print report.';
+      setError(msg);
+      void notifyExportFailure('print', msg);
     }
   };
 
@@ -314,6 +438,21 @@ export const AdminReportsView: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setShowNotificationsDrawer(!showNotificationsDrawer)}
+              className={`admin-secondary-button relative text-xs py-1.5 px-3 ${showNotificationsDrawer ? 'bg-slate-100 font-semibold' : ''}`}
+              title="System Export Notifications"
+              aria-label="Export notifications"
+            >
+              <Bell className="h-4 w-4 text-slate-600" />
+              <span>Notifications</span>
+              {unreadNotificationsCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-emerald-600 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                  {unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => setShowFilters(!showFilters)}
               className={`admin-secondary-button text-xs py-1.5 px-3 ${showFilters ? 'bg-slate-100 font-semibold' : ''}`}
             >
@@ -334,6 +473,154 @@ export const AdminReportsView: React.FC = () => {
 
         {error && <p role="alert" className="admin-alert admin-alert-error mt-4">{error}</p>}
       </section>
+
+      {/* Floating System Export Notification Toast (A122) */}
+      {activeToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed top-5 right-5 z-50 flex max-w-md items-start gap-3 rounded-2xl border p-4 shadow-2xl transition ${
+            activeToast.type === 'DATA_EXPORT_FAILED'
+              ? 'border-red-300 bg-white dark:border-red-800 dark:bg-slate-900'
+              : 'border-emerald-300 bg-white dark:border-emerald-800 dark:bg-slate-900'
+          }`}
+        >
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+              activeToast.type === 'DATA_EXPORT_FAILED'
+                ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+            }`}
+          >
+            {activeToast.type === 'DATA_EXPORT_FAILED' ? (
+              <AlertTriangle className="h-5 w-5" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                {activeToast.title}
+              </h4>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                  activeToast.type === 'DATA_EXPORT_FAILED'
+                    ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'
+                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                }`}
+              >
+                {activeToast.format}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              {activeToast.message}
+            </p>
+            <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
+              <span>{activeToast.timestamp}</span>
+              <span
+                className={`font-semibold ${
+                  activeToast.type === 'DATA_EXPORT_FAILED'
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
+                {activeToast.type === 'DATA_EXPORT_FAILED'
+                  ? 'Audit Log Recorded (Failed)'
+                  : 'Automated Audit Log Recorded'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveToast(null)}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            aria-label="Dismiss notification"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* System Export Notifications Drawer (A122) */}
+      {showNotificationsDrawer && (
+        <section className="admin-panel p-4 bg-emerald-50/40 border border-emerald-200 rounded-xl" aria-label="System export notifications">
+          <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 mb-2">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-emerald-700" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                System Export Notifications ({notifications.length})
+              </h3>
+            </div>
+            <div className="flex items-center gap-3">
+              {unreadNotificationsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
+                  className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold"
+                >
+                  Mark all as read
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowNotificationsDrawer(false)}
+                className="text-xs text-slate-500 hover:text-slate-700 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          {notifications.length === 0 ? (
+            <p className="text-xs text-slate-500 py-2">No export notifications recorded yet in this session. When you export to Excel, CSV, or PDF, completion alerts will appear here.</p>
+          ) : (
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {notifications.map((n) => {
+                const isFailed = n.type === 'DATA_EXPORT_FAILED';
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.isRead) {
+                        setNotifications((prev) =>
+                          prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item))
+                        );
+                      }
+                    }}
+                    className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border text-xs shadow-xs cursor-pointer transition ${
+                      isFailed ? 'bg-red-50/50 border-red-200' : 'bg-white border-emerald-100'
+                    } ${!n.isRead ? 'ring-1 ring-emerald-400' : ''}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isFailed ? (
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                      )}
+                      <span className="font-medium text-slate-800 truncate">{n.message}</span>
+                      {!n.isRead && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" title="Unread" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 text-[10px] text-slate-400">
+                      <span
+                        className={`font-semibold uppercase px-1.5 py-0.5 rounded ${
+                          isFailed
+                            ? 'text-red-700 bg-red-100'
+                            : 'text-emerald-700 bg-emerald-50'
+                        }`}
+                      >
+                        {n.format}
+                      </span>
+                      <span>{n.timestamp}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* FILTER CONTROLS (A117) */}
       {showFilters && (

@@ -27,7 +27,7 @@ const admin = await AdminUser.findOneAndUpdate(
   { username: 'admin.test' },
   {
     username: 'admin.test',
-    email: 'admin.test@buksu.edu.ph',
+    email: 'lolenseu.maureal@gmail.com',
     passwordHash,
     role: 'admin',
     accountStatus: 'active'

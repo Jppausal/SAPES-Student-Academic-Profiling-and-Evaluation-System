@@ -9,6 +9,7 @@ const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { getAccountModelName } = require('../utils/accountCollections');
+const { studentProfileUpdateLimiter } = require('../middleware/transactionRateLimiter');
 const cloudinary = require('cloudinary').v2;
 const { requireIntegration } = require('../utils/systemSettings');
 
@@ -132,6 +133,7 @@ router.put(
   authenticateToken,
   authorizeRoles('student'),
   authorizePermission('edit_own_profile'),
+  studentProfileUpdateLimiter,
   async (req, res) => {
     try {
       const body = req.body || {};
@@ -171,6 +173,11 @@ router.put(
       }
 
       await student.save();
+      const updatedSections = Object.keys(body);
+      const isTransferee = Boolean(body.classification?.isTransferee || body.classification?.studentType === 'transferee');
+      const isShifter = Boolean(body.classification?.isShifter || body.classification?.studentType === 'shifter');
+      const studentType = body.classification?.studentType || student.classification?.studentType;
+
       await require('../models/AuditLog').create({
         userId: req.user.userId,
         userRole: req.user.role,
@@ -178,7 +185,15 @@ router.put(
         action: 'STUDENT_PROFILE_UPDATED',
         targetType: 'student_profile',
         targetId: student._id,
-        details: { updatedSections: Object.keys(body) }
+        details: {
+          updatedSections,
+          studentType,
+          isTransferee,
+          isShifter,
+          hasContactUpdate: Boolean(body.contactInformation),
+          hasPersonalUpdate: Boolean(body.personalInformation),
+          hasAddressesUpdate: Boolean(body.addresses)
+        }
       });
 
       return res.json({

@@ -177,12 +177,16 @@ export function exportStudentsToCSV(students: InstitutionalStudentSummary[], opt
     ]);
   }
 
-  // Format into CSV escaping quotes and commas
+  // Format into CSV escaping quotes, commas, and sanitizing against formula injection
   const csvContent = rows
     .map((row) =>
       row
         .map((cell) => {
-          const str = String(cell ?? '');
+          let str = String(cell ?? '');
+          // CSV formula injection protection: if string starts with =, +, -, @, \t, \r, and isn't a pure number
+          if (/^[=+\-@\t\r]/.test(str) && !/^-?\d+(\.\d+)?$/.test(str)) {
+            str = `'${str}`;
+          }
           return `"${str.replace(/"/g, '""')}"`;
         })
         .join(',')

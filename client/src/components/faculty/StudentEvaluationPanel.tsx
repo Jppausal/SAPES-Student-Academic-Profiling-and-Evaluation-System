@@ -26,6 +26,8 @@ import {
 import { formatAcademicGwa, resolveAcademicGwas, resolvePeriodGwas } from '../../utils/mongoAcademicGwa';
 import { formatStatusLabel } from '../../utils/formatStatusLabel';
 import { StudentProfilePhoto } from '../common/StudentProfilePhoto';
+import { useRecordLock } from '../../hooks/useRecordLock';
+import { RecordLockBanner } from '../common/RecordLockBanner';
 
 type EvaluationTab = 'gradebook' | 'attendance' | 'remarks' | 'history';
 type ProfileTab = 'information' | 'enrollment' | 'profiling';
@@ -155,6 +157,24 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
+  // Strict 2PL Concurrency Locking Hook
+  const {
+    lockStatus,
+    lockToken,
+    isOwner,
+    isLockedByOther,
+    conflictMessage,
+    acquire: acquireLock,
+    release: releaseLockHandle,
+    checkStatus: refreshLockStatus,
+  } = useRecordLock({
+    resourceType: 'STUDENT',
+    resourceId: institutionId,
+    autoAcquire: true,
+    leaseSeconds: 120,
+    reason: 'Faculty Course Evaluation',
+  });
+
   useEffect(() => {
     let active = true;
     if (initialWorkspace) {
@@ -201,11 +221,13 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
     setError('');
     setMessage('');
     try {
-      await saveFacultyCourseEvaluation(institutionId, draft);
+      await saveFacultyCourseEvaluation(institutionId, draft, { lockToken: lockToken || undefined });
       const updatedWorkspace = await fetchFacultyStudentWorkspace(institutionId);
       setWorkspace(updatedWorkspace);
       setDraft(updatedWorkspace.courseEvaluation);
       setMessage(successMessage);
+      // Re-acquire exclusive lock for continued editing session
+      void acquireLock('EXCLUSIVE');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to save evaluation data.');
     } finally {
@@ -223,6 +245,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
         evaluationStatus: enrollmentEligibility,
         reasons: [],
         remarks: evaluationRemarks,
+        lockToken: lockToken || undefined,
       });
       const updatedWorkspace = await fetchFacultyStudentWorkspace(institutionId);
       setWorkspace(updatedWorkspace);
@@ -230,6 +253,8 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
       setEvaluationRemarks(updatedWorkspace.facultyEvaluation?.remarks || '');
       setEvaluationOpen(false);
       setMessage('Enrollment eligibility evaluation saved.');
+      // Re-acquire exclusive lock for continued editing session
+      void acquireLock('EXCLUSIVE');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to save the enrollment evaluation.');
     } finally {
@@ -364,6 +389,16 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
 
   return (
     <section aria-label="Student evaluation" className="space-y-4">
+      <RecordLockBanner
+        lockStatus={lockStatus}
+        isOwner={isOwner}
+        isLockedByOther={isLockedByOther}
+        conflictMessage={conflictMessage}
+        onRefresh={() => void refreshLockStatus()}
+        onRelease={() => void releaseLockHandle()}
+        onRetryAcquire={() => void acquireLock('EXCLUSIVE')}
+      />
+
       {showStudentProfile && <section aria-label="Student profile" className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-col gap-5 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:p-6">
           <StudentProfilePhoto
@@ -561,7 +596,9 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
           {!evaluationOpen && <button
             type="button"
             onClick={() => setEvaluationOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700"
+            disabled={isLockedByOther}
+            title={isLockedByOther ? 'Record is currently locked by another faculty member' : undefined}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="h-4 w-4" />
             {workspace.facultyEvaluation ? 'Edit evaluation' : 'Evaluate student'}
@@ -633,7 +670,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
             }} disabled={saving} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
               Cancel
             </button>
-            <button type="button" onClick={() => void saveEligibilityEvaluation()} disabled={saving || !enrollmentEligibility} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">
+            <button type="button" onClick={() => void saveEligibilityEvaluation()} disabled={saving || !enrollmentEligibility || isLockedByOther} className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed">
               <Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save evaluation'}
             </button>
           </div>
@@ -682,7 +719,7 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 <h3 className="text-sm font-bold text-slate-900">Gradebook & Assessment Breakdown</h3>
                 <p className="mt-1 text-xs text-slate-500">Quiz, lab, exam, and other assessment scores for {draft.academicYear} · {draft.semester}.</p>
               </div>
-              <button type="button" onClick={addAssessment} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" /> Add assessment</button>
+              <button type="button" onClick={addAssessment} disabled={isLockedByOther} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"><Plus className="h-3.5 w-3.5" /> Add assessment</button>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-xs">
@@ -690,19 +727,19 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {draft.assessments.map((assessment, index) => (
                     <tr key={assessment._id || `assessment-${index}`}>
-                      <td className="px-3 py-2"><input aria-label="Assessment title" value={assessment.title} onChange={(event) => updateAssessment(index, 'title', event.target.value)} className="w-full min-w-32 rounded-md border border-slate-200 px-2 py-1.5" /></td>
-                      <td className="px-3 py-2"><select aria-label="Assessment category" value={assessment.category} onChange={(event) => updateAssessment(index, 'category', event.target.value)} className="rounded-md border border-slate-200 bg-white px-2 py-1.5"><option value="quiz">Quiz</option><option value="lab">Lab</option><option value="exam">Exam</option><option value="other">Other</option></select></td>
-                      <td className="px-3 py-2"><input aria-label="Assessment score" type="number" min="0" max={assessment.possiblePoints} step="0.1" value={assessment.score} onChange={(event) => updateAssessment(index, 'score', Number(event.target.value))} className="w-20 rounded-md border border-slate-200 px-2 py-1.5" /></td>
-                      <td className="px-3 py-2"><input aria-label="Assessment possible points" type="number" min="1" step="0.1" value={assessment.possiblePoints} onChange={(event) => updateAssessment(index, 'possiblePoints', Number(event.target.value))} className="w-20 rounded-md border border-slate-200 px-2 py-1.5" /></td>
-                      <td className="px-3 py-2"><input aria-label="Assessment submitted" type="checkbox" checked={assessment.submitted} onChange={(event) => updateAssessment(index, 'submitted', event.target.checked)} className="h-4 w-4 accent-brand-600" /></td>
-                      <td className="px-3 py-2"><button type="button" aria-label="Remove assessment" onClick={() => setDraft((current) => current ? { ...current, assessments: current.assessments.filter((_, itemIndex) => itemIndex !== index) } : current)} className="rounded p-1 text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></td>
+                      <td className="px-3 py-2"><input aria-label="Assessment title" value={assessment.title} onChange={(event) => updateAssessment(index, 'title', event.target.value)} disabled={isLockedByOther} className="w-full min-w-32 rounded-md border border-slate-200 px-2 py-1.5 disabled:bg-slate-100" /></td>
+                      <td className="px-3 py-2"><select aria-label="Assessment category" value={assessment.category} onChange={(event) => updateAssessment(index, 'category', event.target.value)} disabled={isLockedByOther} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 disabled:bg-slate-100"><option value="quiz">Quiz</option><option value="lab">Lab</option><option value="exam">Exam</option><option value="other">Other</option></select></td>
+                      <td className="px-3 py-2"><input aria-label="Assessment score" type="number" min="0" max={assessment.possiblePoints} step="0.1" value={assessment.score} onChange={(event) => updateAssessment(index, 'score', Number(event.target.value))} disabled={isLockedByOther} className="w-20 rounded-md border border-slate-200 px-2 py-1.5 disabled:bg-slate-100" /></td>
+                      <td className="px-3 py-2"><input aria-label="Assessment possible points" type="number" min="1" step="0.1" value={assessment.possiblePoints} onChange={(event) => updateAssessment(index, 'possiblePoints', Number(event.target.value))} disabled={isLockedByOther} className="w-20 rounded-md border border-slate-200 px-2 py-1.5 disabled:bg-slate-100" /></td>
+                      <td className="px-3 py-2"><input aria-label="Assessment submitted" type="checkbox" checked={assessment.submitted} onChange={(event) => updateAssessment(index, 'submitted', event.target.checked)} disabled={isLockedByOther} className="h-4 w-4 accent-brand-600" /></td>
+                      <td className="px-3 py-2"><button type="button" aria-label="Remove assessment" onClick={() => setDraft((current) => current ? { ...current, assessments: current.assessments.filter((_, itemIndex) => itemIndex !== index) } : current)} disabled={isLockedByOther} className="rounded p-1 text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="h-4 w-4" /></button></td>
                     </tr>
                   ))}
                   {draft.assessments.length === 0 && <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-500">No assessments recorded. Add one to begin the gradebook.</td></tr>}
                 </tbody>
               </table>
             </div>
-            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Gradebook saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save gradebook'}</button></div>
+            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Gradebook saved.')} disabled={saving || isLockedByOther} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save gradebook'}</button></div>
           </div>
         )}
 
@@ -710,53 +747,53 @@ export const StudentEvaluationPanel: React.FC<StudentEvaluationPanelProps> = ({
           <div className="p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><h3 className="text-sm font-bold text-slate-900">Attendance & Participation Log</h3><p className="mt-1 text-xs text-slate-500">Date-by-date attendance, participation notes, and excuse-letter references.</p></div>
-              <button type="button" onClick={addAttendance} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Plus className="h-3.5 w-3.5" /> Add entry</button>
+              <button type="button" onClick={addAttendance} disabled={isLockedByOther} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"><Plus className="h-3.5 w-3.5" /> Add entry</button>
             </div>
             <div className="mt-4 space-y-3">
               {draft.attendanceLogs.map((entry, index) => (
                 <div key={entry._id || `attendance-${index}`} className="grid gap-2 rounded-md border border-slate-200 p-3 sm:grid-cols-2 xl:grid-cols-[140px_130px_minmax(0,1fr)_minmax(0,1fr)_36px]">
-                  <label className="text-xs font-semibold text-slate-500">Date<input type="date" value={String(entry.date).slice(0, 10)} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, date: event.target.value } : item) } : current)} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-800" /></label>
-                  <label className="text-xs font-semibold text-slate-500">Status<select value={entry.status} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, status: event.target.value as typeof item.status } : item) } : current)} className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800"><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option><option value="excused">Excused</option></select></label>
-                  <label className="text-xs font-semibold text-slate-500">Participation notes<input value={entry.notes || ''} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, notes: event.target.value } : item) } : current)} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-800" /></label>
-                  <label className="text-xs font-semibold text-slate-500">Excuse letter reference<input value={entry.excuseLetter || ''} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, excuseLetter: event.target.value } : item) } : current)} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-800" /></label>
-                  <button type="button" aria-label="Remove attendance entry" onClick={() => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.filter((_, itemIndex) => itemIndex !== index) } : current)} className="self-end rounded p-2 text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+                  <label className="text-xs font-semibold text-slate-500">Date<input type="date" value={String(entry.date).slice(0, 10)} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, date: event.target.value } : item) } : current)} disabled={isLockedByOther} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-800 disabled:bg-slate-100" /></label>
+                  <label className="text-xs font-semibold text-slate-500">Status<select value={entry.status} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, status: event.target.value as typeof item.status } : item) } : current)} disabled={isLockedByOther} className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800 disabled:bg-slate-100"><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option><option value="excused">Excused</option></select></label>
+                  <label className="text-xs font-semibold text-slate-500">Participation notes<input value={entry.notes || ''} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, notes: event.target.value } : item) } : current)} disabled={isLockedByOther} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-800 disabled:bg-slate-100" /></label>
+                  <label className="text-xs font-semibold text-slate-500">Excuse letter reference<input value={entry.excuseLetter || ''} onChange={(event) => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.map((item, itemIndex) => itemIndex === index ? { ...item, excuseLetter: event.target.value } : item) } : current)} disabled={isLockedByOther} className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-800 disabled:bg-slate-100" /></label>
+                  <button type="button" aria-label="Remove attendance entry" onClick={() => setDraft((current) => current ? { ...current, attendanceLogs: current.attendanceLogs.filter((_, itemIndex) => itemIndex !== index) } : current)} disabled={isLockedByOther} className="self-end rounded p-2 text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="h-4 w-4" /></button>
                 </div>
               ))}
               {draft.attendanceLogs.length === 0 && <p className="rounded-md bg-slate-50 p-5 text-center text-xs text-slate-500">No attendance entries recorded.</p>}
             </div>
-            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Attendance log saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save attendance'}</button></div>
+            <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveProgress('Attendance log saved.')} disabled={saving || isLockedByOther} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save attendance'}</button></div>
           </div>
         )}
 
         {activeTab === 'remarks' && (
           <div className="grid gap-6 p-4 sm:p-5 lg:grid-cols-2">
             <section>
-              <div className="flex items-center justify-between gap-2"><div><h3 className="text-sm font-bold text-slate-900">Competency rubrics</h3><p className="mt-1 text-xs text-slate-500">Record a rating and supporting notes.</p></div><button type="button" onClick={addRubric} aria-label="Add rubric criterion" className="rounded-md border border-slate-200 p-2 text-slate-700 hover:bg-slate-50"><Plus className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between gap-2"><div><h3 className="text-sm font-bold text-slate-900">Competency rubrics</h3><p className="mt-1 text-xs text-slate-500">Record a rating and supporting notes.</p></div><button type="button" onClick={addRubric} disabled={isLockedByOther} aria-label="Add rubric criterion" className="rounded-md border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 disabled:opacity-40"><Plus className="h-4 w-4" /></button></div>
               <div className="mt-3 space-y-3">
                 {draft.rubricScores.map((rubric, index) => (
                   <div key={rubric._id || `rubric-${index}`} className="space-y-2 rounded-md border border-slate-200 p-3">
-                    <input aria-label="Competency" value={rubric.competency} onChange={(event) => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.map((item, itemIndex) => itemIndex === index ? { ...item, competency: event.target.value } : item) } : current)} placeholder="Competency" className="w-full rounded-md border border-slate-200 px-2.5 py-2 text-xs" />
-                    <div className="flex items-center gap-3"><label className="text-xs text-slate-600">Rating<select value={rubric.rating} onChange={(event) => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.map((item, itemIndex) => itemIndex === index ? { ...item, rating: Number(event.target.value) } : item) } : current)} className="ml-2 rounded-md border border-slate-200 bg-white px-2 py-1.5"><option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option><option value={5}>5</option></select> / 5</label><button type="button" aria-label="Remove rubric criterion" onClick={() => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.filter((_, itemIndex) => itemIndex !== index) } : current)} className="ml-auto rounded p-1 text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></div>
-                    <textarea aria-label="Rubric notes" value={rubric.notes || ''} onChange={(event) => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.map((item, itemIndex) => itemIndex === index ? { ...item, notes: event.target.value } : item) } : current)} placeholder="Evidence and feedback" className="min-h-16 w-full rounded-md border border-slate-200 px-2.5 py-2 text-xs" />
+                    <input aria-label="Competency" value={rubric.competency} onChange={(event) => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.map((item, itemIndex) => itemIndex === index ? { ...item, competency: event.target.value } : item) } : current)} disabled={isLockedByOther} placeholder="Competency" className="w-full rounded-md border border-slate-200 px-2.5 py-2 text-xs disabled:bg-slate-100" />
+                    <div className="flex items-center gap-3"><label className="text-xs text-slate-600">Rating<select value={rubric.rating} onChange={(event) => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.map((item, itemIndex) => itemIndex === index ? { ...item, rating: Number(event.target.value) } : item) } : current)} disabled={isLockedByOther} className="ml-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 disabled:bg-slate-100"><option value={0}>0</option><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option><option value={5}>5</option></select> / 5</label><button type="button" aria-label="Remove rubric criterion" onClick={() => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.filter((_, itemIndex) => itemIndex !== index) } : current)} disabled={isLockedByOther} className="ml-auto rounded p-1 text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="h-4 w-4" /></button></div>
+                    <textarea aria-label="Rubric notes" value={rubric.notes || ''} onChange={(event) => setDraft((current) => current ? { ...current, rubricScores: current.rubricScores.map((item, itemIndex) => itemIndex === index ? { ...item, notes: event.target.value } : item) } : current)} disabled={isLockedByOther} placeholder="Evidence and feedback" className="min-h-16 w-full rounded-md border border-slate-200 px-2.5 py-2 text-xs disabled:bg-slate-100" />
                   </div>
                 ))}
                 {draft.rubricScores.length === 0 && <p className="rounded-md bg-slate-50 p-4 text-xs text-slate-500">No rubric ratings recorded.</p>}
               </div>
             </section>
             <section>
-              <div className="flex items-center justify-between gap-2"><div><h3 className="text-sm font-bold text-slate-900">Faculty remarks</h3><p className="mt-1 text-xs text-slate-500">Qualitative feedback and internal faculty notes.</p></div><button type="button" onClick={addRemark} aria-label="Add faculty remark" className="rounded-md border border-slate-200 p-2 text-slate-700 hover:bg-slate-50"><Plus className="h-4 w-4" /></button></div>
+              <div className="flex items-center justify-between gap-2"><div><h3 className="text-sm font-bold text-slate-900">Faculty remarks</h3><p className="mt-1 text-xs text-slate-500">Qualitative feedback and internal faculty notes.</p></div><button type="button" onClick={addRemark} disabled={isLockedByOther} aria-label="Add faculty remark" className="rounded-md border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 disabled:opacity-40"><Plus className="h-4 w-4" /></button></div>
               <div className="mt-3 space-y-2">
                 {draft.facultyRemarks.map((remark, index) => (
                   <div key={remark._id || `remark-${index}`} className="flex gap-2">
-                    <textarea aria-label="Faculty remark" value={remark.text} onChange={(event) => setDraft((current) => current ? { ...current, facultyRemarks: current.facultyRemarks.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) } : current)} placeholder="Write a remark" className="min-h-16 flex-1 rounded-md border border-slate-200 px-2.5 py-2 text-xs" />
-                    <button type="button" aria-label="Remove faculty remark" onClick={() => setDraft((current) => current ? { ...current, facultyRemarks: current.facultyRemarks.filter((_, itemIndex) => itemIndex !== index) } : current)} className="self-start rounded p-1 text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+                    <textarea aria-label="Faculty remark" value={remark.text} onChange={(event) => setDraft((current) => current ? { ...current, facultyRemarks: current.facultyRemarks.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) } : current)} disabled={isLockedByOther} placeholder="Write a remark" className="min-h-16 flex-1 rounded-md border border-slate-200 px-2.5 py-2 text-xs disabled:bg-slate-100" />
+                    <button type="button" aria-label="Remove faculty remark" onClick={() => setDraft((current) => current ? { ...current, facultyRemarks: current.facultyRemarks.filter((_, itemIndex) => itemIndex !== index) } : current)} disabled={isLockedByOther} className="self-start rounded p-1 text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 ))}
                 {draft.facultyRemarks.length === 0 && <p className="rounded-md bg-slate-50 p-4 text-xs text-slate-500">No faculty remarks recorded.</p>}
               </div>
-              <label className="mt-4 block text-xs font-semibold text-slate-700">Internal notes<textarea value={draft.internalNotes} onChange={(event) => setDraft((current) => current ? { ...current, internalNotes: event.target.value } : current)} placeholder="Private faculty notes" className="mt-1 min-h-24 w-full rounded-md border border-slate-200 px-2.5 py-2 text-xs font-normal" /></label>
+              <label className="mt-4 block text-xs font-semibold text-slate-700">Internal notes<textarea value={draft.internalNotes} onChange={(event) => setDraft((current) => current ? { ...current, internalNotes: event.target.value } : current)} disabled={isLockedByOther} placeholder="Private faculty notes" className="mt-1 min-h-24 w-full rounded-md border border-slate-200 px-2.5 py-2 text-xs font-normal disabled:bg-slate-100" /></label>
             </section>
-            <div className="flex justify-end lg:col-span-2"><button type="button" onClick={() => void saveProgress('Remarks and rubrics saved.')} disabled={saving} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save remarks & rubrics'}</button></div>
+            <div className="flex justify-end lg:col-span-2"><button type="button" onClick={() => void saveProgress('Remarks and rubrics saved.')} disabled={saving || isLockedByOther} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed"><Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save remarks & rubrics'}</button></div>
           </div>
         )}
 

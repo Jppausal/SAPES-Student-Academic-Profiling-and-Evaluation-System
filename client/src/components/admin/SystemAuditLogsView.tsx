@@ -16,20 +16,43 @@ import { Modal } from '../common/Modal';
 
 const categories = [
   'ALL',
+  'SECURITY',
   'USER_MANAGEMENT',
   'ACADEMIC_RECORD',
   'FACULTY_EVALUATION',
   'PROFILE_UPDATE',
+  'ENROLLMENT',
   'SYSTEM',
 ];
 
+const categoryLabels: Record<string, string> = {
+  ALL: 'All Activity',
+  SECURITY: 'Security & Sign-In',
+  USER_MANAGEMENT: 'User Management',
+  ACADEMIC_RECORD: 'Academic Records',
+  FACULTY_EVALUATION: 'Evaluations',
+  PROFILE_UPDATE: 'Profile Updates',
+  ENROLLMENT: 'Enrollment',
+  SYSTEM: 'System & Settings',
+};
+
 const mapActionToCategory = (action: string): string => {
   switch (action) {
+    case 'USER_LOGIN':
+    case 'USER_LOGOUT':
+    case 'LOGIN_RATE_LIMITED':
+    case 'PASSWORD_CHANGED':
+    case 'PASSWORD_RESET':
+      return 'SECURITY';
+    case 'STUDENT_ENROLLMENT_APPROVED':
+      return 'ENROLLMENT';
     case 'COURSE_EVALUATION_UPDATED':
     case 'UPDATE_FACULTY_EVALUATION':
       return 'FACULTY_EVALUATION';
     case 'ROLE_PERMISSIONS_UPDATED':
     case 'SYSTEM_SETTINGS_UPDATED':
+    case 'INTEGRATION_CREDENTIAL_CUSTOMIZED':
+    case 'INTEGRATION_CREDENTIAL_RESET':
     case 'USER_CREATED':
     case 'USER_UPDATED':
     case 'USER_STATUS_UPDATED':
@@ -37,6 +60,13 @@ const mapActionToCategory = (action: string): string => {
       return 'USER_MANAGEMENT';
     case 'UPDATE_STUDENT_STATUS':
     case 'ACADEMIC_RECORD_SAVED':
+    case 'RECORD_LOCKED':
+    case 'RECORD_UNLOCKED':
+    case 'LOCK_CONFLICT':
+    case 'ACADEMIC_PERIOD_SAVED':
+    case 'EXPORT_STUDENT_REPORTS':
+    case 'EXPORT_STUDENT_REPORTS_FAILED':
+    case 'REPORT_MODIFIED':
       return 'ACADEMIC_RECORD';
     case 'UPDATE_STUDENT_CLASSIFICATION':
     case 'UPDATE_STUDENT_PROFILE':
@@ -49,6 +79,8 @@ const mapActionToCategory = (action: string): string => {
 
 const getCategoryBadgeClass = (category: string) => {
   switch (category) {
+    case 'SECURITY':
+      return 'admin-badge-amber';
     case 'PROFILE_UPDATE':
       return 'admin-badge-green';
     case 'FACULTY_EVALUATION':
@@ -56,10 +88,185 @@ const getCategoryBadgeClass = (category: string) => {
     case 'ACADEMIC_RECORD':
       return 'admin-badge-violet';
     case 'USER_MANAGEMENT':
-      return 'admin-badge-amber';
+      return 'admin-badge-navy';
+    case 'ENROLLMENT':
+      return 'admin-badge-blue';
     case 'SYSTEM':
     default:
       return 'admin-badge-navy';
+  }
+};
+
+const actionToReadableTitle = (action: string): string => {
+  switch (action) {
+    case 'USER_LOGIN':
+      return 'Sign In';
+    case 'USER_LOGOUT':
+      return 'Sign Out';
+    case 'LOGIN_RATE_LIMITED':
+      return 'Spam Login Lockout';
+    case 'TRANSACTION_RATE_LIMITED':
+      return 'Rate Limit Triggered';
+    case 'PASSWORD_CHANGED':
+      return 'Password Changed';
+    case 'PASSWORD_RESET':
+      return 'Password Reset';
+    case 'STUDENT_PROFILE_UPDATED':
+      return 'Profile Updated';
+    case 'UPDATE_STUDENT_CLASSIFICATION':
+      return 'Classification Updated';
+    case 'UPDATE_STUDENT_STATUS':
+      return 'Academic Status Changed';
+    case 'COURSE_EVALUATION_UPDATED':
+    case 'UPDATE_FACULTY_EVALUATION':
+      return 'Evaluation Submitted';
+    case 'STUDENT_ENROLLMENT_APPROVED':
+      return 'Enrollment Approved';
+    case 'ROLE_PERMISSIONS_UPDATED':
+      return 'Permissions Updated';
+    case 'SYSTEM_SETTINGS_UPDATED':
+      return 'Settings Updated';
+    case 'INTEGRATION_CREDENTIAL_CUSTOMIZED':
+      return 'API Credentials Customized';
+    case 'INTEGRATION_CREDENTIAL_RESET':
+      return 'API Credentials Reset';
+    case 'ACADEMIC_PERIOD_SAVED':
+      return 'Academic Period Updated';
+    case 'ACADEMIC_RECORD_SAVED':
+      return 'Academic Record Updated';
+    case 'RECORD_LOCKED':
+      return 'Record Locked';
+    case 'RECORD_UNLOCKED':
+      return 'Record Unlocked';
+    case 'LOCK_CONFLICT':
+      return 'Lock Conflict';
+    case 'EXPORT_STUDENT_REPORTS':
+      return 'Report Exported';
+    case 'EXPORT_STUDENT_REPORTS_FAILED':
+      return 'Report Export Failed';
+    case 'REPORT_MODIFIED':
+      return 'Report Modified';
+    case 'USER_CREATED':
+      return 'Account Provisioned';
+    case 'USER_UPDATED':
+      return 'Account Updated';
+    case 'USER_STATUS_UPDATED':
+    case 'ACCOUNT_STATUS_UPDATED':
+      return 'Account Status Changed';
+    default:
+      return action
+        .toLowerCase()
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+};
+
+const formatAuditRecordDescription = (log: ApiAuditLog): string => {
+  if (log.description) return log.description;
+  const details = (log.details && typeof log.details === 'object' && !Array.isArray(log.details)
+    ? log.details
+    : {}) as Record<string, any>;
+  const actor = log.userId?.username || 'User';
+
+  switch (log.action) {
+    case 'USER_LOGIN': {
+      const dev = details.summary || (details.browser && details.os ? `${details.browser} on ${details.os}` : '');
+      const ip = details.ip ? ` (${details.ip})` : '';
+      const method = details.method === 'google' ? ' via Google authentication' : '';
+      return `${actor} signed in to SAPES${dev ? ` from ${dev}` : ''}${ip}${method}.`;
+    }
+    case 'USER_LOGOUT': {
+      const dev = details.summary || (details.browser && details.os ? `${details.browser} on ${details.os}` : '');
+      const ip = details.ip ? ` (${details.ip})` : '';
+      return `${actor} signed out of SAPES${dev ? ` from ${dev}` : ''}${ip}.`;
+    }
+    case 'LOGIN_RATE_LIMITED': {
+      const ip = details.ip ? ` from IP ${details.ip}` : '';
+      return `Account login was temporarily locked for 2 minutes${ip} due to excessive failed attempts.`;
+    }
+    case 'TRANSACTION_RATE_LIMITED': {
+      const tx = details.transaction ? String(details.transaction).replace(/_/g, ' ').toLowerCase() : 'transaction';
+      const ip = details.ip ? ` from IP ${details.ip}` : '';
+      const retry = details.retryAfterSeconds ? ` for ${details.retryAfterSeconds}s` : '';
+      return `Excessive requests on ${tx} blocked${retry}${ip} to protect system integrity.`;
+    }
+    case 'PASSWORD_CHANGED':
+      return `${actor} changed their account password.`;
+    case 'PASSWORD_RESET':
+      return `${actor} successfully reset account password using email verification.`;
+    case 'STUDENT_PROFILE_UPDATED': {
+      const studentId = details.institutionId || log.userId?.username || 'student';
+      return `Updated profile information for Student ${studentId}.`;
+    }
+    case 'UPDATE_STUDENT_CLASSIFICATION': {
+      const studentId = details.institutionId || 'student';
+      return `Updated classification details for Student ${studentId}.`;
+    }
+    case 'UPDATE_STUDENT_STATUS': {
+      const studentId = details.institutionId ? ` for Student ${details.institutionId}` : '';
+      const status = details.status ? ` to ${details.status}` : '';
+      const reason = details.reason ? ` (${details.reason})` : '';
+      return `Updated academic status${studentId}${status}${reason}.`;
+    }
+    case 'COURSE_EVALUATION_UPDATED':
+    case 'UPDATE_FACULTY_EVALUATION': {
+      const studentId = details.institutionId ? ` for Student ${details.institutionId}` : '';
+      return `Submitted faculty course evaluation${studentId}.`;
+    }
+    case 'STUDENT_ENROLLMENT_APPROVED': {
+      const studentId = details.institutionId ? ` for Student ${details.institutionId}` : '';
+      return `Approved enrollment eligibility${studentId}.`;
+    }
+    case 'ROLE_PERMISSIONS_UPDATED':
+      return `Administrator updated system access permissions for ${details.role || 'system roles'}.`;
+    case 'SYSTEM_SETTINGS_UPDATED':
+      return 'Administrator updated system integration configuration.';
+    case 'INTEGRATION_CREDENTIAL_CUSTOMIZED':
+      return `Administrator customized and verified API credentials for ${details.integration || 'external service'}.`;
+    case 'INTEGRATION_CREDENTIAL_RESET':
+      return `Administrator reverted API credentials for ${details.integration || 'external service'} to default (.env).`;
+    case 'ACADEMIC_PERIOD_SAVED':
+      return `Administrator configured academic term to AY ${details.schoolYear || ''} ${details.semester || ''}.`;
+    case 'ACADEMIC_RECORD_SAVED': {
+      const studentId = details.institutionId ? ` for Student ${details.institutionId}` : '';
+      return `Updated academic subject grades and records${studentId}.`;
+    }
+    case 'EXPORT_STUDENT_REPORTS': {
+      const rep = details.reportName || 'Overall Enrolled Students Report';
+      const fmt = details.format ? String(details.format).toUpperCase() : 'CSV';
+      const count = details.recordCount !== undefined ? ` (${details.recordCount} records)` : '';
+      return `Administrator exported ${rep} in ${fmt} format${count}.`;
+    }
+    case 'EXPORT_STUDENT_REPORTS_FAILED': {
+      const rep = details.reportName || 'Overall Enrolled Students Report';
+      const fmt = details.format ? String(details.format).toUpperCase() : 'CSV';
+      return `Export of ${rep} in ${fmt} format failed.`;
+    }
+    case 'REPORT_MODIFIED':
+      return `Administrator modified ${details.reportName || 'report'} configuration.`;
+    case 'RECORD_LOCKED': {
+      const student = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      const mode = details.lockMode === 'EXCLUSIVE' ? 'exclusive' : 'shared';
+      return `${actor} acquired an ${mode} lock on ${student} (${details.leaseSeconds || 120}s lease).`;
+    }
+    case 'RECORD_UNLOCKED': {
+      const student = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      return `Lock on ${student} was released by ${actor}.`;
+    }
+    case 'LOCK_CONFLICT': {
+      const student = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      const heldBy = details.heldBy || 'another user';
+      return `Concurrent access blocked on ${student}: record is actively locked by ${heldBy}.`;
+    }
+    case 'USER_CREATED':
+      return `Administrator provisioned account for ${details.username || 'new user'} (${details.role || 'user'}).`;
+    case 'USER_UPDATED':
+      return `Administrator updated account details for ${details.username || 'user'}.`;
+    case 'USER_STATUS_UPDATED':
+    case 'ACCOUNT_STATUS_UPDATED':
+      return `Administrator changed account status for ${details.username || 'user'} to ${details.accountStatus || 'updated'}.`;
+    default:
+      return `${actionToReadableTitle(log.action)} recorded on ${log.targetType || 'system'}.`;
   }
 };
 
@@ -170,7 +377,7 @@ export const SystemAuditLogsView: React.FC = () => {
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by action, target, actor, role..."
+            placeholder="Search by action, target, actor, role, student ID..."
           />
         </div>
 
@@ -209,7 +416,7 @@ export const SystemAuditLogsView: React.FC = () => {
               aria-pressed={categoryFilter === category}
               className={`admin-filter-button ${categoryFilter === category ? 'is-active' : ''}`}
             >
-              {category.replaceAll('_', ' ')}
+              {categoryLabels[category] || category.replaceAll('_', ' ')}
             </button>
           ))}
         </div>
@@ -220,26 +427,25 @@ export const SystemAuditLogsView: React.FC = () => {
           <table className="admin-table" aria-label="Security audit records">
             <thead>
               <tr>
-                <th>Timestamp</th>
-                <th>Actor / User</th>
+                <th>Time and date</th>
+                <th>Actor</th>
                 <th>Category</th>
                 <th>Action</th>
-                <th>Target &amp; Details</th>
+                <th>Record</th>
                 <th className="text-right">Inspect</th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log, index) => {
-                const category = mapActionToCategory(log.action);
-                const userName = log.userId?.username || 'System';
+                const category = log.category || mapActionToCategory(log.action);
+                const userName = log.userId?.username || log.actor || 'System';
                 const userRole = log.userRole || log.userId?.role || 'admin';
-                const detailsStr = typeof log.details === 'object' && log.details !== null
-                  ? JSON.stringify(log.details)
-                  : String(log.details || '');
+                const readableAction = log.title || actionToReadableTitle(log.action);
+                const readableRecord = formatAuditRecordDescription(log);
 
                 return (
                   <tr key={log._id || `${log.timestamp}-${index}`}>
-                    <td className="admin-mono whitespace-nowrap text-[11px] text-slate-600">
+                    <td className="admin-mono whitespace-nowrap text-xs text-slate-600 font-medium">
                       {formatDate(log.timestamp)}
                     </td>
                     <td>
@@ -248,22 +454,17 @@ export const SystemAuditLogsView: React.FC = () => {
                     </td>
                     <td>
                       <span className={`admin-badge ${getCategoryBadgeClass(category)}`}>
-                        {category.replaceAll('_', ' ')}
+                        {categoryLabels[category] || category.replaceAll('_', ' ')}
                       </span>
                     </td>
                     <td>
-                      <span className="admin-badge admin-badge-navy admin-mono">
-                        {log.action}
+                      <span className="font-semibold text-slate-800 text-xs">
+                        {readableAction}
                       </span>
                     </td>
-                    <td className="admin-audit-detail max-w-md">
-                      {log.targetType && (
-                        <div className="admin-audit-target admin-mono text-xs">
-                          Target: {log.targetType} {log.targetId ? `(${log.targetId})` : ''}
-                        </div>
-                      )}
-                      <div className="text-xs text-slate-600 line-clamp-1 truncate" title={detailsStr}>
-                        {detailsStr}
+                    <td className="admin-audit-record py-3">
+                      <div className="text-xs text-slate-700 leading-relaxed font-normal">
+                        {readableRecord}
                       </div>
                     </td>
                     <td className="text-right">
@@ -324,10 +525,9 @@ export const SystemAuditLogsView: React.FC = () => {
         </div>
       </section>
 
-      {/* Log Details Modal */}
       {selectedLog && (
         <Modal
-          isOpen={Boolean(selectedLog)}
+          isOpen
           onClose={() => setSelectedLog(null)}
           title="Security Audit Activity Details"
           subtitle={`Action: ${selectedLog.action} on ${selectedLog.targetType}`}
@@ -346,46 +546,48 @@ export const SystemAuditLogsView: React.FC = () => {
         >
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="rounded-lg bg-slate-50 p-3 border border-slate-200">
-                <span className="text-slate-500 block mb-0.5">Actor</span>
-                <span className="font-semibold text-slate-900 text-sm">
-                  {selectedLog.userId?.username || 'System User'}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="mb-0.5 block text-slate-500">Actor</span>
+                <span className="text-sm font-semibold text-slate-900">
+                  {selectedLog.userId?.username || selectedLog.actor || 'System User'}
                 </span>
-                <span className="block text-slate-500 text-[11px] capitalize mt-0.5">
-                  Role: {selectedLog.userRole || selectedLog.userId?.role || 'admin'} ({selectedLog.userModel || 'AdminUser'})
+                <span className="mt-0.5 block text-[11px] capitalize text-slate-500">
+                  Role: {selectedLog.userRole || selectedLog.userId?.role || 'admin'}
+                  {selectedLog.userModel ? ` (${selectedLog.userModel})` : ''}
                 </span>
               </div>
-              <div className="rounded-lg bg-slate-50 p-3 border border-slate-200">
-                <span className="text-slate-500 block mb-0.5">Recorded Timestamp</span>
-                <span className="font-semibold text-slate-900 text-sm admin-mono">
-                  {new Date(selectedLog.timestamp).toLocaleString()}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="mb-0.5 block text-slate-500">Recorded timestamp</span>
+                <span className="admin-mono text-sm font-semibold text-slate-900">
+                  {formatDate(selectedLog.timestamp)}
                 </span>
-                <span className="block text-slate-500 text-[11px] mt-0.5">
+                <span className="mt-0.5 block text-[11px] text-slate-500">
                   ISO: {selectedLog.timestamp}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="rounded-md border border-slate-200 p-2.5 bg-white">
-                <span className="text-slate-500 block mb-0.5">Action Code</span>
-                <span className="font-mono font-medium text-slate-900 text-sm">
+              <div className="rounded-md border border-slate-200 bg-white p-2.5">
+                <span className="mb-0.5 block text-slate-500">Action code</span>
+                <span className="font-mono text-sm font-medium text-slate-900">
                   {selectedLog.action}
                 </span>
               </div>
-              <div className="rounded-md border border-slate-200 p-2.5 bg-white">
-                <span className="text-slate-500 block mb-0.5">Target</span>
-                <span className="font-mono font-medium text-slate-900 text-sm">
-                  {selectedLog.targetType} {selectedLog.targetId ? `· ID: ${selectedLog.targetId}` : ''}
+              <div className="rounded-md border border-slate-200 bg-white p-2.5">
+                <span className="mb-0.5 block text-slate-500">Target</span>
+                <span className="font-mono text-sm font-medium text-slate-900">
+                  {selectedLog.targetType}
+                  {selectedLog.targetId ? ` · ID: ${selectedLog.targetId}` : ''}
                 </span>
               </div>
             </div>
 
             <div>
-              <h5 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                Structured Event Details &amp; Payload
+              <h5 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Structured event details
               </h5>
-              <div className="rounded-lg border border-slate-200 bg-slate-950 p-3.5 text-xs font-mono text-emerald-400 overflow-x-auto max-h-72">
+              <div className="max-h-72 overflow-x-auto rounded-lg border border-slate-200 bg-slate-950 p-3.5 font-mono text-xs text-emerald-400">
                 <pre>{JSON.stringify(selectedLog.details, null, 2)}</pre>
               </div>
             </div>

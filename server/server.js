@@ -37,6 +37,15 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
+app.use('/api/locks', require('./controllers/lockController'));
+
+// Catch-all 404 for unhandled API requests
+app.use('/api', (req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: `API endpoint ${req.method} ${req.originalUrl} not found. If this is a newly added feature, please restart the server.`
+  });
+});
 
 app.use((error, req, res, next) => {
   if (error?.type === 'entity.too.large') {

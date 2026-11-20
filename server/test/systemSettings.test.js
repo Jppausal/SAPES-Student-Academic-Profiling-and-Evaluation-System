@@ -263,3 +263,91 @@ test('admin credential customization requires MFA code dispatch, pre-flight try-
   const resetAudit = audit.mock.calls[audit.mock.calls.length - 1].arguments[0];
   assert.equal(resetAudit.action, 'INTEGRATION_CREDENTIAL_RESET');
 });
+
+test('POST /settings/credentials/verify performs live validation with rich provider feedback', async t => {
+  const { request } = await fixture(t);
+
+  // Non-admins cannot call verify
+  for (const role of ['student', 'faculty', null]) {
+    const res = await request('/settings/credentials/verify', role, {
+      integration: 'googleAuth',
+      customKey: '1234567890-test.apps.googleusercontent.com'
+    }, 'POST');
+    assert.equal(res.status, role ? 403 : 401);
+  }
+
+  // Format error test
+  const formatErrorRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'googleAuth',
+    customKey: 'not-a-google-id'
+  }, 'POST');
+  assert.equal(formatErrorRes.status, 200);
+  const formatBody = await formatErrorRes.json();
+  assert.equal(formatBody.success, true);
+  assert.equal(formatBody.data.valid, false);
+  assert.equal(formatBody.data.status, 'format_error');
+
+  // Valid Google Client ID format test
+  const validGoogleRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'googleAuth',
+    customKey: '123456789012-abc123xyz.apps.googleusercontent.com'
+  }, 'POST');
+  assert.equal(validGoogleRes.status, 200);
+  const validGoogleBody = await validGoogleRes.json();
+  assert.equal(validGoogleBody.success, true);
+  assert.equal(validGoogleBody.data.valid, true);
+  assert.equal(validGoogleBody.data.status, 'connected');
+  assert.match(validGoogleBody.data.message, /Google Client ID.*OAuth2/);
+
+  // API Ninjas short format error test
+  const shortApiNinjasRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'passwordGenerator',
+    customKey: 'short'
+  }, 'POST');
+  assert.equal(shortApiNinjasRes.status, 200);
+  const shortApiNinjasBody = await shortApiNinjasRes.json();
+  assert.equal(shortApiNinjasBody.data.valid, false);
+  assert.equal(shortApiNinjasBody.data.status, 'format_error');
+
+  // API Ninjas rejection test
+  const rejectedApiNinjasRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'passwordGenerator',
+    customKey: 'invalid-api-ninjas-key-12345'
+  }, 'POST');
+  assert.equal(rejectedApiNinjasRes.status, 200);
+  const rejectedApiNinjasBody = await rejectedApiNinjasRes.json();
+  assert.equal(rejectedApiNinjasBody.data.valid, false);
+  assert.equal(rejectedApiNinjasBody.data.status, 'rejected');
+
+  // API Ninjas valid key test
+  const validApiNinjasRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'passwordGenerator',
+    customKey: 'valid-api-ninjas-secret-key-12345'
+  }, 'POST');
+  assert.equal(validApiNinjasRes.status, 200);
+  const validApiNinjasBody = await validApiNinjasRes.json();
+  assert.equal(validApiNinjasBody.data.valid, true);
+  assert.equal(validApiNinjasBody.data.status, 'connected');
+
+  // reCAPTCHA valid key test
+  const validRecaptchaRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'recaptcha',
+    customKey: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
+    customSecretKey: '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
+  }, 'POST');
+  assert.equal(validRecaptchaRes.status, 200);
+  const validRecaptchaBody = await validRecaptchaRes.json();
+  assert.equal(validRecaptchaBody.data.valid, true);
+  assert.equal(validRecaptchaBody.data.status, 'connected');
+
+  // Active key verification test (useActive: true)
+  process.env.API_NINJAS_API_KEY = 'active-api-ninjas-valid-key-999';
+  const activeVerifyRes = await request('/settings/credentials/verify', 'admin', {
+    integration: 'passwordGenerator',
+    useActive: true
+  }, 'POST');
+  assert.equal(activeVerifyRes.status, 200);
+  const activeVerifyBody = await activeVerifyRes.json();
+  assert.equal(activeVerifyBody.data.valid, true);
+  assert.equal(activeVerifyBody.data.status, 'connected');
+});
