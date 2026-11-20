@@ -17,6 +17,14 @@ const {
   getEnrollmentOfficerDepartment
 } = require('../utils/departmentAccess');
 const { syncDepartmentMetrics } = require('../utils/departmentMetrics');
+const {
+  enrollmentApprovalLimiter,
+  evaluationSubmitLimiter
+} = require('../middleware/transactionRateLimiter');
+const {
+  verifyLockForWrite,
+  releaseLock
+} = require('../utils/lockManager');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -138,11 +146,23 @@ router.post(
   authenticateToken,
   authorizeRoles('faculty'),
   authorizePermission('view_student_records'),
+  enrollmentApprovalLimiter,
   async (req, res) => {
     try {
       const department = getEnrollmentOfficerDepartment(req.user);
       if (!req.user.isVerifiedEnrollmentOfficer || !department) {
         return res.status(403).json({ success: false, message: 'A verified department enrollment officer account is required' });
+      }
+
+      // Check pessimistic record lock compatibility
+      const lockCheck = await verifyLockForWrite(
+        'STUDENT',
+        req.params.institutionId,
+        req.user,
+        req.headers['x-lock-token'] || req.body?.lockToken
+      );
+      if (!lockCheck.allowed) {
+        return res.status(lockCheck.status).json(lockCheck);
       }
 
       const studentFilter = buildStudentDepartmentFilter(req.user, {
@@ -173,6 +193,14 @@ router.post(
           institutionId: student.institutionId,
           enrollmentStatus: student.enrollmentStatus
         }
+      });
+
+      // Strict 2PL Shrinking Phase: release lock upon commit
+      await releaseLock({
+        resourceType: 'STUDENT',
+        resourceId: req.params.institutionId,
+        user: req.user,
+        lockToken: req.headers['x-lock-token'] || req.body?.lockToken
       });
 
       return res.json({
@@ -448,6 +476,7 @@ router.put(
   authenticateToken,
   authorizeRoles('faculty', 'admin'),
   authorizePermission('submit_evaluations'),
+  evaluationSubmitLimiter,
   async (req, res) => {
     try {
       const studentFilter = buildStudentDepartmentFilter(req.user, {
@@ -459,6 +488,17 @@ router.put(
       }
       const student = await Student.findOne(studentFilter).select('_id institutionId').lean();
       if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+      // Check pessimistic record lock compatibility
+      const lockCheck = await verifyLockForWrite(
+        'STUDENT',
+        req.params.institutionId,
+        req.user,
+        req.headers['x-lock-token'] || req.body?.lockToken
+      );
+      if (!lockCheck.allowed) {
+        return res.status(lockCheck.status).json(lockCheck);
+      }
 
       const normalized = validateCourseEvaluation(req.body);
       if (normalized.error) return res.status(400).json({ success: false, message: normalized.error });
@@ -481,6 +521,14 @@ router.put(
           evaluationId: progress._id,
           institutionId: student.institutionId
         }
+      });
+
+      // Strict 2PL Shrinking Phase: release lock upon commit
+      await releaseLock({
+        resourceType: 'STUDENT',
+        resourceId: req.params.institutionId,
+        user: req.user,
+        lockToken: req.headers['x-lock-token'] || req.body?.lockToken
       });
 
       return res.json({ success: true, data: { courseEvaluation: progress } });

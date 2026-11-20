@@ -9,6 +9,7 @@ const { authorizePermission } = require('../middleware/permissionMiddleware');
 const { validateAndNormalizeStudentProfile } = require('../utils/studentProfile');
 const { calculateMajorSubjectGwa, calculateOverallGwa, withAcademicGwas, getLatestAcademicPeriod } = require('../utils/academicCalculations');
 const { getAccountModelName } = require('../utils/accountCollections');
+const { studentProfileUpdateLimiter } = require('../middleware/transactionRateLimiter');
 const cloudinary = require('cloudinary').v2;
 
 const router = express.Router();
@@ -120,6 +121,7 @@ router.put(
   authenticateToken,
   authorizeRoles('student'),
   authorizePermission('edit_own_profile'),
+  studentProfileUpdateLimiter,
   async (req, res) => {
     try {
       const body = req.body || {};

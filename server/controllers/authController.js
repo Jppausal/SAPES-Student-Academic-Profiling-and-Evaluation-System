@@ -22,6 +22,11 @@ const {
   recordLoginFailure,
   clearLoginFailures
 } = require('../middleware/loginRateLimiter');
+const {
+  passwordResetRequestLimiter,
+  passwordResetVerifyLimiter,
+  changePasswordLimiter
+} = require('../middleware/transactionRateLimiter');
 
 const router = express.Router();
 const GOOGLE_ALLOWED_DOMAINS = new Set([
@@ -235,7 +240,7 @@ router.post('/logout', async (req, res) => {
   return res.json({ success: true, message: 'Logout successful' });
 });
 
-router.post('/change-password', authenticateToken, async (req, res) => {
+router.post('/change-password', authenticateToken, changePasswordLimiter, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body || {};
     if (typeof newPassword !== 'string' || newPassword.length < 8) {
@@ -378,7 +383,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/password-reset/request', verifyHuman, async (req, res) => {
+router.post('/password-reset/request', verifyHuman, passwordResetRequestLimiter, async (req, res) => {
   const genericResponse = { success: true, message: 'If the account is eligible, a verification code has been sent to its registered institutional email.' };
   try {
     await require('../utils/systemSettings').requireIntegration('smtp');
@@ -405,7 +410,7 @@ router.post('/password-reset/request', verifyHuman, async (req, res) => {
   }
 });
 
-router.post('/password-reset/verify', async (req, res) => {
+router.post('/password-reset/verify', passwordResetVerifyLimiter, async (req, res) => {
   try {
     const { username, code } = req.body || {};
     if (typeof username !== 'string' || typeof code !== 'string' || !/^\d{6}$/.test(code)) {

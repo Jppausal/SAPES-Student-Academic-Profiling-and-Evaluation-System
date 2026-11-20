@@ -20,6 +20,10 @@ const { generatePassword } = require('../utils/passwordGenerator');
 const { updateEnvVariable, removeEnvVariable } = require('../utils/envConfig');
 const { sendCredentialMfaCode } = require('../utils/email');
 const { validateCredential, verifyCredentialLive } = require('../utils/credentialValidator');
+const {
+  credentialVerifyLimiter,
+  mfaSendLimiter
+} = require('../middleware/transactionRateLimiter');
 
 router.use((_req, res, next) => {
   res.set('Cache-Control', 'no-store');
@@ -132,7 +136,7 @@ router.put('/', async (req, res) => {
 });
 
 // Endpoint to dispatch a 6-digit MFA security verification code to administrator email
-router.post('/credentials/send-mfa', async (req, res) => {
+router.post('/credentials/send-mfa', mfaSendLimiter, async (req, res) => {
   try {
     const { integration } = req.body || {};
     const allowedIntegrations = ['googleAuth', 'recaptcha', 'passwordGenerator'];
@@ -209,7 +213,7 @@ router.post('/credentials/send-mfa', async (req, res) => {
 });
 
 // Endpoint to actively verify a credential against the provider before saving or from overview
-router.post('/credentials/verify', async (req, res) => {
+router.post('/credentials/verify', credentialVerifyLimiter, async (req, res) => {
   try {
     const { integration, customKey, customSecretKey, useActive } = req.body || {};
     const allowedIntegrations = ['googleAuth', 'recaptcha', 'passwordGenerator'];

@@ -19,6 +19,17 @@ const { getActiveAcademicPeriod } = require('../utils/academicPeriodSettings');
 const { processBulkStudentImport } = require('../utils/bulkStudentImport');
 const { DEPARTMENTS, buildStudentDepartmentFilter, getEnrollmentOfficerDepartment } = require('../utils/departmentAccess');
 const { syncDepartmentMetrics } = require('../utils/departmentMetrics');
+const {
+  bulkImportLimiter,
+  reportExportLimiter,
+  studentStatusUpdateLimiter,
+  evaluationSubmitLimiter,
+  studentProfileUpdateLimiter
+} = require('../middleware/transactionRateLimiter');
+const {
+  verifyLockForWrite,
+  releaseLock
+} = require('../utils/lockManager');
 
 const router = express.Router();
 const TECHNOLOGY_PROGRAMS = [
@@ -88,6 +99,7 @@ router.put(
   authenticateToken,
   authorizeRoles('faculty', 'admin'),
   authorizeAnyPermission('submit_evaluations', 'manage_academic_records'),
+  studentStatusUpdateLimiter,
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -140,6 +152,18 @@ router.put(
 
       const filter = buildStudentDepartmentFilter(req.user, { institutionId });
       if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+
+      // Check pessimistic record lock compatibility
+      const lockCheck = await verifyLockForWrite(
+        'STUDENT',
+        institutionId,
+        req.user,
+        req.headers['x-lock-token'] || req.body?.lockToken
+      );
+      if (!lockCheck.allowed) {
+        return res.status(lockCheck.status).json(lockCheck);
+      }
+
       const student = await Student.findOne(filter);
 
       if (!student) {
@@ -226,6 +250,14 @@ router.put(
         }
       }
 
+      // Strict 2PL Shrinking Phase: release lock upon commit
+      await releaseLock({
+        resourceType: 'STUDENT',
+        resourceId: institutionId,
+        user: req.user,
+        lockToken: req.headers['x-lock-token'] || req.body?.lockToken
+      });
+
       res.json({
         success: true,
         message: 'Student status updated successfully',
@@ -255,6 +287,7 @@ router.put(
   authenticateToken,
   authorizeRoles('faculty'),
   authorizePermission('submit_evaluations'),
+  evaluationSubmitLimiter,
   async (req, res) => {
     try {
       const { institutionId } = req.params;
@@ -295,6 +328,18 @@ router.put(
 
       const filter = buildStudentDepartmentFilter(req.user, { institutionId });
       if (!filter) return res.status(403).json({ success: false, message: 'No valid department is assigned to this enrollment officer' });
+
+      // Check pessimistic record lock compatibility
+      const lockCheck = await verifyLockForWrite(
+        'STUDENT',
+        institutionId,
+        req.user,
+        req.headers['x-lock-token'] || req.body?.lockToken
+      );
+      if (!lockCheck.allowed) {
+        return res.status(lockCheck.status).json(lockCheck);
+      }
+
       const student = await Student.findOne(filter, { _id: 1, classification: 1 }).lean();
 
       if (!student) {
@@ -367,6 +412,14 @@ router.put(
           evaluationStatus: evaluation.evaluationStatus,
           version: evaluation.version
         }
+      });
+
+      // Strict 2PL Shrinking Phase: release lock upon commit
+      await releaseLock({
+        resourceType: 'STUDENT',
+        resourceId: institutionId,
+        user: req.user,
+        lockToken: req.headers['x-lock-token'] || req.body?.lockToken
       });
 
       res.json({
@@ -486,6 +539,7 @@ router.post(
   authenticateToken,
   authorizeRoles('admin'),
   authorizePermission('export_reports'),
+  reportExportLimiter,
   async (req, res) => {
     try {
       const {
@@ -667,6 +721,7 @@ router.post(
   authenticateToken,
   authorizeRoles('admin'),
   authorizeAnyPermission('manage_academic_records', 'manage_users'),
+  bulkImportLimiter,
   async (req, res) => {
     try {
       const { students } = req.body || {};
@@ -1611,6 +1666,7 @@ router.put(
   authenticateToken,
   authorizeRoles('admin'),
   authorizePermission('manage_academic_records'),
+  studentProfileUpdateLimiter,
   async (req, res) => {
     try {
       const { institutionId } = req.params;

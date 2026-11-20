@@ -53,6 +53,8 @@ const actionToReadableTitle = (action: string): string => {
       return 'Sign Out';
     case 'LOGIN_RATE_LIMITED':
       return 'Spam Login Lockout';
+    case 'TRANSACTION_RATE_LIMITED':
+      return 'Rate Limit Triggered';
     case 'PASSWORD_CHANGED':
       return 'Password Changed';
     case 'PASSWORD_RESET':
@@ -64,6 +66,12 @@ const actionToReadableTitle = (action: string): string => {
       return 'Enrollment Approved';
     case 'ACADEMIC_RECORD_SAVED':
       return 'Academic Record Saved';
+    case 'RECORD_LOCKED':
+      return 'Record Locked';
+    case 'RECORD_UNLOCKED':
+      return 'Record Unlocked';
+    case 'LOCK_CONFLICT':
+      return 'Lock Conflict';
     case 'UPDATE_STUDENT_STATUS':
       return 'Academic Status Updated';
     case 'EXPORT_STUDENT_REPORTS':

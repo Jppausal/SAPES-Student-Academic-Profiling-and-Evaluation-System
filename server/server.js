@@ -35,6 +35,7 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/permissions', permissionRoutes);
+app.use('/api/locks', require('./controllers/lockController'));
 
 // Catch-all 404 for unhandled API requests
 app.use('/api', (req, res) => {

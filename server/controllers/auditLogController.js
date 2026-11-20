@@ -42,6 +42,7 @@ const CATEGORY_ACTIONS = {
     'USER_LOGIN',
     'USER_LOGOUT',
     'LOGIN_RATE_LIMITED',
+    'TRANSACTION_RATE_LIMITED',
     'PASSWORD_CHANGED',
     'PASSWORD_RESET'
   ],
@@ -56,6 +57,9 @@ const CATEGORY_ACTIONS = {
     'ACCOUNT_STATUS_UPDATED'
   ],
   ACADEMIC_RECORD: [
+    'RECORD_LOCKED',
+    'RECORD_UNLOCKED',
+    'LOCK_CONFLICT',
     'UPDATE_STUDENT_STATUS',
     'ACADEMIC_RECORD_SAVED',
     'ACADEMIC_PERIOD_SAVED',
@@ -81,6 +85,7 @@ const USER_ACTIVITY_CATEGORIES = {
   SECURITY: [
     'USER_LOGIN',
     'LOGIN_RATE_LIMITED',
+    'TRANSACTION_RATE_LIMITED',
     'USER_LOGOUT',
     'PASSWORD_CHANGED',
     'PASSWORD_RESET',
@@ -95,6 +100,9 @@ const USER_ACTIVITY_CATEGORIES = {
     'USER_UPDATED'
   ],
   ACADEMIC: [
+    'RECORD_LOCKED',
+    'RECORD_UNLOCKED',
+    'LOCK_CONFLICT',
     'UPDATE_STUDENT_STATUS',
     'COURSE_EVALUATION_UPDATED',
     'UPDATE_FACULTY_EVALUATION',
@@ -161,6 +169,18 @@ function formatHumanReadableActivity(log, currentUser) {
       const ipPart = details.ip ? ` from IP ${details.ip}` : '';
       const dur = details.lockoutDurationSeconds ? `${Math.round(details.lockoutDurationSeconds / 60)} minutes` : '2 minutes';
       description = `Login was temporarily locked for ${dur}${ipPart} due to excessive failed attempts.`;
+      break;
+    }
+    case 'TRANSACTION_RATE_LIMITED': {
+      category = 'Security';
+      isSecuritySensitive = true;
+      title = 'Transaction Rate Limited';
+      const tx = details.transaction ? String(details.transaction).replace(/_/g, ' ').toLowerCase() : 'transaction';
+      const ipPart = details.ip ? ` from IP ${details.ip}` : '';
+      const dur = details.retryAfterSeconds ? `${details.retryAfterSeconds} seconds` : 'cooldown period';
+      description = isActor
+        ? `You exceeded the allowed rate for ${tx}. Requests are paused for ${dur}.`
+        : `Rate limit triggered for ${tx}${ipPart}. Paused for ${dur} to protect system integrity.`;
       break;
     }
     case 'USER_LOGIN': {
@@ -503,6 +523,38 @@ function formatHumanReadableActivity(log, currentUser) {
       description = details.schoolYear
         ? `Administrator updated academic period to AY ${details.schoolYear} ${details.semester || ''}.`
         : 'Administrator updated academic term policy.';
+      break;
+    }
+
+    case 'RECORD_LOCKED': {
+      category = 'Academic';
+      title = 'Record Locked';
+      const studentRef = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      const mode = details.lockMode === 'EXCLUSIVE' ? 'exclusive' : 'shared';
+      description = isActor
+        ? `You acquired an ${mode} lock on ${studentRef} (${details.leaseSeconds || 120}s lease).`
+        : `${actorLabel} acquired an ${mode} lock on ${studentRef}.`;
+      break;
+    }
+
+    case 'RECORD_UNLOCKED': {
+      category = 'Academic';
+      title = 'Record Unlocked';
+      const studentRef = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      description = isActor
+        ? `You released the lock on ${studentRef}.`
+        : `Lock on ${studentRef} was released by ${actorLabel}.`;
+      break;
+    }
+
+    case 'LOCK_CONFLICT': {
+      category = isViewerAdmin ? 'Security' : 'Academic';
+      title = 'Lock Conflict';
+      const studentRef = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      const heldBy = details.heldBy || 'another user';
+      description = isActor
+        ? `Lock request on ${studentRef} was denied because it is currently locked by ${heldBy}.`
+        : `Concurrent edit conflict on ${studentRef}: lock held by ${heldBy}.`;
       break;
     }
 

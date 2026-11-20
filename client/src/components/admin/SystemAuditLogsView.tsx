@@ -58,6 +58,9 @@ const mapActionToCategory = (action: string): string => {
       return 'USER_MANAGEMENT';
     case 'UPDATE_STUDENT_STATUS':
     case 'ACADEMIC_RECORD_SAVED':
+    case 'RECORD_LOCKED':
+    case 'RECORD_UNLOCKED':
+    case 'LOCK_CONFLICT':
     case 'ACADEMIC_PERIOD_SAVED':
     case 'EXPORT_STUDENT_REPORTS':
     case 'EXPORT_STUDENT_REPORTS_FAILED':
@@ -100,6 +103,8 @@ const actionToReadableTitle = (action: string): string => {
       return 'Sign Out';
     case 'LOGIN_RATE_LIMITED':
       return 'Spam Login Lockout';
+    case 'TRANSACTION_RATE_LIMITED':
+      return 'Rate Limit Triggered';
     case 'PASSWORD_CHANGED':
       return 'Password Changed';
     case 'PASSWORD_RESET':
@@ -127,6 +132,12 @@ const actionToReadableTitle = (action: string): string => {
       return 'Academic Period Updated';
     case 'ACADEMIC_RECORD_SAVED':
       return 'Academic Record Updated';
+    case 'RECORD_LOCKED':
+      return 'Record Locked';
+    case 'RECORD_UNLOCKED':
+      return 'Record Unlocked';
+    case 'LOCK_CONFLICT':
+      return 'Lock Conflict';
     case 'EXPORT_STUDENT_REPORTS':
       return 'Report Exported';
     case 'EXPORT_STUDENT_REPORTS_FAILED':
@@ -170,6 +181,12 @@ const formatAuditRecordDescription = (log: ApiAuditLog): string => {
     case 'LOGIN_RATE_LIMITED': {
       const ip = details.ip ? ` from IP ${details.ip}` : '';
       return `Account login was temporarily locked for 2 minutes${ip} due to excessive failed attempts.`;
+    }
+    case 'TRANSACTION_RATE_LIMITED': {
+      const tx = details.transaction ? String(details.transaction).replace(/_/g, ' ').toLowerCase() : 'transaction';
+      const ip = details.ip ? ` from IP ${details.ip}` : '';
+      const retry = details.retryAfterSeconds ? ` for ${details.retryAfterSeconds}s` : '';
+      return `Excessive requests on ${tx} blocked${retry}${ip} to protect system integrity.`;
     }
     case 'PASSWORD_CHANGED':
       return `${actor} changed their account password.`;
@@ -225,6 +242,20 @@ const formatAuditRecordDescription = (log: ApiAuditLog): string => {
     }
     case 'REPORT_MODIFIED':
       return `Administrator modified ${details.reportName || 'report'} configuration.`;
+    case 'RECORD_LOCKED': {
+      const student = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      const mode = details.lockMode === 'EXCLUSIVE' ? 'exclusive' : 'shared';
+      return `${actor} acquired an ${mode} lock on ${student} (${details.leaseSeconds || 120}s lease).`;
+    }
+    case 'RECORD_UNLOCKED': {
+      const student = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      return `Lock on ${student} was released by ${actor}.`;
+    }
+    case 'LOCK_CONFLICT': {
+      const student = details.resourceId ? `Student ${details.resourceId}` : 'student record';
+      const heldBy = details.heldBy || 'another user';
+      return `Concurrent access blocked on ${student}: record is actively locked by ${heldBy}.`;
+    }
     case 'USER_CREATED':
       return `Administrator provisioned account for ${details.username || 'new user'} (${details.role || 'user'}).`;
     case 'USER_UPDATED':

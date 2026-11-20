@@ -691,18 +691,38 @@ export async function fetchFacultyStudentWorkspace(institutionId: string) {
   return response.data;
 }
 
-export async function approveStudentEnrollment(institutionId: string) {
+export async function approveStudentEnrollment(institutionId: string, lockToken?: string) {
+  const headers: Record<string, string> = {};
+  if (lockToken) {
+    headers['x-lock-token'] = lockToken;
+  }
   const response = await request<{ success: true; data: { enrollmentStatus: string } }>(
     `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}/enrollment-approval`,
-    { method: 'POST' }
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ lockToken }),
+    }
   );
   return response.data.enrollmentStatus;
 }
 
-export async function saveFacultyCourseEvaluation(institutionId: string, progress: CourseEvaluationProgress) {
+export async function saveFacultyCourseEvaluation(
+  institutionId: string,
+  progress: CourseEvaluationProgress,
+  options?: { lockToken?: string }
+) {
+  const headers: Record<string, string> = {};
+  if (options?.lockToken) {
+    headers['x-lock-token'] = options.lockToken;
+  }
   const response = await request<{ success: true; data: { courseEvaluation: CourseEvaluationProgress } }>(
     `/api/faculty-evaluations/student/${encodeURIComponent(institutionId)}/progress`,
-    { method: 'PUT', body: JSON.stringify(progress) }
+    {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ ...progress, lockToken: options?.lockToken }),
+    }
   );
   return response.data.courseEvaluation;
 }
@@ -1034,20 +1054,30 @@ export async function fetchMyStudentReport() {
 
 export async function saveStudentEvaluation(
   institutionId: string,
-  payload: { evaluationStatus: string; reasons: string[]; remarks: string }
+  payload: { evaluationStatus: string; reasons: string[]; remarks: string; lockToken?: string }
 ) {
+  const headers: Record<string, string> = {};
+  if (payload.lockToken) {
+    headers['x-lock-token'] = payload.lockToken;
+  }
   return request(`/api/students/${encodeURIComponent(institutionId)}/evaluation`, {
     method: 'PUT',
+    headers,
     body: JSON.stringify(payload),
   });
 }
 
 export async function updateStudentStatus(
   institutionId: string,
-  payload: { status: string; reason?: string; remarks?: string }
+  payload: { status: string; reason?: string; remarks?: string; lockToken?: string }
 ) {
+  const headers: Record<string, string> = {};
+  if (payload.lockToken) {
+    headers['x-lock-token'] = payload.lockToken;
+  }
   return request(`/api/students/${encodeURIComponent(institutionId)}/status`, {
     method: 'PUT',
+    headers,
     body: JSON.stringify(payload),
   });
 }
@@ -1305,4 +1335,87 @@ export async function fetchExecutiveAnalytics(): Promise<ExecutiveAnalyticsData>
     '/api/students/executive-analytics'
   );
   return response.data;
+}
+
+export interface RecordLockStatus {
+  isLocked: boolean;
+  lockMode?: 'EXCLUSIVE' | 'SHARED' | null;
+  lockedBy?: {
+    userId: string;
+    username: string;
+    role: string;
+    fullName?: string;
+  } | null;
+  isOwner: boolean;
+  lockToken?: string;
+  transactionId?: string;
+  acquiredAt?: string;
+  expiresAt?: string;
+  remainingSeconds: number;
+  reason?: string;
+  activeLockCount?: number;
+}
+
+export interface AcquireLockResponse {
+  success: boolean;
+  lockToken?: string;
+  transactionId?: string;
+  lockMode?: 'EXCLUSIVE' | 'SHARED';
+  remainingSeconds?: number;
+  isRenewed?: boolean;
+  status?: string;
+  code?: string;
+  message?: string;
+  conflict?: {
+    lockMode: 'EXCLUSIVE' | 'SHARED';
+    lockedBy?: { username: string; fullName?: string };
+    remainingSeconds: number;
+    reason?: string;
+  };
+}
+
+export async function fetchRecordLockStatus(
+  resourceType: string,
+  resourceId: string
+): Promise<RecordLockStatus> {
+  const response = await request<{ success: true; data: RecordLockStatus }>(
+    `/api/locks/status/${encodeURIComponent(resourceType)}/${encodeURIComponent(resourceId)}`
+  );
+  return response.data;
+}
+
+export async function acquireRecordLock(
+  resourceType: string,
+  resourceId: string,
+  lockMode: 'EXCLUSIVE' | 'SHARED' = 'EXCLUSIVE',
+  durationSeconds = 120,
+  reason = 'Evaluation in progress'
+): Promise<AcquireLockResponse> {
+  return request<AcquireLockResponse>('/api/locks/acquire', {
+    method: 'POST',
+    body: JSON.stringify({ resourceType, resourceId, lockMode, durationSeconds, reason })
+  });
+}
+
+export async function releaseRecordLock(
+  resourceType: string,
+  resourceId: string,
+  lockToken?: string
+): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>('/api/locks/release', {
+    method: 'POST',
+    body: JSON.stringify({ resourceType, resourceId, lockToken })
+  });
+}
+
+export async function renewRecordLock(
+  resourceType: string,
+  resourceId: string,
+  lockToken: string,
+  durationSeconds = 120
+): Promise<{ success: boolean; expiresAt?: string; remainingSeconds?: number }> {
+  return request('/api/locks/renew', {
+    method: 'POST',
+    body: JSON.stringify({ resourceType, resourceId, lockToken, durationSeconds })
+  });
 }
