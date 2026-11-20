@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
+import { RateLimitNotice } from './components/layout/RateLimitNotice';
 import { StudentPortal } from './components/student/StudentPortal';
 import { StudentSearchPage } from './components/faculty/StudentSearchPage';
 import { FacultyAcademicRecordsPage } from './components/faculty/FacultyAcademicRecordsPage';
@@ -202,6 +203,7 @@ export default function App() {
   return (
     <AppProvider>
       <AppContent />
+      <RateLimitNotice />
     </AppProvider>
   );
 }

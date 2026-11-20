@@ -11,12 +11,14 @@ const userRoutes = require('./routes/userRoutes');
 const meRoutes = require('./routes/meRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
 const { syncAllDepartmentMetrics } = require('./utils/departmentMetrics');
+const globalRateLimiter = require('./middleware/globalRateLimiter');
 
 const app = express();
 const JSON_BODY_LIMIT = '70mb';
 
 app.use(cors());
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(globalRateLimiter);
 
 app.get('/api/health', (req, res) => {
   const databaseConnected = mongoose.connection.readyState === 1;

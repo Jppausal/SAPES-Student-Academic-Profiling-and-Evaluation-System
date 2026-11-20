@@ -1,5 +1,13 @@
 const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 export const SESSION_EXPIRED_EVENT = 'sapes:session-expired';
+export const RATE_LIMITED_EVENT = 'sapes:rate-limited';
+export class RateLimitError extends Error {
+  constructor() {
+    super('');
+    this.name = 'RateLimitError';
+  }
+}
+
 const publicAuthPaths = new Set([
   '/api/auth/login',
   '/api/auth/google',
@@ -10,6 +18,15 @@ const publicAuthPaths = new Set([
 ]);
 
 export type ServerStatus = 'checking' | 'online' | 'offline';
+
+function notifyRateLimited(response: Response, payload?: { retryAfterSeconds?: number }) {
+  const retryAfterSeconds = payload?.retryAfterSeconds
+    || Number(response.headers.get('Retry-After'))
+    || 60;
+  window.dispatchEvent(new CustomEvent(RATE_LIMITED_EVENT, {
+    detail: { retryAfterSeconds },
+  }));
+}
 
 export interface ApiUser {
   id: string;
@@ -68,6 +85,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
+    if (response.status === 429) {
+      notifyRateLimited(response, payload);
+      throw new RateLimitError();
+    }
     if (
       response.status === 401
       && token
@@ -1004,6 +1025,9 @@ export async function checkServerHealth(): Promise<boolean> {
     const response = await fetch(`${apiBaseUrl}/api/health`, {
       headers: { Accept: 'application/json' },
     });
+    if (response.status === 429) {
+      notifyRateLimited(response);
+    }
     return response.ok;
   } catch {
     return false;

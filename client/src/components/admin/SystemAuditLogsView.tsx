@@ -10,7 +10,7 @@ import {
   Search,
   ShieldCheck,
 } from 'lucide-react';
-import { ApiAuditLog, fetchAuditLogs } from '../../lib/api';
+import { ApiAuditLog, fetchAuditLogs, RateLimitError } from '../../lib/api';
 import { formatDate } from '../../utils/academicCalculators';
 import { Modal } from '../common/Modal';
 
@@ -73,11 +73,13 @@ export const SystemAuditLogsView: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [rateLimited, setRateLimited] = useState(false);
   const [selectedLog, setSelectedLog] = useState<ApiAuditLog | null>(null);
 
   const loadLogs = async (targetPage = page, targetLimit = limit, targetCategory = categoryFilter, targetSearch = search) => {
     setLoading(true);
     setError('');
+    setRateLimited(false);
     try {
       const data = await fetchAuditLogs({
         page: targetPage,
@@ -90,7 +92,11 @@ export const SystemAuditLogsView: React.FC = () => {
       setTotalPages(Math.max(data.pagination.totalPages, 1));
       setPage(data.pagination.page);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load security audit logs.');
+      if (err instanceof RateLimitError) {
+        setRateLimited(true);
+      } else {
+        setError(err instanceof Error ? err.message : 'Unable to load security audit logs.');
+      }
     } finally {
       setLoading(false);
     }
@@ -274,7 +280,7 @@ export const SystemAuditLogsView: React.FC = () => {
                   </tr>
                 );
               })}
-              {!loading && logs.length === 0 && (
+              {!loading && !rateLimited && logs.length === 0 && (
                 <tr>
                   <td colSpan={6} className="admin-empty-state">
                     <Activity />

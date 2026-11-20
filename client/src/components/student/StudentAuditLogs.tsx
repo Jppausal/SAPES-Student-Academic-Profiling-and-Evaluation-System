@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, ChevronLeft, ChevronRight, Clock3, RefreshCw, ShieldCheck } from 'lucide-react';
-import { ApiAuditLog, fetchMyAuditLogs } from '../../lib/api';
+import { ApiAuditLog, fetchMyAuditLogs, RateLimitError } from '../../lib/api';
 
 const actionLabel = (action: string) => action
   .toLowerCase()
@@ -59,17 +59,23 @@ export const StudentAuditLogs: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [rateLimited, setRateLimited] = useState(false);
 
   const loadLogs = async (requestedPage = page) => {
     setLoading(true);
     setError('');
+    setRateLimited(false);
     try {
       const result = await fetchMyAuditLogs(requestedPage);
       setLogs(result.auditLogs);
       setPage(result.pagination.page);
       setTotalPages(Math.max(result.pagination.totalPages, 1));
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to load your audit history.');
+      if (requestError instanceof RateLimitError) {
+        setRateLimited(true);
+      } else {
+        setError(requestError instanceof Error ? requestError.message : 'Unable to load your audit history.');
+      }
     } finally {
       setLoading(false);
     }
@@ -99,7 +105,7 @@ export const StudentAuditLogs: React.FC = () => {
 
       {loading && <div role="status" className="student-audit-empty">Loading your activity...</div>}
       {!loading && error && <div role="alert" className="student-notice student-notice-error">{error}</div>}
-      {!loading && !error && logs.length === 0 && (
+      {!loading && !error && !rateLimited && logs.length === 0 && (
         <div className="student-audit-empty">
           <ShieldCheck size={24} />
           <strong>No activity recorded yet</strong>
