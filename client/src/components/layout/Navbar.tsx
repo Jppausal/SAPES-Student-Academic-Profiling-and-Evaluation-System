@@ -248,6 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               ['dashboard', LayoutDashboard, 'Dashboard'],
               ['evaluations', ClipboardCheck, 'Evaluations'],
               ['student-records', BookOpen, 'Academic Records'],
+              ['activity', History, 'Audit Logs'],
             ] as const).map(([page, Icon, label]) => (
               <button
                 key={page}

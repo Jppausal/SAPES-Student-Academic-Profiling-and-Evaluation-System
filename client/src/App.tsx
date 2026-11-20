@@ -15,6 +15,7 @@ import { FacultyEvaluationPage } from './components/faculty/FacultyEvaluationPag
 import { FacultyDashboardPage } from './components/faculty/FacultyDashboardPage';
 import { DepartmentEnrollmentDashboard } from './components/faculty/DepartmentEnrollmentDashboard';
 import { FacultyActivityLogs } from './components/faculty/FacultyActivityLogs';
+import { FacultyWorkspaceHeader } from './components/faculty/FacultyWorkspaceHeader';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthLandingPage } from './pages/auth/AuthLandingPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -151,6 +152,14 @@ const AppContent: React.FC = () => {
           setActivePage('student-search');
         }}
       />
+
+      {currentUser?.role === 'faculty' && (
+        <div className="border-b border-slate-200 bg-white px-4 sm:px-6 lg:hidden">
+          <div className="mx-auto max-w-[1500px]">
+            <FacultyWorkspaceHeader activePage={activePage} onNavigate={navigateFacultyPage} />
+          </div>
+        </div>
+      )}
 
       <main className={`flex-1 w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 ${currentUser?.role === 'admin' ? 'max-w-7xl' : 'max-w-[1500px]'}`}>
         {currentUser?.role === 'student' && (

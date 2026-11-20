@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, ClipboardCheck, History, LayoutDashboard } from 'lucide-react';
+import { BookOpen, ClipboardCheck, History, LayoutDashboard, Search } from 'lucide-react';
 import type { FacultyPage } from '../../types';
 import '../student/student-workspace.css';
 
@@ -10,21 +10,22 @@ interface FacultyWorkspaceHeaderProps {
 
 const tabs: Array<{ page: FacultyPage; label: string; icon: typeof LayoutDashboard }> = [
   { page: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { page: 'student-search', label: 'Student search', icon: Search },
   { page: 'evaluations', label: 'Evaluations', icon: ClipboardCheck },
   { page: 'student-records', label: 'Academic records', icon: BookOpen },
-  { page: 'activity', label: 'Activity log', icon: History },
+  { page: 'activity', label: 'Audit Logs', icon: History },
 ];
 
 export const FacultyWorkspaceHeader: React.FC<FacultyWorkspaceHeaderProps> = ({ activePage, onNavigate }) => (
   <div className="student-workspace">
-    <nav className="student-navigation" aria-label="Faculty workspace">
+    <nav className="student-navigation overflow-x-auto" aria-label="Faculty workspace">
       {tabs.map(({ page, label, icon: Icon }) => (
         <button
           key={page}
           type="button"
           onClick={() => onNavigate(page)}
           aria-current={activePage === page ? 'page' : undefined}
-          className={activePage === page ? 'active' : ''}
+          className={`shrink-0 whitespace-nowrap ${activePage === page ? 'active' : ''}`}
         >
           <Icon className="student-tab-icon" />
           <span>{label}</span>

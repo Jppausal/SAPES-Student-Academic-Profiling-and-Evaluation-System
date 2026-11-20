@@ -5,26 +5,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  FileCheck2,
   GraduationCap,
   History,
-  KeyRound,
   Lock,
-  LogOut,
   RefreshCw,
-  ShieldAlert,
   ShieldCheck,
-  User,
   UserCheck,
 } from 'lucide-react';
-import { ApiAuditLog, fetchMyAuditLogs } from '../../lib/api';
+import { ApiAuditLog, fetchMyAuditLogs, RateLimitError } from '../../lib/api';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Activity' },
   { id: 'security', label: 'Security & Sign-In' },
   { id: 'academic', label: 'Evaluations & Records' },
   { id: 'enrollment', label: 'Enrollment' },
-  { id: 'profile', label: 'Account & Profile' },
 ] as const;
 
 type CategoryId = typeof CATEGORIES[number]['id'];
@@ -147,13 +141,6 @@ const getCategoryBadge = (log: ApiAuditLog) => {
       </span>
     );
   }
-  if (log.category === 'Profile') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-800 border border-sky-200/80">
-        <User className="h-3 w-3 text-sky-600" /> Account
-      </span>
-    );
-  }
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 border border-slate-200">
       <Clock className="h-3 w-3 text-slate-500" /> {log.category || 'General'}
@@ -169,10 +156,12 @@ export const FacultyActivityLogs: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<CategoryId>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [rateLimited, setRateLimited] = useState(false);
 
   const loadLogs = async (requestedPage = page, category = activeCategory) => {
     setLoading(true);
     setError('');
+    setRateLimited(false);
     try {
       const result = await fetchMyAuditLogs(requestedPage, 15, category);
       setLogs(result.auditLogs);
@@ -180,11 +169,11 @@ export const FacultyActivityLogs: React.FC = () => {
       setTotalPages(Math.max(result.pagination.totalPages, 1));
       setTotalCount(result.pagination.total || result.auditLogs.length);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to load your activity history.'
-      );
+      if (requestError instanceof RateLimitError) {
+        setRateLimited(true);
+      } else {
+        setError(requestError instanceof Error ? requestError.message : 'Unable to load your activity history.');
+      }
     } finally {
       setLoading(false);
     }
@@ -282,7 +271,7 @@ export const FacultyActivityLogs: React.FC = () => {
         )}
 
         {/* Empty State */}
-        {!loading && !error && logs.length === 0 && (
+        {!loading && !error && !rateLimited && logs.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-2xs border border-slate-200">
               <ShieldCheck className="h-6 w-6 text-brand-600" />
