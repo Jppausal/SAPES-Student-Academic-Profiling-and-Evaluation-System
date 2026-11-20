@@ -1016,8 +1016,7 @@ export type IntegrationName =
   | 'smtp'
   | 'passwordGenerator'
   | 'cloudinary'
-  | 'psgcCloud'
-  | 'mongodbAtlas';
+  | 'psgcCloud';
 export interface IntegrationSettingItem {
   enabled: boolean;
   configured: boolean;

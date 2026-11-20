@@ -5,8 +5,7 @@ const defaults = {
   smtp: true,
   passwordGenerator: true,
   cloudinary: true,
-  psgcCloud: true,
-  mongodbAtlas: true
+  psgcCloud: true
 };
 
 /**
@@ -88,8 +87,7 @@ function configuration(record) {
       process.env.CLOUDINARY_API_KEY?.trim() &&
       process.env.CLOUDINARY_API_SECRET?.trim()
     ),
-    psgcCloud: true,
-    mongodbAtlas: Boolean(process.env.MONGO_URI?.trim() || process.env.ATLAS_URI?.trim())
+    psgcCloud: true
   };
 }
 
@@ -182,8 +180,6 @@ async function readSettings(options = {}) {
       }
     } else if (name === 'psgcCloud') {
       item.canCustomize = false;
-    } else if (name === 'mongodbAtlas') {
-      item.canCustomize = false;
     }
 
     integrations[name] = item;
@@ -210,8 +206,6 @@ async function requireIntegration(name) {
           : 'Cloudinary is currently disabled.'
         : name === 'psgcCloud'
         ? 'PSGC Cloud is currently unavailable.'
-        : name === 'mongodbAtlas'
-        ? 'MongoDB Atlas is currently unavailable.'
         : 'Email service is currently unavailable.'
     );
     error.status = 503;
